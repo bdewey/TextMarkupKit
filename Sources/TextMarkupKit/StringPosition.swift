@@ -19,6 +19,11 @@ import Foundation
 
 /// Combination of a string and an index into that string.
 public struct StringPosition: Comparable {
+  public enum Error: Swift.Error {
+    case readPastEndOfText
+    case advancePastEndOfText
+  }
+
   public static func < (lhs: StringPosition, rhs: StringPosition) -> Bool {
     return lhs.position < rhs.position
   }
@@ -26,11 +31,17 @@ public struct StringPosition: Comparable {
   public let string: String
   public var position: String.Index
 
-  public var character: Character {
+  public func character() throws -> Character {
+    guard !isEOF else { throw Error.readPastEndOfText }
     return string[position]
   }
 
-  public mutating func advance() {
+  public mutating func advance() throws {
+    guard !isEOF else { throw Error.advancePastEndOfText }
     position = string.index(after: position)
+  }
+
+  public var isEOF: Bool {
+    return position == string.endIndex
   }
 }

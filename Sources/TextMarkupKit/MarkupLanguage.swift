@@ -22,15 +22,38 @@ public struct MarkupLanguage {
   public var name: String
   public var root: MarkupRule
 
-  public func parse(_ text: String) -> MarkupNode? {
-    return root.nodeAtPosition(StringPosition(string: text, position: text.startIndex))
+  public enum Error: Swift.Error {
+    /// We didn't get a root node at all
+    case parsingFailed
+    /// The parsing routine did not parse the entire document.
+    case incompleteParsing(StringPosition)
+  }
+
+  public func parse(_ text: String) throws -> MarkupNode {
+    guard
+      let node = try root.nodeAtPosition(StringPosition(string: text, position: text.startIndex))
+    else {
+        throw Error.parsingFailed
+    }
+    if node.range.upperBound.position != text.endIndex {
+      throw Error.incompleteParsing(node.range.upperBound)
+    }
+    return node
+  }
+
+  static func many(name: MarkupNode.Identifier, rule: MarkupRule) -> RepeatRule {
+    RepeatRule(name: name, subrule: rule)
+  }
+
+  static func choice(of rules: [MarkupRule]) -> ChoiceRule {
+    ChoiceRule(rules: rules)
   }
 }
 
 extension MarkupLanguage {
   public static let miniMarkdown = MarkupLanguage(
     name: "MiniMarkdown",
-    root: RepeatRule(name: "document", subrule: ChoiceRule(rules: [
+    root: many(name: "document", rule: choice(of: [
       headerRule,
       lineRule,
     ]))
@@ -39,8 +62,8 @@ extension MarkupLanguage {
   static let headerRule = SequenceRule(name: "header", children: [
     TextMatchingRule(name: "delimiter", predicate: { $0 == "#" }),
     TextMatchingRule(name: .anonymous, predicate: { $0.unicodeScalars.first!.properties.isPatternWhitespace }),
-    TextMatchingRule(name: "text", predicate: { $0 != "\n" }),
+    TerminatorRule(name: "text", predicate: { $0.isEOF || (try! $0.character()) == "\n" }),
   ])
 
-  static let lineRule = TextMatchingRule(name: "line", predicate: { $0 != "\n" })
+  static let lineRule = TerminatorRule(name: "line", predicate: { $0.isEOF || (try! $0.character()) == "\n" })
 }

@@ -18,7 +18,7 @@
 import Foundation
 
 public protocol MarkupRule {
-  func nodeAtPosition(_ position: StringPosition) -> MarkupNode?
+  func nodeAtPosition(_ position: StringPosition) throws -> MarkupNode?
 }
 
 public struct ChoiceRule: MarkupRule {
@@ -26,7 +26,7 @@ public struct ChoiceRule: MarkupRule {
 
   public func nodeAtPosition(_ position: StringPosition) -> MarkupNode? {
     for rule in rules {
-      if let node = rule.nodeAtPosition(position) {
+      if let node = try? rule.nodeAtPosition(position) {
         return node
       }
     }
@@ -38,10 +38,10 @@ public struct RepeatRule: MarkupRule {
   public let name: MarkupNode.Identifier
   public let subrule: MarkupRule
 
-  public func nodeAtPosition(_ position: StringPosition) -> MarkupNode? {
+  public func nodeAtPosition(_ position: StringPosition) throws -> MarkupNode? {
     var children: [MarkupNode] = []
     var currentPosition = position
-    while let child = subrule.nodeAtPosition(currentPosition) {
+    while !currentPosition.isEOF, let child = try subrule.nodeAtPosition(currentPosition) {
       children.append(child)
       currentPosition = child.range.upperBound
     }
@@ -57,11 +57,11 @@ public struct SequenceRule: MarkupRule {
   public let name: MarkupNode.Identifier
   public let children: [MarkupRule]
 
-  public func nodeAtPosition(_ position: StringPosition) -> MarkupNode? {
+  public func nodeAtPosition(_ position: StringPosition) throws -> MarkupNode? {
     var childNodes: [MarkupNode] = []
     var currentPosition = position
     for childRule in children {
-      guard let childNode = childRule.nodeAtPosition(currentPosition) else {
+      guard let childNode = try childRule.nodeAtPosition(currentPosition) else {
         return nil
       }
       childNodes.append(childNode)
@@ -79,14 +79,32 @@ public struct TextMatchingRule: MarkupRule {
   public let name: MarkupNode.Identifier
   public let predicate: (Character) -> Bool
 
-  public func nodeAtPosition(_ position: StringPosition) -> MarkupNode? {
+  public func nodeAtPosition(_ position: StringPosition) throws -> MarkupNode? {
     var endPosition = position
-    while predicate(endPosition.character) {
-      endPosition.advance()
+    while predicate(try endPosition.character()) {
+      try endPosition.advance()
     }
     guard endPosition > position else {
       return nil
     }
     return MarkupNode(name: name, range: position ..< endPosition, children: [])
+  }
+}
+
+public struct TerminatorRule: MarkupRule {
+  public var name: MarkupNode.Identifier = .anonymous
+  public let predicate: (StringPosition) -> Bool
+
+  public func nodeAtPosition(_ position: StringPosition) throws -> MarkupNode? {
+    var currentPosition = position
+    while !currentPosition.isEOF, !predicate(currentPosition) {
+      try currentPosition.advance()
+    }
+    if !predicate(currentPosition) {
+      // We never found the terminator
+      return nil
+    }
+    try? currentPosition.advance()
+    return MarkupNode(name: name, range: position ..< currentPosition, children: [])
   }
 }

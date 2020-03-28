@@ -42,19 +42,6 @@ open class MarkupNode {
   public let range: Range<StringPosition>
   public let children: [MarkupNode]
 
-  public var newlineStructure: String {
-    var results: [String] = []
-    dumpNewlineStructure(indentLevel: 0, results: &results)
-    return results.joined(separator: "\n")
-  }
-
-  private func dumpNewlineStructure(indentLevel: Int, results: inout [String]) {
-    results.append(String(repeating: " ", count: indentLevel * 2) + name.rawValue)
-    for child in children where child.name != .anonymous {
-      child.dumpNewlineStructure(indentLevel: indentLevel + 1, results: &results)
-    }
-  }
-
   public var compactStructure: String {
     var results = "("
     writeCompactStructure(to: &results)
