@@ -43,16 +43,18 @@ open class MarkupNode {
   public let children: [MarkupNode]
 
   public var compactStructure: String {
-    var results = "("
+    var results = ""
     writeCompactStructure(to: &results)
-    results += ")"
     return results
   }
 
   private func writeCompactStructure(to buffer: inout String) {
-    buffer.append(name.rawValue)
     let filteredChildren = children.filter { $0.name != .anonymous }
-    if !filteredChildren.isEmpty {
+    if filteredChildren.isEmpty {
+      buffer.append(name.rawValue)
+    } else {
+      buffer.append("(")
+      buffer.append(name.rawValue)
       buffer.append(" (")
       for (index, child) in filteredChildren.enumerated() {
         if index > 0 {
@@ -60,7 +62,7 @@ open class MarkupNode {
         }
         child.writeCompactStructure(to: &buffer)
       }
-      buffer.append(")")
+      buffer.append("))")
     }
   }
 }

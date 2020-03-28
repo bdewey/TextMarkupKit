@@ -31,7 +31,7 @@ final class MiniMarkdownParsingTests: XCTestCase {
     """
     do {
       let tree = try MarkupLanguage.miniMarkdown.parse(text)
-      XCTAssertEqual(tree.compactStructure, "(document (header (delimiter text) line line line line line))")
+      XCTAssertEqual(tree.compactStructure, "(document ((header (delimiter text)) line line line line line))")
     } catch MarkupLanguage.Error.incompleteParsing(let endpoint) {
       XCTFail("Did not parse the entire string. Remaining text: '\(endpoint.string[endpoint.position...].debugDescription)'")
     } catch {
