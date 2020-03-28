@@ -15,18 +15,22 @@
 //  specific language governing permissions and limitations
 //  under the License.
 
-@testable import TextMarkupKit
-import XCTest
+import Foundation
 
-final class TextMarkupKitTests: XCTestCase {
-  func testExample() {
-    // This is an example of a functional test case.
-    // Use XCTAssert and related functions to verify your tests produce the correct
-    // results.
-    XCTAssertEqual(TextMarkupKit().text, "Hello, World!")
+/// Combination of a string and an index into that string.
+public struct StringPosition: Comparable {
+  public static func < (lhs: StringPosition, rhs: StringPosition) -> Bool {
+    return lhs.position < rhs.position
   }
 
-  static var allTests = [
-    ("testExample", testExample),
-  ]
+  public let string: String
+  public var position: String.Index
+
+  public var character: Character {
+    return string[position]
+  }
+
+  public mutating func advance() {
+    position = string.index(after: position)
+  }
 }

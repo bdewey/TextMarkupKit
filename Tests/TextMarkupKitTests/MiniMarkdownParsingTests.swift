@@ -15,18 +15,21 @@
 //  specific language governing permissions and limitations
 //  under the License.
 
-@testable import TextMarkupKit
+import Foundation
+import TextMarkupKit
 import XCTest
 
-final class TextMarkupKitTests: XCTestCase {
-  func testExample() {
-    // This is an example of a functional test case.
-    // Use XCTAssert and related functions to verify your tests produce the correct
-    // results.
-    XCTAssertEqual(TextMarkupKit().text, "Hello, World!")
-  }
+final class MiniMarkdownParsingTests: XCTestCase {
+  func testParseHeaderAndBody() {
+    let text = """
+    # This is a header
 
-  static var allTests = [
-    ("testExample", testExample),
-  ]
+    And this is a body.
+    The two lines are part of the same paragraph.
+
+    The line break indicates a new paragraph.
+    """
+    let tree = MarkupLanguage.miniMarkdown.parse(text)
+    XCTAssertEqual(tree?.compactStructure, "(document (header (delimiter text)))")
+  }
 }
