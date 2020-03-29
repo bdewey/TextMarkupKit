@@ -121,7 +121,7 @@ public struct MarkupLanguage {
   }
 
   static func text(
-    upToAndIncludingTerminator predicate: @escaping (Character) -> Bool,
+    upToAndIncluding terminator: Character,
     requiresTerminator: Bool = false,
     named name: MarkupNode.Identifier = .anonymous
   ) -> ParsingFunction {
@@ -129,7 +129,7 @@ public struct MarkupLanguage {
       var currentPosition = position
       var foundTerminator = false
       while !currentPosition.isEOF {
-        if currentPosition.character.map(predicate) ?? false {
+        if currentPosition.character == terminator {
           foundTerminator = true
           break
         }
@@ -160,7 +160,7 @@ extension MarkupLanguage {
   static let header = "header" => sequence(of: [
     text(matching: { $0 == "#" }, named: "delimiter"),
     text(matching: { $0.unicodeScalars.first!.properties.isPatternWhitespace }),
-    text(upToAndIncludingTerminator: { $0 == "\n" }, named: "text"),
+    text(upToAndIncluding: "\n", named: "text"),
   ])
 
   private static let paragraphTermination: CharacterSet = [
