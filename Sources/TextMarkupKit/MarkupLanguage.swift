@@ -18,16 +18,16 @@
 import Foundation
 
 /// Returns the node at the specified position.
-public typealias ParsingFunction = (StringPosition) throws -> MarkupNode?
+public typealias ParsingFunction = (TextBuffer, TextBuffer.Index) throws -> MarkupNode?
 
 /// Returns an array of nodes at the the specified position that
-public typealias NodeSequenceParser = (StringPosition) throws -> [MarkupNode]
+public typealias NodeSequenceParser = (TextBuffer, TextBuffer.Index) throws -> [MarkupNode]
 
 infix operator =>: MultiplicationPrecedence
 
 public func => (name: MarkupNode.Identifier, parser: @escaping NodeSequenceParser) -> ParsingFunction {
-  return { position in
-    let children = try parser(position)
+  return { buffer, position in
+    let children = try parser(buffer, position)
     guard
       let firstChild = children.first,
       let lastChild = children.last
@@ -51,26 +51,27 @@ public struct MarkupLanguage {
     /// We didn't get a root node at all
     case parsingFailed
     /// The parsing routine did not parse the entire document.
-    case incompleteParsing(StringPosition)
+    case incompleteParsing(TextBuffer.Index)
   }
 
   public func parse(_ text: String) throws -> MarkupNode {
+    let buffer = TextBuffer(text)
     guard
-      let node = try root(StringPosition(string: text, position: text.startIndex))
+      let node = try root(buffer, buffer.startIndex)
     else {
         throw Error.parsingFailed
     }
-    if node.range.upperBound.position != text.endIndex {
+    if node.range.upperBound != text.endIndex {
       throw Error.incompleteParsing(node.range.upperBound)
     }
     return node
   }
 
   static func many(_ rule: @escaping ParsingFunction) -> NodeSequenceParser {
-    return { position in
+    return { buffer, position in
       var children: [MarkupNode] = []
       var currentPosition = position
-      while !currentPosition.isEOF, let child = try rule(currentPosition) {
+      while !buffer.isEOF(currentPosition), let child = try rule(buffer, currentPosition) {
         children.append(child)
         currentPosition = child.range.upperBound
       }
@@ -79,9 +80,9 @@ public struct MarkupLanguage {
   }
 
   static func choice(of rules: [ParsingFunction]) -> ParsingFunction {
-    return { position in
+    return { buffer, position in
       for rule in rules {
-        if let node = try? rule(position) {
+        if let node = try? rule(buffer, position) {
           return node
         }
       }
@@ -90,11 +91,11 @@ public struct MarkupLanguage {
   }
 
   static func sequence(of rules: [ParsingFunction]) -> NodeSequenceParser {
-    return { position in
+    return { buffer, position in
       var childNodes: [MarkupNode] = []
       var currentPosition = position
       for childRule in rules {
-        guard let childNode = try childRule(currentPosition) else {
+        guard let childNode = try childRule(buffer, currentPosition) else {
           return []
         }
         childNodes.append(childNode)
@@ -108,10 +109,10 @@ public struct MarkupLanguage {
     matching predicate: @escaping (Character) -> Bool,
     named name: MarkupNode.Identifier = .anonymous
   ) -> ParsingFunction {
-    return { position in
+    return { buffer, position in
       var endPosition = position
-      while endPosition.character.map(predicate) ?? false {
-        try endPosition.advance()
+      while buffer.character(at: endPosition).map(predicate) ?? false {
+        endPosition = buffer.index(after: endPosition)!
       }
       guard endPosition > position else {
         return nil
@@ -125,21 +126,23 @@ public struct MarkupLanguage {
     requiresTerminator: Bool = false,
     named name: MarkupNode.Identifier = .anonymous
   ) -> ParsingFunction {
-    return { position in
+    return { buffer, position in
       var currentPosition = position
       var foundTerminator = false
-      while !currentPosition.isEOF {
-        if currentPosition.character == terminator {
+      while !buffer.isEOF(currentPosition) {
+        if buffer.character(at: currentPosition) == terminator {
           foundTerminator = true
           break
         }
-        try currentPosition.advance()
+        currentPosition = buffer.index(after: currentPosition)!
       }
       if requiresTerminator, !foundTerminator {
         // We never found the terminator
         return nil
       }
-      try? currentPosition.advance()
+      if let nextPosition = buffer.index(after: currentPosition) {
+        currentPosition = nextPosition
+      }
       return MarkupNode(name: name, range: position ..< currentPosition, children: [])
     }
   }
@@ -168,11 +171,11 @@ extension MarkupLanguage {
     "\n",
   ]
 
-  static let paragraph: ParsingFunction = { position in
+  static let paragraph: ParsingFunction = { buffer, position in
     var currentPosition = position
     repeat {
-      currentPosition.advance(past: "\n")
-    } while !paragraphTermination.contains(currentPosition.unicodeScalar, includesNil: true)
+      currentPosition = buffer.index(after: "\n", startingAt: currentPosition)
+    } while !paragraphTermination.contains(buffer.unicodeScalar(at: currentPosition), includesNil: true)
     return MarkupNode(name: "paragraph", range: position ..< currentPosition, children: [])
   }
 }

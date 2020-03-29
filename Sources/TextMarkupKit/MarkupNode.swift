@@ -32,15 +32,19 @@ open class MarkupNode {
     public static let anonymous: Identifier = ""
   }
 
-  public init(name: Identifier, range: Range<StringPosition>, children: [MarkupNode]) {
+  public init(name: Identifier, range: Range<TextBuffer.Index>, children: [MarkupNode]) {
     self.name = name
     self.range = range
     self.children = children
   }
 
   public let name: Identifier
-  public let range: Range<StringPosition>
+  public var range: Range<TextBuffer.Index>
   public let children: [MarkupNode]
+
+  public var isEmpty: Bool {
+    return range.isEmpty
+  }
 
   public var compactStructure: String {
     var results = ""
@@ -63,6 +67,29 @@ open class MarkupNode {
         child.writeCompactStructure(to: &buffer)
       }
       buffer.append("))")
+    }
+  }
+
+  public func debugDescription(of textBuffer: TextBuffer) -> String {
+    var lines = [String]()
+    writeDebugDescription(to: &lines, textBuffer: textBuffer, indentLevel: 0)
+    return lines.joined(separator: "\n")
+  }
+
+  private func writeDebugDescription(
+    to lines: inout [String],
+    textBuffer: TextBuffer,
+    indentLevel: Int
+  ) {
+    var result = String(repeating: " ", count: 2 * indentLevel)
+    result.append(name.rawValue)
+    result.append(": ")
+    if children.isEmpty {
+      result.append(textBuffer[range].debugDescription)
+    }
+    lines.append(result)
+    for child in children {
+      child.writeDebugDescription(to: &lines, textBuffer: textBuffer, indentLevel: indentLevel + 1)
     }
   }
 }
