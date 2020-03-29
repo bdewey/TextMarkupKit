@@ -20,7 +20,6 @@ import Foundation
 /// Combination of a string and an index into that string.
 public struct StringPosition: Comparable {
   public enum Error: Swift.Error {
-    case readPastEndOfText
     case advancePastEndOfText
   }
 
@@ -31,13 +30,13 @@ public struct StringPosition: Comparable {
   public let string: String
   public var position: String.Index
 
-  public func character() throws -> Character {
-    guard !isEOF else { throw Error.readPastEndOfText }
+  public var character: Character? {
+    guard !isEOF else { return nil }
     return string[position]
   }
 
-  public func unicodeScalar() throws -> UnicodeScalar {
-    guard !isEOF else { throw Error.readPastEndOfText }
+  public var unicodeScalar: UnicodeScalar? {
+    guard !isEOF else { return nil }
     return string.unicodeScalars[position]
   }
 
@@ -57,12 +56,5 @@ public struct StringPosition: Comparable {
 
   public var isEOF: Bool {
     return position == string.endIndex
-  }
-
-  public func testMembership(in characterSet: CharacterSet, includeEOF: Bool = true) -> Bool {
-    if isEOF {
-      return includeEOF
-    }
-    return characterSet.contains(string.unicodeScalars[position])
   }
 }

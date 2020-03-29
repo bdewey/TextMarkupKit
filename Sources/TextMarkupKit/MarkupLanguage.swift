@@ -110,7 +110,7 @@ public struct MarkupLanguage {
   ) -> ParsingFunction {
     return { position in
       var endPosition = position
-      while predicate(try endPosition.character()) {
+      while endPosition.character.map(predicate) ?? false {
         try endPosition.advance()
       }
       guard endPosition > position else {
@@ -129,7 +129,7 @@ public struct MarkupLanguage {
       var currentPosition = position
       var foundTerminator = false
       while !currentPosition.isEOF {
-        if predicate(try currentPosition.character()) {
+        if currentPosition.character.map(predicate) ?? false {
           foundTerminator = true
           break
         }
@@ -163,7 +163,7 @@ extension MarkupLanguage {
     text(upToAndIncludingTerminator: { $0 == "\n" }, named: "text"),
   ])
 
-  private static let paragraphTerminationCharacters: CharacterSet = [
+  private static let paragraphTermination: CharacterSet = [
     "#",
     "\n",
   ]
@@ -172,7 +172,13 @@ extension MarkupLanguage {
     var currentPosition = position
     repeat {
       currentPosition.advance(past: "\n")
-    } while !currentPosition.testMembership(in: paragraphTerminationCharacters)
+    } while !paragraphTermination.contains(currentPosition.unicodeScalar, includesNil: true)
     return MarkupNode(name: "paragraph", range: position ..< currentPosition, children: [])
+  }
+}
+
+private extension CharacterSet {
+  func contains(_ scalar: UnicodeScalar?, includesNil: Bool) -> Bool {
+    scalar.map(contains) ?? includesNil
   }
 }
