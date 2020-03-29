@@ -17,6 +17,17 @@
 
 import Foundation
 
-public struct Parser {
-  typealias ParseFunction = ()
+/// Opaque class representing the type of a markup node.
+public final class NodeType: RawRepresentable, ExpressibleByStringLiteral, Hashable {
+  public init(rawValue: String) {
+    self.rawValue = rawValue
+  }
+
+  public init(stringLiteral value: String) {
+    self.rawValue = value
+  }
+
+  public let rawValue: String
+
+  public static let anonymous: NodeType = ""
 }

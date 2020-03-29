@@ -18,24 +18,24 @@
 import Foundation
 
 /// Returns the node at the specified position.
-public typealias ParsingFunction = (TextBuffer, TextBuffer.Index) throws -> MarkupNode?
+public typealias ParsingFunction = (TextBuffer, TextBuffer.Index) throws -> Node?
 
 /// Returns an array of nodes at the the specified position that
-public typealias NodeSequenceParser = (TextBuffer, TextBuffer.Index) throws -> [MarkupNode]
+public typealias NodeSequenceParser = (TextBuffer, TextBuffer.Index) throws -> [Node]
 
 infix operator =>: MultiplicationPrecedence
 
-public func => (name: MarkupNode.Identifier, parser: @escaping NodeSequenceParser) -> ParsingFunction {
+public func => (name: NodeType, parser: @escaping NodeSequenceParser) -> ParsingFunction {
   return { buffer, position in
     let children = try parser(buffer, position)
     guard
       let firstChild = children.first,
       let lastChild = children.last
     else {
-        return nil
+      return nil
     }
-    return MarkupNode(
-      name: name,
+    return Node(
+      id: name,
       range: firstChild.range.lowerBound ..< lastChild.range.upperBound,
       children: children
     )
@@ -54,12 +54,12 @@ public struct MarkupLanguage {
     case incompleteParsing(TextBuffer.Index)
   }
 
-  public func parse(_ text: String) throws -> MarkupNode {
+  public func parse(_ text: String) throws -> Node {
     let buffer = TextBuffer(text)
     guard
       let node = try root(buffer, buffer.startIndex)
     else {
-        throw Error.parsingFailed
+      throw Error.parsingFailed
     }
     if node.range.upperBound != text.endIndex {
       throw Error.incompleteParsing(node.range.upperBound)
@@ -69,7 +69,7 @@ public struct MarkupLanguage {
 
   static func many(_ rule: @escaping ParsingFunction) -> NodeSequenceParser {
     return { buffer, position in
-      var children: [MarkupNode] = []
+      var children: [Node] = []
       var currentPosition = position
       while !buffer.isEOF(currentPosition), let child = try rule(buffer, currentPosition) {
         children.append(child)
@@ -92,7 +92,7 @@ public struct MarkupLanguage {
 
   static func sequence(of rules: [ParsingFunction]) -> NodeSequenceParser {
     return { buffer, position in
-      var childNodes: [MarkupNode] = []
+      var childNodes: [Node] = []
       var currentPosition = position
       for childRule in rules {
         guard let childNode = try childRule(buffer, currentPosition) else {
@@ -107,7 +107,7 @@ public struct MarkupLanguage {
 
   static func text(
     matching predicate: @escaping (Character) -> Bool,
-    named name: MarkupNode.Identifier = .anonymous
+    named name: NodeType = .anonymous
   ) -> ParsingFunction {
     return { buffer, position in
       var endPosition = position
@@ -117,14 +117,14 @@ public struct MarkupLanguage {
       guard endPosition > position else {
         return nil
       }
-      return MarkupNode(name: name, range: position ..< endPosition, children: [])
+      return Node(id: name, range: position ..< endPosition, children: [])
     }
   }
 
   static func text(
     upToAndIncluding terminator: Character,
     requiresTerminator: Bool = false,
-    named name: MarkupNode.Identifier = .anonymous
+    named name: NodeType = .anonymous
   ) -> ParsingFunction {
     return { buffer, position in
       var currentPosition = position
@@ -143,7 +143,7 @@ public struct MarkupLanguage {
       if let nextPosition = buffer.index(after: currentPosition) {
         currentPosition = nextPosition
       }
-      return MarkupNode(name: name, range: position ..< currentPosition, children: [])
+      return Node(id: name, range: position ..< currentPosition, children: [])
     }
   }
 }
@@ -176,7 +176,7 @@ extension MarkupLanguage {
     repeat {
       currentPosition = buffer.index(after: "\n", startingAt: currentPosition)
     } while !paragraphTermination.contains(buffer.unicodeScalar(at: currentPosition), includesNil: true)
-    return MarkupNode(name: "paragraph", range: position ..< currentPosition, children: [])
+    return Node(id: "paragraph", range: position ..< currentPosition, children: [])
   }
 }
 

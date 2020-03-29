@@ -17,30 +17,17 @@
 
 import Foundation
 
-open class MarkupNode {
-  public final class Identifier: RawRepresentable, ExpressibleByStringLiteral, Hashable {
-    public init(rawValue: String) {
-      self.rawValue = rawValue
-    }
-
-    public init(stringLiteral value: String) {
-      self.rawValue = value
-    }
-
-    public let rawValue: String
-
-    public static let anonymous: Identifier = ""
-  }
-
-  public init(name: Identifier, range: Range<TextBuffer.Index>, children: [MarkupNode]) {
-    self.name = name
+/// A node in the markup language's syntax tree.
+open class Node {
+  public init(id: NodeType, range: Range<TextBuffer.Index>, children: [Node] = []) {
+    self.id = id
     self.range = range
     self.children = children
   }
 
-  public let name: Identifier
+  public let id: NodeType
   public var range: Range<TextBuffer.Index>
-  public let children: [MarkupNode]
+  public let children: [Node]
 
   public var isEmpty: Bool {
     return range.isEmpty
@@ -53,12 +40,12 @@ open class MarkupNode {
   }
 
   private func writeCompactStructure(to buffer: inout String) {
-    let filteredChildren = children.filter { $0.name != .anonymous }
+    let filteredChildren = children.filter { $0.id != .anonymous }
     if filteredChildren.isEmpty {
-      buffer.append(name.rawValue)
+      buffer.append(id.rawValue)
     } else {
       buffer.append("(")
-      buffer.append(name.rawValue)
+      buffer.append(id.rawValue)
       buffer.append(" (")
       for (index, child) in filteredChildren.enumerated() {
         if index > 0 {
@@ -82,7 +69,7 @@ open class MarkupNode {
     indentLevel: Int
   ) {
     var result = String(repeating: " ", count: 2 * indentLevel)
-    result.append(name.rawValue)
+    result.append(id.rawValue)
     result.append(": ")
     if children.isEmpty {
       result.append(textBuffer[range].debugDescription)
