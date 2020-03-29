@@ -45,6 +45,7 @@ public final class Node {
 }
 
 // MARK: - Generic parsing
+
 public extension Node {
   /// Returns the node at the specified position.
   typealias ParsingFunction = (TextBuffer, TextBuffer.Index) -> Node?
@@ -143,6 +144,7 @@ public extension Array where Element: Node {
 }
 
 // MARK: - Debugging support
+
 extension Node {
   /// Returns the structure of this node as a compact s-expression.
   /// For example, `(document ((header text) blank_line paragraph blank_line paragraph)`

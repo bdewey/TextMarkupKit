@@ -179,4 +179,3 @@ extension MarkupLanguage {
     return Node(type: "paragraph", range: position ..< currentPosition, children: [])
   }
 }
-
