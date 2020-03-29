@@ -36,12 +36,33 @@ public struct StringPosition: Comparable {
     return string[position]
   }
 
+  public func unicodeScalar() throws -> UnicodeScalar {
+    guard !isEOF else { throw Error.readPastEndOfText }
+    return string.unicodeScalars[position]
+  }
+
   public mutating func advance() throws {
     guard !isEOF else { throw Error.advancePastEndOfText }
     position = string.index(after: position)
   }
 
+  public mutating func advance(past terminator: Character) {
+    while !isEOF, string[position] != terminator {
+      position = string.index(after: position)
+    }
+    if !isEOF {
+      position = string.index(after: position)
+    }
+  }
+
   public var isEOF: Bool {
     return position == string.endIndex
+  }
+
+  public func testMembership(in characterSet: CharacterSet, includeEOF: Bool = true) -> Bool {
+    if isEOF {
+      return includeEOF
+    }
+    return characterSet.contains(string.unicodeScalars[position])
   }
 }

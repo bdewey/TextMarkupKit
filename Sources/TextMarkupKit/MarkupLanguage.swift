@@ -149,16 +149,30 @@ extension MarkupLanguage {
   public static let miniMarkdown = MarkupLanguage(
     name: "MiniMarkdown",
     root: "document" => many(choice(of: [
-      headerRule,
-      lineRule,
+      header,
+      blankLine,
+      paragraph,
     ]))
   )
 
-  static let headerRule = "header" => sequence(of: [
+  static let blankLine = text(matching: { $0 == "\n" }, named: "blank_line")
+
+  static let header = "header" => sequence(of: [
     text(matching: { $0 == "#" }, named: "delimiter"),
     text(matching: { $0.unicodeScalars.first!.properties.isPatternWhitespace }),
     text(upToAndIncludingTerminator: { $0 == "\n" }, named: "text"),
   ])
 
-  static let lineRule = text(upToAndIncludingTerminator: { $0 == "\n" }, named: "line")
+  private static let paragraphTerminationCharacters: CharacterSet = [
+    "#",
+    "\n",
+  ]
+
+  static let paragraph: ParsingFunction = { position in
+    var currentPosition = position
+    repeat {
+      currentPosition.advance(past: "\n")
+    } while !currentPosition.testMembership(in: paragraphTerminationCharacters)
+    return MarkupNode(name: "paragraph", range: position ..< currentPosition, children: [])
+  }
 }

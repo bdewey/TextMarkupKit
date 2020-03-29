@@ -28,10 +28,11 @@ final class MiniMarkdownParsingTests: XCTestCase {
     The two lines are part of the same paragraph.
 
     The line break indicates a new paragraph.
+
     """
     do {
       let tree = try MarkupLanguage.miniMarkdown.parse(text)
-      XCTAssertEqual(tree.compactStructure, "(document ((header (delimiter text)) line line line line line))")
+      XCTAssertEqual(tree.compactStructure, "(document ((header (delimiter text)) blank_line paragraph blank_line paragraph))")
     } catch MarkupLanguage.Error.incompleteParsing(let endpoint) {
       XCTFail("Did not parse the entire string. Remaining text: '\(endpoint.string[endpoint.position...].debugDescription)'")
     } catch {
