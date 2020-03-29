@@ -25,20 +25,32 @@ open class Node {
     self.children = children
   }
 
+  /// The type of this node.
   public let type: NodeType
+
+  /// The range from the original `TextBuffer` that this node in the syntax tree covers.
   public var range: Range<TextBuffer.Index>
+
+  /// Children of this node.
   public let children: [Node]
 
+  /// True if this node corresponds to no text in the input buffer.
   public var isEmpty: Bool {
     return range.isEmpty
   }
+}
 
+// MARK: - Debugging support
+extension Node {
+  /// Returns the structure of this node as a compact s-expression.
+  /// For example, `(document ((header text) blank_line paragraph blank_line paragraph)`
   public var compactStructure: String {
     var results = ""
     writeCompactStructure(to: &results)
     return results
   }
 
+  /// Recursive helper for generating `compactStructure`
   private func writeCompactStructure(to buffer: inout String) {
     let filteredChildren = children.filter { $0.type != .anonymous }
     if filteredChildren.isEmpty {
@@ -57,12 +69,14 @@ open class Node {
     }
   }
 
+  /// Returns the syntax tree and which parts of `textBuffer` the leaf nodes correspond to.
   public func debugDescription(of textBuffer: TextBuffer) -> String {
     var lines = [String]()
     writeDebugDescription(to: &lines, textBuffer: textBuffer, indentLevel: 0)
     return lines.joined(separator: "\n")
   }
 
+  /// Recursive helper function for `debugDescription(of:)`
   private func writeDebugDescription(
     to lines: inout [String],
     textBuffer: TextBuffer,
