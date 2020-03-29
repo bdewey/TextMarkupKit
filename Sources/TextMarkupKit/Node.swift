@@ -18,18 +18,22 @@
 import Foundation
 
 /// A node in the markup language's syntax tree.
-open class Node {
+public final class Node {
   public init(type: NodeType, range: Range<TextBuffer.Index>, children: [Node] = []) {
     self.type = type
     self.range = range
     self.children = children
   }
 
+  public init?(textBuffer: TextBuffer, position: TextBuffer.Index) {
+    return nil
+  }
+
   /// The type of this node.
   public let type: NodeType
 
   /// The range from the original `TextBuffer` that this node in the syntax tree covers.
-  public var range: Range<TextBuffer.Index>
+  public let range: Range<TextBuffer.Index>
 
   /// Children of this node.
   public let children: [Node]
@@ -37,6 +41,104 @@ open class Node {
   /// True if this node corresponds to no text in the input buffer.
   public var isEmpty: Bool {
     return range.isEmpty
+  }
+}
+
+// MARK: - Generic parsing
+public extension Node {
+  /// Returns the node at the specified position.
+  typealias ParsingFunction = (TextBuffer, TextBuffer.Index) -> Node?
+
+  /// Returns an array of nodes at the the specified position that
+  typealias NodeSequenceParser = (TextBuffer, TextBuffer.Index) -> [Node]
+
+  static func many(_ rule: @escaping ParsingFunction) -> NodeSequenceParser {
+    return { buffer, position in
+      var children: [Node] = []
+      var currentPosition = position
+      while !buffer.isEOF(currentPosition), let child = rule(buffer, currentPosition) {
+        children.append(child)
+        currentPosition = child.range.upperBound
+      }
+      return children
+    }
+  }
+
+  static func choice(of rules: [ParsingFunction]) -> ParsingFunction {
+    return { buffer, position in
+      for rule in rules {
+        if let node = rule(buffer, position) {
+          return node
+        }
+      }
+      return nil
+    }
+  }
+
+  static func sequence(of rules: [ParsingFunction]) -> NodeSequenceParser {
+    return { buffer, position in
+      var childNodes: [Node] = []
+      var currentPosition = position
+      for childRule in rules {
+        guard let childNode = childRule(buffer, currentPosition) else {
+          return []
+        }
+        childNodes.append(childNode)
+        currentPosition = childNode.range.upperBound
+      }
+      return childNodes
+    }
+  }
+
+  static func text(
+    matching predicate: @escaping (Character) -> Bool,
+    named name: NodeType = .anonymous
+  ) -> ParsingFunction {
+    return { buffer, position in
+      var endPosition = position
+      while buffer.character(at: endPosition).map(predicate) ?? false {
+        endPosition = buffer.index(after: endPosition)!
+      }
+      guard endPosition > position else {
+        return nil
+      }
+      return Node(type: name, range: position ..< endPosition, children: [])
+    }
+  }
+
+  static func text(
+    upToAndIncluding terminator: Character,
+    requiresTerminator: Bool = false,
+    named name: NodeType = .anonymous
+  ) -> ParsingFunction {
+    return { buffer, position in
+      var currentPosition = position
+      var foundTerminator = false
+      while !buffer.isEOF(currentPosition) {
+        if buffer.character(at: currentPosition) == terminator {
+          foundTerminator = true
+          break
+        }
+        currentPosition = buffer.index(after: currentPosition)!
+      }
+      if requiresTerminator, !foundTerminator {
+        // We never found the terminator
+        return nil
+      }
+      if let nextPosition = buffer.index(after: currentPosition) {
+        currentPosition = nextPosition
+      }
+      return Node(type: name, range: position ..< currentPosition, children: [])
+    }
+  }
+}
+
+public extension Array where Element: Node {
+  var encompassingRange: Range<TextBuffer.Index>? {
+    guard let firstChild = first, let lastChild = last else {
+      return nil
+    }
+    return firstChild.range.lowerBound ..< lastChild.range.upperBound
   }
 }
 
