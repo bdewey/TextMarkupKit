@@ -19,13 +19,13 @@ import Foundation
 
 /// A node in the markup language's syntax tree.
 open class Node {
-  public init(id: NodeType, range: Range<TextBuffer.Index>, children: [Node] = []) {
-    self.id = id
+  public init(type: NodeType, range: Range<TextBuffer.Index>, children: [Node] = []) {
+    self.type = type
     self.range = range
     self.children = children
   }
 
-  public let id: NodeType
+  public let type: NodeType
   public var range: Range<TextBuffer.Index>
   public let children: [Node]
 
@@ -40,12 +40,12 @@ open class Node {
   }
 
   private func writeCompactStructure(to buffer: inout String) {
-    let filteredChildren = children.filter { $0.id != .anonymous }
+    let filteredChildren = children.filter { $0.type != .anonymous }
     if filteredChildren.isEmpty {
-      buffer.append(id.rawValue)
+      buffer.append(type.rawValue)
     } else {
       buffer.append("(")
-      buffer.append(id.rawValue)
+      buffer.append(type.rawValue)
       buffer.append(" (")
       for (index, child) in filteredChildren.enumerated() {
         if index > 0 {
@@ -69,7 +69,7 @@ open class Node {
     indentLevel: Int
   ) {
     var result = String(repeating: " ", count: 2 * indentLevel)
-    result.append(id.rawValue)
+    result.append(type.rawValue)
     result.append(": ")
     if children.isEmpty {
       result.append(textBuffer[range].debugDescription)

@@ -35,7 +35,7 @@ public func => (name: NodeType, parser: @escaping NodeSequenceParser) -> Parsing
       return nil
     }
     return Node(
-      id: name,
+      type: name,
       range: firstChild.range.lowerBound ..< lastChild.range.upperBound,
       children: children
     )
@@ -117,7 +117,7 @@ public struct MarkupLanguage {
       guard endPosition > position else {
         return nil
       }
-      return Node(id: name, range: position ..< endPosition, children: [])
+      return Node(type: name, range: position ..< endPosition, children: [])
     }
   }
 
@@ -143,7 +143,7 @@ public struct MarkupLanguage {
       if let nextPosition = buffer.index(after: currentPosition) {
         currentPosition = nextPosition
       }
-      return Node(id: name, range: position ..< currentPosition, children: [])
+      return Node(type: name, range: position ..< currentPosition, children: [])
     }
   }
 }
@@ -176,7 +176,7 @@ extension MarkupLanguage {
     repeat {
       currentPosition = buffer.index(after: "\n", startingAt: currentPosition)
     } while !paragraphTermination.contains(buffer.unicodeScalar(at: currentPosition), includesNil: true)
-    return Node(id: "paragraph", range: position ..< currentPosition, children: [])
+    return Node(type: "paragraph", range: position ..< currentPosition, children: [])
   }
 }
 
