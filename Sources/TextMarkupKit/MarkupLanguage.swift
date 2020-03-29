@@ -17,10 +17,35 @@
 
 import Foundation
 
+/// Returns the node at the specified position.
+public typealias ParsingFunction = (StringPosition) throws -> MarkupNode?
+
+/// Returns an array of nodes at the the specified position that
+public typealias NodeSequenceParser = (StringPosition) throws -> [MarkupNode]
+
+infix operator =>: MultiplicationPrecedence
+
+public func => (name: MarkupNode.Identifier, parser: @escaping NodeSequenceParser) -> ParsingFunction {
+  return { position in
+    let children = try parser(position)
+    guard
+      let firstChild = children.first,
+      let lastChild = children.last
+    else {
+        return nil
+    }
+    return MarkupNode(
+      name: name,
+      range: firstChild.range.lowerBound ..< lastChild.range.upperBound,
+      children: children
+    )
+  }
+}
+
 /// All of the rules necessary to find markup inside of text.
 public struct MarkupLanguage {
   public var name: String
-  public var root: MarkupRule
+  public var root: ParsingFunction
 
   public enum Error: Swift.Error {
     /// We didn't get a root node at all
@@ -31,7 +56,7 @@ public struct MarkupLanguage {
 
   public func parse(_ text: String) throws -> MarkupNode {
     guard
-      let node = try root.nodeAtPosition(StringPosition(string: text, position: text.startIndex))
+      let node = try root(StringPosition(string: text, position: text.startIndex))
     else {
         throw Error.parsingFailed
     }
@@ -41,29 +66,99 @@ public struct MarkupLanguage {
     return node
   }
 
-  static func many(name: MarkupNode.Identifier, rule: MarkupRule) -> RepeatRule {
-    RepeatRule(name: name, subrule: rule)
+  static func many(_ rule: @escaping ParsingFunction) -> NodeSequenceParser {
+    return { position in
+      var children: [MarkupNode] = []
+      var currentPosition = position
+      while !currentPosition.isEOF, let child = try rule(currentPosition) {
+        children.append(child)
+        currentPosition = child.range.upperBound
+      }
+      return children
+    }
   }
 
-  static func choice(of rules: [MarkupRule]) -> ChoiceRule {
-    ChoiceRule(rules: rules)
+  static func choice(of rules: [ParsingFunction]) -> ParsingFunction {
+    return { position in
+      for rule in rules {
+        if let node = try? rule(position) {
+          return node
+        }
+      }
+      return nil
+    }
+  }
+
+  static func sequence(of rules: [ParsingFunction]) -> NodeSequenceParser {
+    return { position in
+      var childNodes: [MarkupNode] = []
+      var currentPosition = position
+      for childRule in rules {
+        guard let childNode = try childRule(currentPosition) else {
+          return []
+        }
+        childNodes.append(childNode)
+        currentPosition = childNode.range.upperBound
+      }
+      return childNodes
+    }
+  }
+
+  static func text(
+    matching predicate: @escaping (Character) -> Bool,
+    named name: MarkupNode.Identifier = .anonymous
+  ) -> ParsingFunction {
+    return { position in
+      var endPosition = position
+      while predicate(try endPosition.character()) {
+        try endPosition.advance()
+      }
+      guard endPosition > position else {
+        return nil
+      }
+      return MarkupNode(name: name, range: position ..< endPosition, children: [])
+    }
+  }
+
+  static func text(
+    upToAndIncludingTerminator predicate: @escaping (Character) -> Bool,
+    requiresTerminator: Bool = false,
+    named name: MarkupNode.Identifier = .anonymous
+  ) -> ParsingFunction {
+    return { position in
+      var currentPosition = position
+      var foundTerminator = false
+      while !currentPosition.isEOF {
+        if predicate(try currentPosition.character()) {
+          foundTerminator = true
+          break
+        }
+        try currentPosition.advance()
+      }
+      if requiresTerminator, !foundTerminator {
+        // We never found the terminator
+        return nil
+      }
+      try? currentPosition.advance()
+      return MarkupNode(name: name, range: position ..< currentPosition, children: [])
+    }
   }
 }
 
 extension MarkupLanguage {
   public static let miniMarkdown = MarkupLanguage(
     name: "MiniMarkdown",
-    root: many(name: "document", rule: choice(of: [
+    root: "document" => many(choice(of: [
       headerRule,
       lineRule,
     ]))
   )
 
-  static let headerRule = SequenceRule(name: "header", children: [
-    TextMatchingRule(name: "delimiter", predicate: { $0 == "#" }),
-    TextMatchingRule(name: .anonymous, predicate: { $0.unicodeScalars.first!.properties.isPatternWhitespace }),
-    TerminatorRule(name: "text", predicate: { $0.isEOF || (try! $0.character()) == "\n" }),
+  static let headerRule = "header" => sequence(of: [
+    text(matching: { $0 == "#" }, named: "delimiter"),
+    text(matching: { $0.unicodeScalars.first!.properties.isPatternWhitespace }),
+    text(upToAndIncludingTerminator: { $0 == "\n" }, named: "text"),
   ])
 
-  static let lineRule = TerminatorRule(name: "line", predicate: { $0.isEOF || (try! $0.character()) == "\n" })
+  static let lineRule = text(upToAndIncludingTerminator: { $0 == "\n" }, named: "line")
 }
