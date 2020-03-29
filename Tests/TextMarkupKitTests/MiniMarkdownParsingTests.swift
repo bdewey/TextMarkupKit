@@ -20,26 +20,6 @@ import TextMarkupKit
 import XCTest
 
 final class MiniMarkdownParsingTests: XCTestCase {
-  func testParseHeaderAndBody() {
-    let text = """
-    # This is a header
-
-    And this is a body.
-    The two lines are part of the same paragraph.
-
-    The line break indicates a new paragraph.
-
-    """
-    do {
-      let tree = try MarkupLanguage.miniMarkdown.parse(text)
-      XCTAssertEqual(tree.compactStructure, "(document ((header (delimiter text)) blank_line paragraph blank_line paragraph))")
-    } catch MarkupLanguage.Error.incompleteParsing(let endpoint) {
-      XCTFail("Did not parse the entire string. Remaining text: '\(text[endpoint...].debugDescription)'")
-    } catch {
-      XCTFail("Unexpected error: \(error)")
-    }
-  }
-
   func testNewParseHeaderAndBody() {
     let text = """
     # This is a header
@@ -53,7 +33,7 @@ final class MiniMarkdownParsingTests: XCTestCase {
     do {
       let tree = try MarkdownDocument().parse(text)
       XCTAssertEqual(tree.compactStructure, "(document ((header (delimiter text)) blank_line paragraph blank_line paragraph))")
-    } catch MarkupLanguage.Error.incompleteParsing(let endpoint) {
+    } catch ParseError.incompleteParsing(let endpoint) {
       XCTFail("Did not parse the entire string. Remaining text: '\(text[endpoint...].debugDescription)'")
     } catch {
       XCTFail("Unexpected error: \(error)")
