@@ -23,33 +23,26 @@ public enum ParseError: Swift.Error {
   case incompleteParsing(TextBuffer.Index)
 }
 
-/// A parser for something that *might* be at a spot in the input.
-public protocol ConditionalParser {
-  /// If possible to parse a node at a specific position in the input, do so.
-  func parse(textBuffer: TextBuffer, position: TextBuffer.Index) -> Node?
+/// Recognizes bits of structure inside of a text file.
+public protocol NodeRecognizer {
+  /// Returns a Node representing the structure at the specific position in the TextBuffer, if possible.
+  /// - returns: The recognized node, or nil if the node is not present at this spot in the TextBuffer.
+  func recognizeNode(textBuffer: TextBuffer, position: TextBuffer.Index) -> Node?
 }
 
-extension Sequence where Element: ConditionalParser {
-  /// If you have an sequence of ConditionalParsers, returns the first non-nil result.
-  public func parse(textBuffer: TextBuffer, position: TextBuffer.Index) -> Node? {
-    for subparser in self {
-      if let node = subparser.parse(textBuffer: textBuffer, position: position) {
-        return node
-      }
-    }
-    return nil
-  }
+extension Sequence where Element: NodeRecognizer {
 }
 
-/// A parser that is guaranteed to succeed. This is what distinguishes a lot of casual markup languages from computer programming
+/// Unlike a recognizer, a `parser` is guaranteed to succeed.
+/// This is what distinguishes a lot of casual markup languages from computer programming
 /// languages. There's no such thing as a "syntax error" in a Markdown document, for example; every text file is a valid Markdown file.
 /// If you get the syntax wrong your formatting or links might not be recognized, but the text is still valid.
-public protocol UnconditionalParser {
+public protocol Parser {
   /// Parse the text at the given input.
   func parse(textBuffer: TextBuffer, position: TextBuffer.Index) -> Node
 }
 
-extension UnconditionalParser {
+extension Parser {
   /// Parses a string.
   public func parse(_ text: String) throws -> Node {
     let buffer = TextBuffer(text)
@@ -62,7 +55,7 @@ extension UnconditionalParser {
 }
 
 /// A parser that succeeds when it recognizes a sequence of child nodes at the specified spot in the buffer.
-public protocol SequenceParser: ConditionalParser {
+public protocol SequenceRecognizer: NodeRecognizer {
   /// The type of node that will be created if the sequence is recognized.
   var type: NodeType { get }
 
@@ -70,9 +63,9 @@ public protocol SequenceParser: ConditionalParser {
   var sequenceRecognizer: (TextBuffer, TextBuffer.Index) -> [Node] { get }
 }
 
-extension SequenceParser {
+extension SequenceRecognizer {
   /// Default `parse` implementation for a SequenceParser.
-  public func parse(textBuffer: TextBuffer, position: TextBuffer.Index) -> Node? {
+  public func recognizeNode(textBuffer: TextBuffer, position: TextBuffer.Index) -> Node? {
     let children = sequenceRecognizer(textBuffer, position)
     guard let range = children.encompassingRange else {
       return nil
@@ -81,23 +74,24 @@ extension SequenceParser {
   }
 }
 
-/// A `SentinelParser` is a parser that has one or more unicode scalars that indicates that its possible to recognize
-/// its node at a given point in the input stream.
-public protocol SentinelParser: ConditionalParser {
+public protocol SentinelContaining {
+  /// Unicode scalars that signify that a spot in a TextBuffer is "interesting"
   var sentinels: CharacterSet { get }
 }
 
-/// A collection of `SentinelParsers`
-public struct SentinelParserCollection {
-  public init(_ parsers: [SentinelParser]) {
-    self.parsers = parsers
-    self.sentinels = Self.unionOfSentinels(in: parsers)
+/// A collection of sentinel-containing recognizers. `sentinels` lets you know if you can skip looking at any of these.
+public struct SentinelRecognizerCollection: NodeRecognizer {
+  public typealias Element = NodeRecognizer & SentinelContaining
+
+  public init(_ recognizers: [Element]) {
+    self.recognizers = recognizers
+    self.sentinels = Self.unionOfSentinels(in: recognizers)
   }
 
   /// The parsers in the collection.
-  public var parsers: [SentinelParser] {
+  public var recognizers: [Element] {
     didSet {
-      self.sentinels = Self.unionOfSentinels(in: parsers)
+      self.sentinels = Self.unionOfSentinels(in: recognizers)
     }
   }
 
@@ -105,18 +99,18 @@ public struct SentinelParserCollection {
   /// you can skip trying to recognize anything in this collection.
   public private(set) var sentinels: CharacterSet
 
-  /// Attempt to recognize a node at the given point in the TextBuffer. It will return the first result from any of the recognizers.
-  public func parse(textBuffer: TextBuffer, position: TextBuffer.Index) -> Node? {
-    for subparser in parsers {
-      if let node = subparser.parse(textBuffer: textBuffer, position: position) {
+  /// If you have an sequence of ConditionalParsers, returns the first non-nil result.
+  public func recognizeNode(textBuffer: TextBuffer, position: TextBuffer.Index) -> Node? {
+    for subparser in recognizers {
+      if let node = subparser.recognizeNode(textBuffer: textBuffer, position: position) {
         return node
       }
     }
     return nil
   }
 
-  private static func unionOfSentinels(in parsers: [SentinelParser]) -> CharacterSet {
-    parsers
+  private static func unionOfSentinels(in items: [SentinelContaining]) -> CharacterSet {
+    items
       .map { $0.sentinels }
       .reduce(into: CharacterSet()) { $0.formUnion($1) }
   }

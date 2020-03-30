@@ -22,20 +22,20 @@ extension NodeType {
   public static let paragraph: NodeType = "paragraph"
 }
 
-public struct MarkdownDocument: UnconditionalParser {
+public struct MarkdownDocument: Parser {
   public init(
-    subparsers: [SentinelParser] = [
+    subparsers: [SentinelRecognizerCollection.Element] = [
       Header(),
       BlankLine(),
     ],
-    defaultParser: UnconditionalParser = Paragraph()
+    defaultParser: Parser = Paragraph()
   ) {
-    self.subparsers = SentinelParserCollection(subparsers)
+    self.subparsers = SentinelRecognizerCollection(subparsers)
     self.defaultParser = defaultParser
   }
 
-  public var subparsers: SentinelParserCollection
-  public let defaultParser: UnconditionalParser
+  public var subparsers: SentinelRecognizerCollection
+  public let defaultParser: Parser
 
   public func parse(textBuffer: TextBuffer, position: TextBuffer.Index) -> Node {
     var children = [Node]()
@@ -43,7 +43,8 @@ public struct MarkdownDocument: UnconditionalParser {
     while let scalar = textBuffer.unicodeScalar(at: position) {
       if
         subparsers.sentinels.contains(scalar),
-        let node = subparsers.parse(textBuffer: textBuffer, position: position) {
+        let node = subparsers.recognizeNode(textBuffer: textBuffer, position: position)
+      {
         children.append(node)
         position = node.range.upperBound
       } else {

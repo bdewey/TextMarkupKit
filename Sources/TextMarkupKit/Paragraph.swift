@@ -17,7 +17,7 @@
 
 import Foundation
 
-public struct Paragraph: UnconditionalParser {
+public struct Paragraph: Parser {
   public init() {}
   private let paragraphTermination: CharacterSet = [
     "#",

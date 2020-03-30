@@ -21,10 +21,10 @@ extension NodeType {
   public static let blankLine: NodeType = "blank_line"
 }
 
-public struct BlankLine: SentinelParser {
+public struct BlankLine: NodeRecognizer, SentinelContaining {
   public init() {}
   public var sentinels: CharacterSet { CharacterSet(charactersIn: "\n") }
-  public func parse(textBuffer: TextBuffer, position: TextBuffer.Index) -> Node? {
+  public func recognizeNode(textBuffer: TextBuffer, position: TextBuffer.Index) -> Node? {
     guard
       let nextPosition = textBuffer.index(after: position),
       textBuffer.character(at: position) == "\n"
