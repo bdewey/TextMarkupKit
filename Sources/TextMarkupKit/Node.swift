@@ -53,18 +53,6 @@ public extension Node {
   /// Returns an array of nodes at the the specified position that
   typealias NodeSequenceParser = (TextBuffer, TextBufferIndex) -> [Node]
 
-  static func many(_ rule: @escaping ParsingFunction) -> NodeSequenceParser {
-    return { buffer, position in
-      var children: [Node] = []
-      var currentPosition = position
-      while !buffer.isEOF(currentPosition), let child = rule(buffer, currentPosition) {
-        children.append(child)
-        currentPosition = child.range.upperBound
-      }
-      return children
-    }
-  }
-
   static func choice(of rules: [ParsingFunction]) -> ParsingFunction {
     return { buffer, position in
       for rule in rules {
@@ -115,8 +103,8 @@ public extension Node {
     return { buffer, position in
       var currentPosition = position
       var foundTerminator = false
-      while !buffer.isEOF(currentPosition) {
-        if buffer.character(at: currentPosition) == terminator {
+      while let character = buffer.character(at: currentPosition) {
+        if character == terminator {
           foundTerminator = true
           break
         }
@@ -174,27 +162,27 @@ extension Node {
   }
 
   /// Returns the syntax tree and which parts of `textBuffer` the leaf nodes correspond to.
-  public func debugDescription(of textBuffer: TextBuffer) -> String {
+  public func debugDescription(withContentsFrom pieceTable: PieceTable) -> String {
     var lines = [String]()
-    writeDebugDescription(to: &lines, textBuffer: textBuffer, indentLevel: 0)
+    writeDebugDescription(to: &lines, pieceTable: pieceTable, indentLevel: 0)
     return lines.joined(separator: "\n")
   }
 
   /// Recursive helper function for `debugDescription(of:)`
   private func writeDebugDescription(
     to lines: inout [String],
-    textBuffer: TextBuffer,
+    pieceTable: PieceTable,
     indentLevel: Int
   ) {
     var result = String(repeating: " ", count: 2 * indentLevel)
     result.append(type.rawValue)
     result.append(": ")
     if children.isEmpty {
-      result.append(textBuffer[range].debugDescription)
+      result.append(pieceTable[range].debugDescription)
     }
     lines.append(result)
     for child in children {
-      child.writeDebugDescription(to: &lines, textBuffer: textBuffer, indentLevel: indentLevel + 1)
+      child.writeDebugDescription(to: &lines, pieceTable: pieceTable, indentLevel: indentLevel + 1)
     }
   }
 }

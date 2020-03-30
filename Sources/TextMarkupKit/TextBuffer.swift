@@ -30,50 +30,31 @@ public struct TextBufferIndex: Comparable {
   }
 }
 
-/// Currently this is an un-editable string. But the goal is to support efficient edits with a Piece Table data structure.
-public final class TextBuffer {
-  public init(_ string: String) {
-    self.string = string
-  }
-
-  private let string: String
-
-  public var startIndex: TextBufferIndex { TextBufferIndex(string.startIndex) }
-  public var endIndex: TextBufferIndex { TextBufferIndex(string.endIndex) }
-
-  public func character(at index: TextBufferIndex) -> Character? {
-    guard index.stringIndex != string.endIndex else {
-      return nil
-    }
-    return string[index.stringIndex]
-  }
-
-  public func unicodeScalar(at index: TextBufferIndex) -> UnicodeScalar? {
-    guard index.stringIndex != string.endIndex else {
-      return nil
-    }
-    return string.unicodeScalars[index.stringIndex]
-  }
-
-  public func index(after index: TextBufferIndex) -> TextBufferIndex? {
-    guard index.stringIndex != string.endIndex else {
-      return nil
-    }
-    return TextBufferIndex(string.index(after: index.stringIndex))
-  }
-
-  public func isEOF(_ index: TextBufferIndex) -> Bool {
-    return index.stringIndex == string.endIndex
-  }
-
-  public subscript(range: Range<TextBufferIndex>) -> String {
-    let stringIndexRange = range.lowerBound.stringIndex ..< range.upperBound.stringIndex
-    return String(string[stringIndexRange])
-  }
+public protocol TextBuffer {
+  var startIndex: TextBufferIndex { get }
+  func character(at index: TextBufferIndex) -> Character?
+  func unicodeScalar(at index: TextBufferIndex) -> UnicodeScalar?
+  func index(after index: TextBufferIndex) -> TextBufferIndex?
+  func index(before index: TextBufferIndex) -> TextBufferIndex?
 }
 
-extension TextBuffer {
-  public func index(after terminator: Character, startingAt startIndex: TextBufferIndex) -> TextBufferIndex {
+public extension TextBuffer {
+  /// - returns: The index after matching all characters of `string` if the string matches, `nil` otherwise.
+  func position(afterMatching string: String, startingPosition: TextBufferIndex) -> TextBufferIndex? {
+    var currentPosition = startingPosition
+    for character in string {
+      guard
+        character == self.character(at: currentPosition),
+        let nextPosition = self.index(after: currentPosition)
+      else {
+        return nil
+      }
+      currentPosition = nextPosition
+    }
+    return currentPosition
+  }
+
+  func index(after terminator: Character, startingAt startIndex: TextBufferIndex) -> TextBufferIndex {
     var currentPosition = startIndex
     while character(at: currentPosition) != terminator, let next = index(after: currentPosition) {
       currentPosition = next

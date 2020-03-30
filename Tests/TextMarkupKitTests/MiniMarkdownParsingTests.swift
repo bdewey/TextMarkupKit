@@ -32,7 +32,7 @@ final class MiniMarkdownParsingTests: XCTestCase {
     """
     do {
       let tree = try DocumentParser.miniMarkdown.parse(text)
-      XCTAssertEqual(tree.compactStructure, "(document ((header (delimiter text)) blank_line paragraph blank_line paragraph))")
+      XCTAssertEqual(tree.compactStructure, "(document ((header (delimiter text)) blank_line (paragraph (text)) blank_line (paragraph (text))))")
     } catch ParseError.incompleteParsing(let endpoint) {
       XCTFail("Did not parse the entire string. Remaining text: '\(text[endpoint...].debugDescription)'")
     } catch {
@@ -43,6 +43,6 @@ final class MiniMarkdownParsingTests: XCTestCase {
   func testStandaloneEmphasis() {
     let example = "*This is emphasized text.*"
     let tree = try! DocumentParser.miniMarkdown.parse(example)
-    XCTAssertEqual(tree.compactStructure, "(document ((paragraph ((emphasis (delimiter text delimiter)))))")
+    XCTAssertEqual(tree.compactStructure, "(document ((paragraph ((emphasis (delimiter text delimiter))))))")
   }
 }

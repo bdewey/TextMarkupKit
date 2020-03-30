@@ -40,8 +40,7 @@ public struct DocumentParser: Parser {
     while let scalar = textBuffer.unicodeScalar(at: position) {
       if
         subparsers.sentinels.contains(scalar),
-        let node = subparsers.recognizeNode(textBuffer: textBuffer, position: position)
-      {
+        let node = subparsers.recognizeNode(textBuffer: textBuffer, position: position) {
         children.append(node)
         position = node.range.upperBound
       } else {

@@ -30,8 +30,7 @@ public protocol NodeRecognizer {
   func recognizeNode(textBuffer: TextBuffer, position: TextBufferIndex) -> Node?
 }
 
-extension Sequence where Element: NodeRecognizer {
-}
+extension Sequence where Element: NodeRecognizer {}
 
 /// Unlike a recognizer, a `parser` is guaranteed to succeed.
 /// This is what distinguishes a lot of casual markup languages from computer programming
@@ -45,7 +44,7 @@ public protocol Parser {
 extension Parser {
   /// Parses a string.
   public func parse(_ text: String) throws -> Node {
-    let buffer = TextBuffer(text)
+    let buffer = PieceTable(text)
     let node = parse(textBuffer: buffer, position: buffer.startIndex)
     if node.range.upperBound != buffer.endIndex {
       throw ParseError.incompleteParsing(node.range.upperBound.stringIndex)
@@ -91,7 +90,7 @@ public struct SentinelRecognizerCollection: NodeRecognizer {
   /// The parsers in the collection.
   public var recognizers: [Element] {
     didSet {
-      self.sentinels = Self.unionOfSentinels(in: recognizers)
+      sentinels = Self.unionOfSentinels(in: recognizers)
     }
   }
 
