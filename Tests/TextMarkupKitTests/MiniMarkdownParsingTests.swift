@@ -39,4 +39,10 @@ final class MiniMarkdownParsingTests: XCTestCase {
       XCTFail("Unexpected error: \(error)")
     }
   }
+
+  func testStandaloneEmphasis() {
+    let example = "*This is emphasized text.*"
+    let tree = try! DocumentParser.miniMarkdown.parse(example)
+    XCTAssertEqual(tree.compactStructure, "(document ((paragraph ((emphasis (delimiter text delimiter)))))")
+  }
 }

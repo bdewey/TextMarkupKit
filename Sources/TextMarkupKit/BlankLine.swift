@@ -24,7 +24,7 @@ extension NodeType {
 public struct BlankLine: NodeRecognizer, SentinelContaining {
   public init() {}
   public var sentinels: CharacterSet { CharacterSet(charactersIn: "\n") }
-  public func recognizeNode(textBuffer: TextBuffer, position: TextBuffer.Index) -> Node? {
+  public func recognizeNode(textBuffer: TextBuffer, position: TextBufferIndex) -> Node? {
     guard
       let nextPosition = textBuffer.index(after: position),
       textBuffer.character(at: position) == "\n"

@@ -20,14 +20,14 @@ import Foundation
 /// Possible parsing errors.
 public enum ParseError: Swift.Error {
   /// The parsing routine did not parse the entire document.
-  case incompleteParsing(TextBuffer.Index)
+  case incompleteParsing(String.Index)
 }
 
 /// Recognizes bits of structure inside of a text file.
 public protocol NodeRecognizer {
   /// Returns a Node representing the structure at the specific position in the TextBuffer, if possible.
   /// - returns: The recognized node, or nil if the node is not present at this spot in the TextBuffer.
-  func recognizeNode(textBuffer: TextBuffer, position: TextBuffer.Index) -> Node?
+  func recognizeNode(textBuffer: TextBuffer, position: TextBufferIndex) -> Node?
 }
 
 extension Sequence where Element: NodeRecognizer {
@@ -39,7 +39,7 @@ extension Sequence where Element: NodeRecognizer {
 /// If you get the syntax wrong your formatting or links might not be recognized, but the text is still valid.
 public protocol Parser {
   /// Parse the text at the given input.
-  func parse(textBuffer: TextBuffer, position: TextBuffer.Index) -> Node
+  func parse(textBuffer: TextBuffer, position: TextBufferIndex) -> Node
 }
 
 extension Parser {
@@ -47,8 +47,8 @@ extension Parser {
   public func parse(_ text: String) throws -> Node {
     let buffer = TextBuffer(text)
     let node = parse(textBuffer: buffer, position: buffer.startIndex)
-    if node.range.upperBound != text.endIndex {
-      throw ParseError.incompleteParsing(node.range.upperBound)
+    if node.range.upperBound != buffer.endIndex {
+      throw ParseError.incompleteParsing(node.range.upperBound.stringIndex)
     }
     return node
   }
@@ -60,12 +60,12 @@ public protocol SequenceRecognizer: NodeRecognizer {
   var type: NodeType { get }
 
   /// A function that recognizes a sequence of nodes, in consecutive order, at a spot in the TextBuffer.
-  var sequenceRecognizer: (TextBuffer, TextBuffer.Index) -> [Node] { get }
+  var sequenceRecognizer: (TextBuffer, TextBufferIndex) -> [Node] { get }
 }
 
 extension SequenceRecognizer {
   /// Default `parse` implementation for a SequenceParser.
-  public func recognizeNode(textBuffer: TextBuffer, position: TextBuffer.Index) -> Node? {
+  public func recognizeNode(textBuffer: TextBuffer, position: TextBufferIndex) -> Node? {
     let children = sequenceRecognizer(textBuffer, position)
     guard let range = children.encompassingRange else {
       return nil
@@ -100,7 +100,7 @@ public struct SentinelRecognizerCollection: NodeRecognizer {
   public private(set) var sentinels: CharacterSet
 
   /// If you have an sequence of ConditionalParsers, returns the first non-nil result.
-  public func recognizeNode(textBuffer: TextBuffer, position: TextBuffer.Index) -> Node? {
+  public func recognizeNode(textBuffer: TextBuffer, position: TextBufferIndex) -> Node? {
     for subparser in recognizers {
       if let node = subparser.recognizeNode(textBuffer: textBuffer, position: position) {
         return node

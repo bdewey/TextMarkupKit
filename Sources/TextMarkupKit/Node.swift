@@ -19,13 +19,13 @@ import Foundation
 
 /// A node in the markup language's syntax tree.
 public final class Node {
-  public init(type: NodeType, range: Range<TextBuffer.Index>, children: [Node] = []) {
+  public init(type: NodeType, range: Range<TextBufferIndex>, children: [Node] = []) {
     self.type = type
     self.range = range
     self.children = children
   }
 
-  public init?(textBuffer: TextBuffer, position: TextBuffer.Index) {
+  public init?(textBuffer: TextBuffer, position: TextBufferIndex) {
     return nil
   }
 
@@ -33,7 +33,7 @@ public final class Node {
   public let type: NodeType
 
   /// The range from the original `TextBuffer` that this node in the syntax tree covers.
-  public let range: Range<TextBuffer.Index>
+  public let range: Range<TextBufferIndex>
 
   /// Children of this node.
   public let children: [Node]
@@ -48,10 +48,10 @@ public final class Node {
 
 public extension Node {
   /// Returns the node at the specified position.
-  typealias ParsingFunction = (TextBuffer, TextBuffer.Index) -> Node?
+  typealias ParsingFunction = (TextBuffer, TextBufferIndex) -> Node?
 
   /// Returns an array of nodes at the the specified position that
-  typealias NodeSequenceParser = (TextBuffer, TextBuffer.Index) -> [Node]
+  typealias NodeSequenceParser = (TextBuffer, TextBufferIndex) -> [Node]
 
   static func many(_ rule: @escaping ParsingFunction) -> NodeSequenceParser {
     return { buffer, position in
@@ -135,7 +135,7 @@ public extension Node {
 }
 
 public extension Array where Element: Node {
-  var encompassingRange: Range<TextBuffer.Index>? {
+  var encompassingRange: Range<TextBufferIndex>? {
     guard let firstChild = first, let lastChild = last else {
       return nil
     }

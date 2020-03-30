@@ -34,7 +34,7 @@ public struct DocumentParser: Parser {
   public var subparsers: SentinelRecognizerCollection
   public var defaultParser: Parser
 
-  public func parse(textBuffer: TextBuffer, position: TextBuffer.Index) -> Node {
+  public func parse(textBuffer: TextBuffer, position: TextBufferIndex) -> Node {
     var children = [Node]()
     var position = position
     while let scalar = textBuffer.unicodeScalar(at: position) {

@@ -24,7 +24,7 @@ public struct Paragraph: Parser {
     "\n",
   ]
 
-  public func parse(textBuffer: TextBuffer, position: TextBuffer.Index) -> Node {
+  public func parse(textBuffer: TextBuffer, position: TextBufferIndex) -> Node {
     var currentPosition = position
     repeat {
       currentPosition = textBuffer.index(after: "\n", startingAt: currentPosition)
