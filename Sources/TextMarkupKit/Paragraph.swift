@@ -26,7 +26,7 @@ public struct Paragraph: Parser {
     if let childRange = children.encompassingRange {
       return Node(type: .paragraph, range: childRange, children: children)
     } else {
-      // TODO -- change this from a parser?
+      // TODO: -- change this from a parser?
       return Node(type: .paragraph, range: position ..< position)
     }
   }

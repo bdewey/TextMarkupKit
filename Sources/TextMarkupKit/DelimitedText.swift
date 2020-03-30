@@ -37,7 +37,7 @@ public struct DelimitedText: NodeRecognizer, SentinelContaining {
     let internalBuffer = DelimitedTextBuffer(textBuffer: textBuffer, delimiter: rightDelimiter)
     guard let textNode = TextMatchingRecognizer(type: .text, matchFunction: { _ in true })
       .recognizeNode(textBuffer: internalBuffer, position: leftNode.range.upperBound) else {
-        return nil
+      return nil
     }
     guard let rightNode = Delimiter(rightDelimiter).recognizeNode(textBuffer: textBuffer, position: textNode.range.upperBound) else {
       return nil
