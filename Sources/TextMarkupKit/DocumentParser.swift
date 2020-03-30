@@ -22,20 +22,17 @@ extension NodeType {
   public static let paragraph: NodeType = "paragraph"
 }
 
-public struct MarkdownDocument: Parser {
+public struct DocumentParser: Parser {
   public init(
-    subparsers: [SentinelRecognizerCollection.Element] = [
-      Header(),
-      BlankLine(),
-    ],
-    defaultParser: Parser = Paragraph()
+    subparsers: [SentinelRecognizerCollection.Element],
+    defaultParser: Parser
   ) {
     self.subparsers = SentinelRecognizerCollection(subparsers)
     self.defaultParser = defaultParser
   }
 
   public var subparsers: SentinelRecognizerCollection
-  public let defaultParser: Parser
+  public var defaultParser: Parser
 
   public func parse(textBuffer: TextBuffer, position: TextBuffer.Index) -> Node {
     var children = [Node]()
