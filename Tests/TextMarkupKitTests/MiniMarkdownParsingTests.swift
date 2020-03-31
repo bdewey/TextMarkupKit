@@ -38,10 +38,13 @@ final class MiniMarkdownParsingTests: XCTestCase {
 
     The line break indicates a new paragraph.
 
-    """, compactStructure: "(document ((header (delimiter text)) blank_line (paragraph (text)) blank_line (paragraph (text))))"),
+    """, compactStructure: "(document (header delimiter text) blank_line (paragraph text) blank_line (paragraph text))"),
 
-    "justEmphasis": ParsingTestCase(input: "*This is emphasized text.*", compactStructure: "(document ((paragraph ((emphasis (delimiter text delimiter))))))"),
-    "textWithEmphasis": .expect("(document ((paragraph (text (emphasis (delimiter text delimiter))))))", for:  "This is text with *emphasis.*")
+    "justEmphasis": ParsingTestCase(input: "*This is emphasized text.*", compactStructure: "(document (paragraph (emphasis delimiter text delimiter)))"),
+    "textWithEmphasis":
+      .expect("(document (paragraph text (emphasis delimiter text delimiter)))", for:  "This is text with *emphasis.*"),
+    "textWithBold":
+      .expect("(document (paragraph text (strong_emphasis delimiter text delimiter) text))", for: "This is text with **bold**.")
   ]
 
   func testRunner() {

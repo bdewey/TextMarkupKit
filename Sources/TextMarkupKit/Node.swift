@@ -150,14 +150,14 @@ extension Node {
     } else {
       buffer.append("(")
       buffer.append(type.rawValue)
-      buffer.append(" (")
+      buffer.append(" ")
       for (index, child) in filteredChildren.enumerated() {
         if index > 0 {
           buffer.append(" ")
         }
         child.writeCompactStructure(to: &buffer)
       }
-      buffer.append("))")
+      buffer.append(")")
     }
   }
 
