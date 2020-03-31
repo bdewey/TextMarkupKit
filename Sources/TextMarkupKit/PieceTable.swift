@@ -25,40 +25,18 @@ public final class PieceTable: TextBuffer {
 
   private let string: NSString
 
-  public var startIndex: TextBufferIndex { TextBufferIndex(0) }
-  public var endIndex: TextBufferIndex { TextBufferIndex(string.length) }
+  public var startIndex: Int { 0 }
+  public var endIndex: Int { string.length }
 
-  public func utf16(at index: TextBufferIndex) -> unichar? {
-    guard index.stringIndex < string.length else {
+  public func utf16(at index: Int) -> unichar? {
+    guard index < string.length else {
       return nil
     }
-    return string.character(at: index.stringIndex)
+    return string.character(at: index)
   }
 
-  public func unicodeScalar(at index: TextBufferIndex) -> UnicodeScalar? {
-    guard index.stringIndex < string.length else {
-      return nil
-    }
-    guard let scalar = UnicodeScalar(string.character(at: index.stringIndex)) else {
-      assertionFailure()
-      return nil
-    }
-    return scalar
-  }
-
-  public func index(after index: TextBufferIndex) -> TextBufferIndex? {
-    guard index.stringIndex < string.length else {
-      return nil
-    }
-    return TextBufferIndex(index.stringIndex + 1)
-  }
-
-  public func isEOF(_ index: TextBufferIndex) -> Bool {
-    return index.stringIndex >= string.length
-  }
-
-  public subscript(range: Range<TextBufferIndex>) -> String {
-    let stringIndexRange = NSRange(location: range.lowerBound.stringIndex, length: range.upperBound.stringIndex - range.lowerBound.stringIndex)
+  public subscript(range: Range<Int>) -> String {
+    let stringIndexRange = NSRange(location: range.lowerBound, length: range.count)
     return string.substring(with: stringIndexRange) as String
   }
 }

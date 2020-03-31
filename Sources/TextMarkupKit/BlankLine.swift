@@ -24,13 +24,13 @@ extension NodeType {
 public struct BlankLine: NodeRecognizer, SentinelContaining {
   public init() {}
   public var sentinels: CharacterSet { CharacterSet(charactersIn: "\n") }
-  public func recognizeNode(textBuffer: TextBuffer, position: TextBufferIndex) -> Node? {
+  public func recognizeNode(textBuffer: TextBuffer, position: Int) -> Node? {
     guard
-      let nextPosition = textBuffer.index(after: position),
+      position < textBuffer.endIndex,
       textBuffer.utf16(at: position) == unichar.newline
     else {
       return nil
     }
-    return Node(type: .blankLine, range: position ..< nextPosition)
+    return Node(type: .blankLine, range: position ..< position + 1)
   }
 }

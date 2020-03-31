@@ -3,29 +3,22 @@
 import Foundation
 
 public struct TextBufferSlice {
-  public init(textBuffer: TextBuffer, startIndex: TextBufferIndex, endIndex: TextBufferIndex) {
+  public init(textBuffer: TextBuffer, startIndex: Int, endIndex: Int) {
     self.textBuffer = textBuffer
     self.startIndex = startIndex
     self.endIndex = endIndex
   }
 
   public let textBuffer: TextBuffer
-  public let startIndex: TextBufferIndex
-  public let endIndex: TextBufferIndex
+  public let startIndex: Int
+  public let endIndex: Int
 }
 
 extension TextBufferSlice: TextBuffer {
-  public func utf16(at index: TextBufferIndex) -> unichar? {
+  public func utf16(at index: Int) -> unichar? {
     guard (startIndex..<endIndex).contains(index) else {
       return nil
     }
     return textBuffer.utf16(at: index)
-  }
-
-  public func index(after index: TextBufferIndex) -> TextBufferIndex? {
-    guard index < endIndex else {
-      return nil
-    }
-    return textBuffer.index(after: index)
   }
 }

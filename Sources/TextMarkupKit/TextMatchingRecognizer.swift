@@ -26,10 +26,10 @@ public struct TextMatchingRecognizer: NodeRecognizer {
   public let type: NodeType
   public let matchFunction: (unichar) -> Bool
 
-  public func recognizeNode(textBuffer: TextBuffer, position: TextBufferIndex) -> Node? {
+  public func recognizeNode(textBuffer: TextBuffer, position: Int) -> Node? {
     var endPosition = position
     while textBuffer.utf16(at: endPosition).map(matchFunction) ?? false {
-      endPosition = textBuffer.index(after: endPosition)!
+      endPosition += 1
     }
     guard endPosition > position else {
       return nil

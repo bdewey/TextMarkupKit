@@ -30,7 +30,7 @@ public struct DelimitedText: NodeRecognizer, SentinelContaining {
 
   public var sentinels: CharacterSet { CharacterSet(charactersIn: leftDelimiter) }
 
-  public func recognizeNode(textBuffer: TextBuffer, position: TextBufferIndex) -> Node? {
+  public func recognizeNode(textBuffer: TextBuffer, position: Int) -> Node? {
     guard
       let leftNode = Delimiter(leftDelimiter).recognizeNode(textBuffer: textBuffer, position: position),
       let rightDelimiterStart = textBuffer.firstIndex(of: rightDelimiter, startingPosition: leftNode.range.upperBound)

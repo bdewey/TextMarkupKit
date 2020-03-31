@@ -33,7 +33,7 @@ public struct TextSequenceRecognizer {
   public var textRecognizers: SentinelRecognizerCollection
   public var defaultType: NodeType
 
-  public func parse(textBuffer: TextBuffer, position: TextBufferIndex) -> [Node] {
+  public func parse(textBuffer: TextBuffer, position: Int) -> [Node] {
     var children = [Node]()
     var defaultRange = position ..< position
     var position = position
@@ -51,7 +51,7 @@ public struct TextSequenceRecognizer {
         position = node.range.upperBound
         defaultRange = position ..< position
       } else {
-        position = textBuffer.index(after: position)!
+        position += 1
       }
       defaultRange = defaultRange.settingUpperBound(position)
     }

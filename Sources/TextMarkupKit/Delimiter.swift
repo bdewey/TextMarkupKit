@@ -28,13 +28,13 @@ public struct Delimiter: NodeRecognizer {
 
   public let delimiter: String
 
-  public func recognizeNode(textBuffer: TextBuffer, position: TextBufferIndex) -> Node? {
+  public func recognizeNode(textBuffer: TextBuffer, position: Int) -> Node? {
     var currentPosition = position
     for character in delimiter.utf16 {
-      guard character == textBuffer.utf16(at: currentPosition), let nextPosition = textBuffer.index(after: currentPosition) else {
+      guard character == textBuffer.utf16(at: currentPosition) else {
         return nil
       }
-      currentPosition = nextPosition
+      currentPosition += 1
     }
     return Node(type: .delimiter, range: position ..< currentPosition)
   }

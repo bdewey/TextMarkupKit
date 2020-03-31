@@ -22,7 +22,7 @@ public struct Paragraph: Parser {
 
   private let paragraphTermination = NSCharacterSet(charactersIn: "#\n")
 
-  public func parse(textBuffer: TextBuffer, position: TextBufferIndex) -> Node {
+  public func parse(textBuffer: TextBuffer, position: Int) -> Node {
     var currentPosition = position
     repeat {
       currentPosition = textBuffer.index(after: unichar.newline, startingAt: currentPosition)

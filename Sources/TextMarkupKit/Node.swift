@@ -19,13 +19,13 @@ import Foundation
 
 /// A node in the markup language's syntax tree.
 public final class Node {
-  public init(type: NodeType, range: Range<TextBufferIndex>, children: [Node] = []) {
+  public init(type: NodeType, range: Range<Int>, children: [Node] = []) {
     self.type = type
     self.range = range
     self.children = children
   }
 
-  public init?(textBuffer: TextBuffer, position: TextBufferIndex) {
+  public init?(textBuffer: TextBuffer, position: Int) {
     return nil
   }
 
@@ -33,7 +33,7 @@ public final class Node {
   public let type: NodeType
 
   /// The range from the original `TextBuffer` that this node in the syntax tree covers.
-  public let range: Range<TextBufferIndex>
+  public let range: Range<Int>
 
   /// Children of this node.
   public let children: [Node]
@@ -48,10 +48,10 @@ public final class Node {
 
 public extension Node {
   /// Returns the node at the specified position.
-  typealias ParsingFunction = (TextBuffer, TextBufferIndex) -> Node?
+  typealias ParsingFunction = (TextBuffer, Int) -> Node?
 
   /// Returns an array of nodes at the the specified position that
-  typealias NodeSequenceParser = (TextBuffer, TextBufferIndex) -> [Node]
+  typealias NodeSequenceParser = (TextBuffer, Int) -> [Node]
 
   static func choice(of rules: [ParsingFunction]) -> ParsingFunction {
     return { buffer, position in
@@ -86,7 +86,7 @@ public extension Node {
     return { buffer, position in
       var endPosition = position
       while buffer.utf16(at: endPosition).map(predicate) ?? false {
-        endPosition = buffer.index(after: endPosition)!
+        endPosition += 1
       }
       guard endPosition > position else {
         return nil
@@ -108,14 +108,14 @@ public extension Node {
           foundTerminator = true
           break
         }
-        currentPosition = buffer.index(after: currentPosition)!
+        currentPosition += 1
       }
       if requiresTerminator, !foundTerminator {
         // We never found the terminator
         return nil
       }
-      if let nextPosition = buffer.index(after: currentPosition) {
-        currentPosition = nextPosition
+      if currentPosition != buffer.endIndex {
+        currentPosition += 1
       }
       return Node(type: name, range: position ..< currentPosition, children: [])
     }
@@ -123,7 +123,7 @@ public extension Node {
 }
 
 public extension Array where Element: Node {
-  var encompassingRange: Range<TextBufferIndex>? {
+  var encompassingRange: Range<Int>? {
     guard let firstChild = first, let lastChild = last else {
       return nil
     }
