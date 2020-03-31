@@ -22,6 +22,10 @@ import XCTest
 struct ParsingTestCase {
   let input: String
   let compactStructure: String
+
+  static func expect(_ compactStructure: String, for input: String) -> ParsingTestCase {
+    ParsingTestCase(input: input, compactStructure: compactStructure)
+  }
 }
 
 final class MiniMarkdownParsingTests: XCTestCase {
@@ -36,7 +40,8 @@ final class MiniMarkdownParsingTests: XCTestCase {
 
     """, compactStructure: "(document ((header (delimiter text)) blank_line (paragraph (text)) blank_line (paragraph (text))))"),
 
-    "standaloneEmphasis": ParsingTestCase(input: "*This is emphasized text.*", compactStructure: "(document ((paragraph ((emphasis (delimiter text delimiter))))))"),
+    "justEmphasis": ParsingTestCase(input: "*This is emphasized text.*", compactStructure: "(document ((paragraph ((emphasis (delimiter text delimiter))))))"),
+    "textWithEmphasis": .expect("(document ((paragraph (text (emphasis (delimiter text delimiter))))))", for:  "This is text with *emphasis.*")
   ]
 
   func testRunner() {
@@ -46,6 +51,17 @@ final class MiniMarkdownParsingTests: XCTestCase {
       if tree.range.endIndex != pieceTable.endIndex {
         let unparsedText = pieceTable[tree.range.endIndex ..< pieceTable.endIndex]
         XCTFail("Test case \(name): Unparsed text = '\(unparsedText.debugDescription)'")
+      }
+      if #available(OSX 10.15, *) {
+        if testCase.compactStructure != tree.compactStructure {
+          print("### Failure: \(name)")
+          print("Got:      " + tree.compactStructure)
+          print("Expected: " + testCase.compactStructure)
+          let diff = tree.compactStructure.difference(from: testCase.compactStructure)
+          for change in diff {
+            print("          \(change)")
+          }
+        }
       }
       XCTAssertEqual(tree.compactStructure, testCase.compactStructure, "Test case \(name), unexpected structure")
     }
