@@ -20,66 +20,23 @@ import Foundation
 public struct Paragraph: Parser {
   public init() {}
 
+  private let paragraphTermination: CharacterSet = [
+    "#",
+    "\n",
+  ]
+
   public func parse(textBuffer: TextBuffer, position: TextBufferIndex) -> Node {
-    let paragraphTextBuffer = ParagraphTerminationTextBuffer(textBuffer: textBuffer, paragraphStartIndex: position)
-    let children = TextSequenceRecognizer.miniMarkdown.parse(textBuffer: paragraphTextBuffer, position: position)
+    var currentPosition = position
+    repeat {
+      currentPosition = textBuffer.index(after: "\n", startingAt: currentPosition)
+    } while !paragraphTermination.contains(textBuffer.unicodeScalar(at: currentPosition), includesNil: true)
+    let slice = TextBufferSlice(textBuffer: textBuffer, startIndex: position, endIndex: currentPosition)
+    let children = TextSequenceRecognizer.miniMarkdown.parse(textBuffer: slice, position: position)
     if let childRange = children.encompassingRange {
       return Node(type: .paragraph, range: childRange, children: children)
     } else {
       // TODO: -- change this from a parser?
       return Node(type: .paragraph, range: position ..< position)
     }
-  }
-}
-
-private struct ParagraphTerminationTextBuffer: TextBuffer {
-  private static let paragraphTermination: CharacterSet = [
-    "#",
-    "\n",
-  ]
-
-  let textBuffer: TextBuffer
-  let paragraphStartIndex: TextBufferIndex
-
-  private func isEndOfParagraph(_ index: TextBufferIndex) -> Bool {
-    guard
-      let previousIndex = textBuffer.index(before: index),
-      let previousCharacter = textBuffer.character(at: previousIndex),
-      previousCharacter == "\n",
-      let currentScalar = textBuffer.unicodeScalar(at: index)
-    else {
-      return false
-    }
-    return Self.paragraphTermination.contains(currentScalar)
-  }
-
-  var startIndex: TextBufferIndex { paragraphStartIndex }
-
-  func character(at index: TextBufferIndex) -> Character? {
-    guard !isEndOfParagraph(index) else {
-      return nil
-    }
-    return textBuffer.character(at: index)
-  }
-
-  func unicodeScalar(at index: TextBufferIndex) -> UnicodeScalar? {
-    guard !isEndOfParagraph(index) else {
-      return nil
-    }
-    return textBuffer.unicodeScalar(at: index)
-  }
-
-  func index(after index: TextBufferIndex) -> TextBufferIndex? {
-    guard !isEndOfParagraph(index) else {
-      return nil
-    }
-    return textBuffer.index(after: index)
-  }
-
-  func index(before index: TextBufferIndex) -> TextBufferIndex? {
-    guard index != paragraphStartIndex else {
-      return nil
-    }
-    return textBuffer.index(before: index)
   }
 }
