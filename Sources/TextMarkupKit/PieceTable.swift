@@ -18,7 +18,7 @@
 import Foundation
 
 /// Currently this is an un-editable string. But the goal is to support efficient edits with a Piece Table data structure.
-public final class PieceTable: TextBuffer {
+public final class PieceTable: TextBuffer, CustomStringConvertible {
   public init(_ string: String) {
     self.string = string as NSString
   }
@@ -28,15 +28,29 @@ public final class PieceTable: TextBuffer {
   public var startIndex: Int { 0 }
   public var endIndex: Int { string.length }
 
+  public var eofRead = 0
+  public var charactersRead = 0
+
   public func utf16(at index: Int) -> unichar? {
     guard index < string.length else {
+      eofRead += 1
       return nil
     }
+    charactersRead += 1
     return string.character(at: index)
   }
 
   public subscript(range: Range<Int>) -> String {
     let stringIndexRange = NSRange(location: range.lowerBound, length: range.count)
     return string.substring(with: stringIndexRange) as String
+  }
+
+  public var description: String {
+    let properties: [String: Any] = [
+      "length": string.length,
+      "charactersRead": charactersRead,
+      "eofRead": eofRead,
+    ]
+    return "PieceTable \(properties)"
   }
 }
