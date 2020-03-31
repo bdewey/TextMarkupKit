@@ -30,14 +30,11 @@ final class MiniMarkdownParsingTests: XCTestCase {
     The line break indicates a new paragraph.
 
     """
-    do {
-      let tree = try DocumentParser.miniMarkdown.parse(text)
-      XCTAssertEqual(tree.compactStructure, "(document ((header (delimiter text)) blank_line (paragraph (text)) blank_line (paragraph (text))))")
-    } catch ParseError.incompleteParsing {
-      XCTFail("Did not parse the entire string.")
-    } catch {
-      XCTFail("Unexpected error: \(error)")
-    }
+    let pieceTable = PieceTable(text)
+    let tree = DocumentParser.miniMarkdown.parse(textBuffer: pieceTable, position: 0)
+    print(tree.debugDescription(withContentsFrom: pieceTable))
+    XCTAssertEqual(tree.compactStructure, "(document ((header (delimiter text)) blank_line (paragraph (text)) blank_line (paragraph (text))))")
+    print(pieceTable)
   }
 
   func testStandaloneEmphasis() {

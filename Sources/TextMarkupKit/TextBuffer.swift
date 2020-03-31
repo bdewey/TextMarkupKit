@@ -19,7 +19,6 @@ import Foundation
 
 public protocol TextBuffer {
   var startIndex: Int { get }
-  var endIndex: Int { get }
   func utf16(at index: Int) -> unichar?
 }
 
@@ -52,7 +51,7 @@ public extension TextBuffer {
     while let unichar = utf16(at: currentPosition), unichar != terminator {
       currentPosition += 1
     }
-    if currentPosition != endIndex {
+    if utf16(at: currentPosition) != nil {
       currentPosition += 1
     }
     return currentPosition

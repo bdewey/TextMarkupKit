@@ -20,19 +20,21 @@ import Foundation
 public struct Paragraph: Parser {
   public init() {}
 
-  private let paragraphTermination = NSCharacterSet(charactersIn: "#\n")
+  private static let paragraphTermination = NSCharacterSet(charactersIn: "#\n")
 
   public func parse(textBuffer: TextBuffer, position: Int) -> Node {
-    var currentPosition = position
-    repeat {
-      currentPosition = textBuffer.index(after: unichar.newline, startingAt: currentPosition)
-    } while !paragraphTermination.contains(textBuffer.utf16(at: currentPosition), includesNil: true)
-    let slice = TextBufferSlice(textBuffer: textBuffer, startIndex: position, endIndex: currentPosition)
-    let children = TextSequenceRecognizer.miniMarkdown.parse(textBuffer: slice, position: position)
+    let trimmingTextBuffer = TrimmingTextBuffer(textBuffer: textBuffer, startIndex: position) { (character, buffer, index) -> Bool in
+      if Self.paragraphTermination.characterIsMember(character) {
+        return buffer.utf16(at: index - 1) == .newline
+      }
+      return false
+    }
+    let children = TextSequenceRecognizer.miniMarkdown.parse(textBuffer: trimmingTextBuffer, position: position)
     if let childRange = children.encompassingRange {
       return Node(type: .paragraph, range: childRange, children: children)
     } else {
       // TODO: -- change this from a parser?
+      assertionFailure()
       return Node(type: .paragraph, range: position ..< position)
     }
   }

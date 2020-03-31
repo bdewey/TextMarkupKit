@@ -114,7 +114,7 @@ public extension Node {
         // We never found the terminator
         return nil
       }
-      if currentPosition != buffer.endIndex {
+      if buffer.utf16(at: currentPosition) != nil {
         currentPosition += 1
       }
       return Node(type: name, range: position ..< currentPosition, children: [])
