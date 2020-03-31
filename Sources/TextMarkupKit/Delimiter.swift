@@ -30,8 +30,8 @@ public struct Delimiter: NodeRecognizer {
 
   public func recognizeNode(textBuffer: TextBuffer, position: TextBufferIndex) -> Node? {
     var currentPosition = position
-    for character in delimiter {
-      guard character == textBuffer.character(at: currentPosition), let nextPosition = textBuffer.index(after: currentPosition) else {
+    for character in delimiter.utf16 {
+      guard character == textBuffer.utf16(at: currentPosition), let nextPosition = textBuffer.index(after: currentPosition) else {
         return nil
       }
       currentPosition = nextPosition

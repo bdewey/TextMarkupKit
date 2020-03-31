@@ -19,11 +19,11 @@ import Foundation
 
 /// An opaque, stable reference to a spot in a TextBuffer.
 public struct TextBufferIndex: Comparable {
-  internal init(_ stringIndex: String.Index) {
+  internal init(_ stringIndex: Int) {
     self.stringIndex = stringIndex
   }
 
-  internal let stringIndex: String.Index
+  internal let stringIndex: Int
 
   public static func < (lhs: TextBufferIndex, rhs: TextBufferIndex) -> Bool {
     return lhs.stringIndex < rhs.stringIndex
@@ -32,31 +32,37 @@ public struct TextBufferIndex: Comparable {
 
 public protocol TextBuffer {
   var startIndex: TextBufferIndex { get }
-  func character(at index: TextBufferIndex) -> Character?
-  func unicodeScalar(at index: TextBufferIndex) -> UnicodeScalar?
+  func utf16(at index: TextBufferIndex) -> unichar?
   func index(after index: TextBufferIndex) -> TextBufferIndex?
-  func index(before index: TextBufferIndex) -> TextBufferIndex?
 }
 
 public extension TextBuffer {
-  /// - returns: The index after matching all characters of `string` if the string matches, `nil` otherwise.
-  func position(afterMatching string: String, startingPosition: TextBufferIndex) -> TextBufferIndex? {
+  /// Finds the first occurence of `string` on or after `startingPosition` and returns the start index of the match, if found.
+  /// - note: This is a naive string search which should probably get optimized if the string length is more than 1-2 characters.
+  func firstIndex(of string: String, startingPosition: TextBufferIndex) -> TextBufferIndex? {
+    let unicodeCharacters = Array(string.utf16)
     var currentPosition = startingPosition
-    for character in string {
-      guard
-        character == self.character(at: currentPosition),
-        let nextPosition = self.index(after: currentPosition)
-      else {
-        return nil
+    while self.utf16(at: currentPosition) != nil {
+      var innerPosition = currentPosition
+      var inputIndex = 0
+      while inputIndex < unicodeCharacters.count,
+        let bufferCharacter = self.utf16(at: innerPosition),
+        bufferCharacter == unicodeCharacters[inputIndex] {
+        inputIndex += 1
+        innerPosition = index(after: innerPosition)!
       }
-      currentPosition = nextPosition
+      if inputIndex == unicodeCharacters.count {
+        return currentPosition
+      }
+      // If we read a character it's safe to advance
+      currentPosition = index(after: currentPosition)!
     }
-    return currentPosition
+    return nil
   }
 
-  func index(after terminator: Character, startingAt startIndex: TextBufferIndex) -> TextBufferIndex {
+  func index(after terminator: unichar, startingAt startIndex: TextBufferIndex) -> TextBufferIndex {
     var currentPosition = startIndex
-    while character(at: currentPosition) != terminator, let next = index(after: currentPosition) {
+    while utf16(at: currentPosition) != terminator, let next = index(after: currentPosition) {
       currentPosition = next
     }
     if let next = index(after: currentPosition) {

@@ -26,8 +26,8 @@ public struct Header: SequenceRecognizer, SentinelContaining {
   public var sentinels: CharacterSet { CharacterSet(charactersIn: "#") }
   public var type: NodeType { .header }
   public let sequenceRecognizer = Node.sequence(of: [
-    Node.text(matching: { $0 == "#" }, named: "delimiter"),
-    Node.text(matching: { $0.unicodeScalars.first!.properties.isPatternWhitespace }),
-    Node.text(upToAndIncluding: "\n", named: "text"),
+    Node.text(matching: { $0 == unichar.octothorpe }, named: "delimiter"),
+    Node.text(matching: { CharacterSet.whitespaces.contains(Unicode.Scalar($0)!) }),
+    Node.text(upToAndIncluding: unichar.newline, named: "text"),
   ])
 }

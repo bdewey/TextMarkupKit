@@ -20,16 +20,13 @@ import Foundation
 public struct Paragraph: Parser {
   public init() {}
 
-  private let paragraphTermination: CharacterSet = [
-    "#",
-    "\n",
-  ]
+  private let paragraphTermination = NSCharacterSet(charactersIn: "#\n")
 
   public func parse(textBuffer: TextBuffer, position: TextBufferIndex) -> Node {
     var currentPosition = position
     repeat {
-      currentPosition = textBuffer.index(after: "\n", startingAt: currentPosition)
-    } while !paragraphTermination.contains(textBuffer.unicodeScalar(at: currentPosition), includesNil: true)
+      currentPosition = textBuffer.index(after: unichar.newline, startingAt: currentPosition)
+    } while !paragraphTermination.contains(textBuffer.utf16(at: currentPosition), includesNil: true)
     let slice = TextBufferSlice(textBuffer: textBuffer, startIndex: position, endIndex: currentPosition)
     let children = TextSequenceRecognizer.miniMarkdown.parse(textBuffer: slice, position: position)
     if let childRange = children.encompassingRange {

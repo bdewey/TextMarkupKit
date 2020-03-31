@@ -37,8 +37,12 @@ public struct TextSequenceRecognizer {
     var children = [Node]()
     var defaultRange = position ..< position
     var position = position
-    while let character = textBuffer.character(at: position) {
-      if textRecognizers.sentinels.contains(character.unicodeScalars.first!), let node = textRecognizers.recognizeNode(textBuffer: textBuffer, position: position) {
+    let foundationSentinels = textRecognizers.sentinels as NSCharacterSet
+    while let utf16 = textBuffer.utf16(at: position) {
+      if
+        textRecognizers.sentinels.characterIsMember(utf16),
+        let node = textRecognizers.recognizeNode(textBuffer: textBuffer, position: position)
+      {
         if !defaultRange.isEmpty {
           let defaultNode = Node(type: defaultType, range: defaultRange)
           children.append(defaultNode)

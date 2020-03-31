@@ -33,8 +33,8 @@ final class MiniMarkdownParsingTests: XCTestCase {
     do {
       let tree = try DocumentParser.miniMarkdown.parse(text)
       XCTAssertEqual(tree.compactStructure, "(document ((header (delimiter text)) blank_line (paragraph (text)) blank_line (paragraph (text))))")
-    } catch ParseError.incompleteParsing(let endpoint) {
-      XCTFail("Did not parse the entire string. Remaining text: '\(text[endpoint...].debugDescription)'")
+    } catch ParseError.incompleteParsing {
+      XCTFail("Did not parse the entire string.")
     } catch {
       XCTFail("Unexpected error: \(error)")
     }

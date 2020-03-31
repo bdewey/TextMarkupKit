@@ -17,8 +17,8 @@
 
 import Foundation
 
-public extension CharacterSet {
-  func contains(_ scalar: UnicodeScalar?, includesNil: Bool) -> Bool {
-    scalar.map(contains) ?? includesNil
+public extension NSCharacterSet {
+  func contains(_ utf16: unichar?, includesNil: Bool) -> Bool {
+    utf16.map(characterIsMember) ?? includesNil
   }
 }

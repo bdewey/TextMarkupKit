@@ -20,7 +20,7 @@ import Foundation
 /// Possible parsing errors.
 public enum ParseError: Swift.Error {
   /// The parsing routine did not parse the entire document.
-  case incompleteParsing(String.Index)
+  case incompleteParsing(Int)
 }
 
 /// Recognizes bits of structure inside of a text file.
@@ -96,7 +96,7 @@ public struct SentinelRecognizerCollection: NodeRecognizer {
 
   /// The union of all sentinels in the collection. If the unicode scalar at a spot in the TextBuffer is **not** in this set, then
   /// you can skip trying to recognize anything in this collection.
-  public private(set) var sentinels: CharacterSet
+  public private(set) var sentinels: NSCharacterSet
 
   /// If you have an sequence of ConditionalParsers, returns the first non-nil result.
   public func recognizeNode(textBuffer: TextBuffer, position: TextBufferIndex) -> Node? {
@@ -108,9 +108,11 @@ public struct SentinelRecognizerCollection: NodeRecognizer {
     return nil
   }
 
-  private static func unionOfSentinels(in items: [SentinelContaining]) -> CharacterSet {
-    items
-      .map { $0.sentinels }
-      .reduce(into: CharacterSet()) { $0.formUnion($1) }
+  private static func unionOfSentinels(in items: [SentinelContaining]) -> NSCharacterSet {
+    let result = NSMutableCharacterSet()
+    for item in items {
+      result.formUnion(with: item.sentinels)
+    }
+    return result
   }
 }

@@ -37,9 +37,9 @@ public struct DocumentParser: Parser {
   public func parse(textBuffer: TextBuffer, position: TextBufferIndex) -> Node {
     var children = [Node]()
     var position = position
-    while let scalar = textBuffer.unicodeScalar(at: position) {
+    while let utf16 = textBuffer.utf16(at: position) {
       if
-        subparsers.sentinels.contains(scalar),
+        subparsers.sentinels.characterIsMember(utf16),
         let node = subparsers.recognizeNode(textBuffer: textBuffer, position: position) {
         children.append(node)
         position = node.range.upperBound

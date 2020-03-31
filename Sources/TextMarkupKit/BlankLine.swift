@@ -27,7 +27,7 @@ public struct BlankLine: NodeRecognizer, SentinelContaining {
   public func recognizeNode(textBuffer: TextBuffer, position: TextBufferIndex) -> Node? {
     guard
       let nextPosition = textBuffer.index(after: position),
-      textBuffer.character(at: position) == "\n"
+      textBuffer.utf16(at: position) == unichar.newline
     else {
       return nil
     }

@@ -31,14 +31,14 @@ public struct DelimitedText: NodeRecognizer, SentinelContaining {
   public var sentinels: CharacterSet { CharacterSet(charactersIn: leftDelimiter) }
 
   public func recognizeNode(textBuffer: TextBuffer, position: TextBufferIndex) -> Node? {
-    guard let leftNode = Delimiter(leftDelimiter).recognizeNode(textBuffer: textBuffer, position: position) else {
+    guard
+      let leftNode = Delimiter(leftDelimiter).recognizeNode(textBuffer: textBuffer, position: position),
+      let rightDelimiterStart = textBuffer.firstIndex(of: rightDelimiter, startingPosition: leftNode.range.upperBound)
+    else {
       return nil
     }
-    let internalBuffer = DelimitedTextBuffer(textBuffer: textBuffer, delimiter: rightDelimiter)
-    guard let textNode = TextMatchingRecognizer(type: .text, matchFunction: { _ in true })
-      .recognizeNode(textBuffer: internalBuffer, position: leftNode.range.upperBound) else {
-      return nil
-    }
+    // TODO: Recursively look for more styled text here
+    let textNode = Node(type: .text, range: leftNode.range.upperBound ..< rightDelimiterStart)
     guard let rightNode = Delimiter(rightDelimiter).recognizeNode(textBuffer: textBuffer, position: textNode.range.upperBound) else {
       return nil
     }

@@ -80,12 +80,12 @@ public extension Node {
   }
 
   static func text(
-    matching predicate: @escaping (Character) -> Bool,
+    matching predicate: @escaping (unichar) -> Bool,
     named name: NodeType = .anonymous
   ) -> ParsingFunction {
     return { buffer, position in
       var endPosition = position
-      while buffer.character(at: endPosition).map(predicate) ?? false {
+      while buffer.utf16(at: endPosition).map(predicate) ?? false {
         endPosition = buffer.index(after: endPosition)!
       }
       guard endPosition > position else {
@@ -96,15 +96,15 @@ public extension Node {
   }
 
   static func text(
-    upToAndIncluding terminator: Character,
+    upToAndIncluding terminator: unichar,
     requiresTerminator: Bool = false,
     named name: NodeType = .anonymous
   ) -> ParsingFunction {
     return { buffer, position in
       var currentPosition = position
       var foundTerminator = false
-      while let character = buffer.character(at: currentPosition) {
-        if character == terminator {
+      while let utf16 = buffer.utf16(at: currentPosition) {
+        if utf16 == terminator {
           foundTerminator = true
           break
         }

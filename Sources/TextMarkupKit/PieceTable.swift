@@ -20,48 +20,45 @@ import Foundation
 /// Currently this is an un-editable string. But the goal is to support efficient edits with a Piece Table data structure.
 public final class PieceTable: TextBuffer {
   public init(_ string: String) {
-    self.string = string
+    self.string = string as NSString
   }
 
-  private let string: String
+  private let string: NSString
 
-  public var startIndex: TextBufferIndex { TextBufferIndex(string.startIndex) }
-  public var endIndex: TextBufferIndex { TextBufferIndex(string.endIndex) }
+  public var startIndex: TextBufferIndex { TextBufferIndex(0) }
+  public var endIndex: TextBufferIndex { TextBufferIndex(string.length) }
 
-  public func character(at index: TextBufferIndex) -> Character? {
-    guard index.stringIndex != string.endIndex else {
+  public func utf16(at index: TextBufferIndex) -> unichar? {
+    guard index.stringIndex < string.length else {
       return nil
     }
-    return string[index.stringIndex]
+    return string.character(at: index.stringIndex)
   }
 
   public func unicodeScalar(at index: TextBufferIndex) -> UnicodeScalar? {
-    guard index.stringIndex != string.endIndex else {
+    guard index.stringIndex < string.length else {
       return nil
     }
-    return string.unicodeScalars[index.stringIndex]
+    guard let scalar = UnicodeScalar(string.character(at: index.stringIndex)) else {
+      assertionFailure()
+      return nil
+    }
+    return scalar
   }
 
   public func index(after index: TextBufferIndex) -> TextBufferIndex? {
-    guard index.stringIndex != string.endIndex else {
+    guard index.stringIndex < string.length else {
       return nil
     }
-    return TextBufferIndex(string.index(after: index.stringIndex))
-  }
-
-  public func index(before index: TextBufferIndex) -> TextBufferIndex? {
-    guard index.stringIndex != string.startIndex else {
-      return nil
-    }
-    return TextBufferIndex(string.index(before: index.stringIndex))
+    return TextBufferIndex(index.stringIndex + 1)
   }
 
   public func isEOF(_ index: TextBufferIndex) -> Bool {
-    return index.stringIndex == string.endIndex
+    return index.stringIndex >= string.length
   }
 
   public subscript(range: Range<TextBufferIndex>) -> String {
-    let stringIndexRange = range.lowerBound.stringIndex ..< range.upperBound.stringIndex
-    return String(string[stringIndexRange])
+    let stringIndexRange = NSRange(location: range.lowerBound.stringIndex, length: range.upperBound.stringIndex - range.lowerBound.stringIndex)
+    return string.substring(with: stringIndexRange) as String
   }
 }
