@@ -22,14 +22,31 @@ public struct Paragraph: Parser {
 
   private static let paragraphTermination = NSCharacterSet(charactersIn: "#\n")
 
-  public func parse(textBuffer: TextBuffer, position: Int) -> Node {
-    let trimmingTextBuffer = TrimmingTextBuffer(textBuffer: textBuffer, startIndex: position) { (character, buffer, index) -> Bool in
-      if Self.paragraphTermination.characterIsMember(character) {
-        return buffer.utf16(at: index - 1) == .newline
-      }
+  /// True if a character belongs to a paragraph. Criteria for a paragraph boundary:
+  /// 1. `character` is a member of `paragraphTermination`
+  /// 2. The *previous* character is a newline.
+  /// A character that meets this criteria is the first character in a **new** block and gets filtered out.
+  private static func shouldIncludeInParagraph(
+    character: unichar,
+    textBuffer: TextBuffer,
+    index: Int
+  ) -> Bool {
+    if paragraphTermination.characterIsMember(character), textBuffer.utf16(at: index - 1) == .newline {
       return false
     }
-    let children = TextSequenceRecognizer.miniMarkdown.parse(textBuffer: trimmingTextBuffer, position: position)
+    return true
+  }
+
+  public func parse(textBuffer: TextBuffer, position: Int) -> Node {
+    let filteredTextBuffer = FilteringTextBuffer(
+      textBuffer: textBuffer,
+      startIndex: position,
+      isIncluded: Self.shouldIncludeInParagraph(character:textBuffer:index:)
+    )
+    let children = TextSequenceRecognizer.miniMarkdown.parse(
+      textBuffer: filteredTextBuffer,
+      position: position
+    )
     if let childRange = children.encompassingRange {
       return Node(type: .paragraph, range: childRange, children: children)
     } else {

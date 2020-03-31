@@ -17,31 +17,35 @@
 
 import Foundation
 
-public struct TrimmingTextBuffer {
+public typealias TextBufferFilter = (unichar, TextBuffer, Int) -> Bool
+
+/// Composes another `TextBuffer` and only passes through `utf16` values that pass a filter.
+public struct FilteringTextBuffer: TextBuffer {
+  /// Designated initializer.
+  /// - parameter textBuffer: The text buffer to wrap.
+  /// - parameter startIndex: Starting index into the view.
+  /// - parameter isIncluded: Filtering function. Only `utf16` values that pass this filter will be returned.
   public init(
     textBuffer: TextBuffer,
     startIndex: Int,
-    shouldTrim: @escaping (unichar, TextBuffer, Int) -> Bool
+    isIncluded: @escaping TextBufferFilter
   ) {
     self.textBuffer = textBuffer
     self.startIndex = startIndex
-    self.shouldTrim = shouldTrim
+    self.isIncluded = isIncluded
   }
 
   private let textBuffer: TextBuffer
   public let startIndex: Int
-  private let shouldTrim: (unichar, TextBuffer, Int) -> Bool
-}
+  private let isIncluded: TextBufferFilter
 
-extension TrimmingTextBuffer: TextBuffer {
   public func utf16(at index: Int) -> unichar? {
-    guard
+    if
       index >= startIndex,
       let unicode = textBuffer.utf16(at: index),
-      !shouldTrim(unicode, textBuffer, index)
-    else {
-      return nil
+      isIncluded(unicode, textBuffer, index) {
+      return unicode
     }
-    return unicode
+    return nil
   }
 }
