@@ -19,9 +19,14 @@ import Foundation
 import TextMarkupKit
 import XCTest
 
+struct ParsingTestCase {
+  let input: String
+  let compactStructure: String
+}
+
 final class MiniMarkdownParsingTests: XCTestCase {
-  func testNewParseHeaderAndBody() {
-    let text = """
+  let testCases: [String: ParsingTestCase] = [
+    "headerAndBody": ParsingTestCase(input: """
     # This is a header
 
     And this is a body.
@@ -29,17 +34,20 @@ final class MiniMarkdownParsingTests: XCTestCase {
 
     The line break indicates a new paragraph.
 
-    """
-    let pieceTable = PieceTable(text)
-    let tree = DocumentParser.miniMarkdown.parse(textBuffer: pieceTable, position: 0)
-    print(tree.debugDescription(withContentsFrom: pieceTable))
-    XCTAssertEqual(tree.compactStructure, "(document ((header (delimiter text)) blank_line (paragraph (text)) blank_line (paragraph (text))))")
-    print(pieceTable)
-  }
+    """, compactStructure: "(document ((header (delimiter text)) blank_line (paragraph (text)) blank_line (paragraph (text))))"),
 
-  func testStandaloneEmphasis() {
-    let example = "*This is emphasized text.*"
-    let tree = try! DocumentParser.miniMarkdown.parse(example)
-    XCTAssertEqual(tree.compactStructure, "(document ((paragraph ((emphasis (delimiter text delimiter))))))")
+    "standaloneEmphasis": ParsingTestCase(input: "*This is emphasized text.*", compactStructure: "(document ((paragraph ((emphasis (delimiter text delimiter))))))"),
+  ]
+
+  func testRunner() {
+    for (name, testCase) in testCases {
+      let pieceTable = PieceTable(testCase.input)
+      let tree = DocumentParser.miniMarkdown.parse(textBuffer: pieceTable, position: 0)
+      if tree.range.endIndex != pieceTable.endIndex {
+        let unparsedText = pieceTable[tree.range.endIndex ..< pieceTable.endIndex]
+        XCTFail("Test case \(name): Unparsed text = '\(unparsedText.debugDescription)'")
+      }
+      XCTAssertEqual(tree.compactStructure, testCase.compactStructure, "Test case \(name), unexpected structure")
+    }
   }
 }

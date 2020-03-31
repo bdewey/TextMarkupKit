@@ -39,6 +39,7 @@ public struct FilteringTextBuffer: TextBuffer {
   public let startIndex: Int
   private let isIncluded: TextBufferFilter
 
+  /// Filters the call to the inner `textBuffer.utf16(at:)`
   public func utf16(at index: Int) -> unichar? {
     if
       index >= startIndex,
