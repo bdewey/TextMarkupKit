@@ -42,9 +42,10 @@ final class MiniMarkdownParsingTests: XCTestCase {
 
     "justEmphasis": ParsingTestCase(input: "*This is emphasized text.*", compactStructure: "(document (paragraph (emphasis delimiter text delimiter)))"),
     "textWithEmphasis":
-      .expect("(document (paragraph text (emphasis delimiter text delimiter)))", for:  "This is text with *emphasis.*"),
+      .expect("(document (paragraph text (emphasis delimiter text delimiter)))", for: "This is text with *emphasis.*"),
     "textWithBold":
-      .expect("(document (paragraph text (strong_emphasis delimiter text delimiter) text))", for: "This is text with **bold**.")
+      .expect("(document (paragraph text (strong_emphasis delimiter text delimiter) text))", for: "This is text with **bold**."),
+    "textAndHeader": .expect("(document (paragraph text) (header delimiter text))", for: "Text\n# Heading"),
   ]
 
   func testRunner() {
