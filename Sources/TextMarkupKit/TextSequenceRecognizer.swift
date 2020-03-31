@@ -40,8 +40,7 @@ public struct TextSequenceRecognizer {
     while let utf16 = textBuffer.utf16(at: position) {
       if
         textRecognizers.sentinels.characterIsMember(utf16),
-        let node = textRecognizers.recognizeNode(textBuffer: textBuffer, position: position)
-      {
+        let node = textRecognizers.recognizeNode(textBuffer: textBuffer, position: position) {
         if !defaultRange.isEmpty {
           let defaultNode = Node(type: defaultType, range: defaultRange)
           children.append(defaultNode)

@@ -28,7 +28,7 @@ public extension TextBuffer {
   func firstIndex(of string: String, startingPosition: Int) -> Int? {
     let unicodeCharacters = Array(string.utf16)
     var currentPosition = startingPosition
-    while self.utf16(at: currentPosition) != nil {
+    while utf16(at: currentPosition) != nil {
       var innerPosition = currentPosition
       var inputIndex = 0
       while inputIndex < unicodeCharacters.count,
