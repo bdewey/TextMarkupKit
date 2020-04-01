@@ -63,7 +63,11 @@ public struct TextSequenceRecognizer {
 
 public extension TextSequenceRecognizer {
   static let miniMarkdown = TextSequenceRecognizer(
-    textRecognizers: [DelimitedText.strongEmphasis, DelimitedText.emphasis],
+    textRecognizers: [
+      DelimitedText.strongEmphasis,
+      DelimitedText.emphasis,
+      DelimitedText.code,
+    ],
     defaultType: .text
   )
 }

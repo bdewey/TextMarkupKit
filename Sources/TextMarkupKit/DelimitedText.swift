@@ -53,9 +53,11 @@ public struct DelimitedText: NodeRecognizer, SentinelContaining {
 public extension NodeType {
   static let emphasis: NodeType = "emphasis"
   static let strongEmphasis: NodeType = "strong_emphasis"
+  static let code: NodeType = "code"
 }
 
 public extension DelimitedText {
   static let emphasis = DelimitedText(type: .emphasis, leftDelimiter: "*")
   static let strongEmphasis = DelimitedText(type: .strongEmphasis, leftDelimiter: "**")
+  static let code = DelimitedText(type: .code, leftDelimiter: "`")
 }

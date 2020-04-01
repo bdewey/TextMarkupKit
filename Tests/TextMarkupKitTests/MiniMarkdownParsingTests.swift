@@ -46,6 +46,7 @@ final class MiniMarkdownParsingTests: XCTestCase {
     "textWithBold":
       .expect("(document (paragraph text (strong_emphasis delimiter text delimiter) text))", for: "This is text with **bold**."),
     "textAndHeader": .expect("(document (paragraph text) (header delimiter text))", for: "Text\n# Heading"),
+    "textAndCode": .expect("(document (paragraph text (code delimiter text delimiter) text))", for: "This is text with `code`.")
   ]
 
   func testRunner() {
@@ -56,16 +57,10 @@ final class MiniMarkdownParsingTests: XCTestCase {
         let unparsedText = pieceTable[tree.range.endIndex ..< pieceTable.endIndex]
         XCTFail("Test case \(name): Unparsed text = '\(unparsedText.debugDescription)'")
       }
-      if #available(OSX 10.15, *) {
-        if testCase.compactStructure != tree.compactStructure {
-          print("### Failure: \(name)")
-          print("Got:      " + tree.compactStructure)
-          print("Expected: " + testCase.compactStructure)
-          let diff = tree.compactStructure.difference(from: testCase.compactStructure)
-          for change in diff {
-            print("          \(change)")
-          }
-        }
+      if testCase.compactStructure != tree.compactStructure {
+        print("### Failure: \(name)")
+        print("Got:      " + tree.compactStructure)
+        print("Expected: " + testCase.compactStructure)
       }
       XCTAssertEqual(tree.compactStructure, testCase.compactStructure, "Test case \(name), unexpected structure")
     }
