@@ -18,7 +18,7 @@
 import Foundation
 
 /// Currently this is an un-editable string. But the goal is to support efficient edits with a Piece Table data structure.
-public final class PieceTable: TextBuffer, CustomStringConvertible {
+public final class PieceTable: TextBuffer, CustomStringConvertible, Sequence {
   public init(_ string: String) {
     self.string = string as NSString
   }
@@ -32,12 +32,16 @@ public final class PieceTable: TextBuffer, CustomStringConvertible {
   public var charactersRead = 0
 
   public func utf16(at index: Int) -> unichar? {
-    guard index < string.length else {
+    guard index >= 0, index < string.length else {
       eofRead += 1
       return nil
     }
     charactersRead += 1
     return string.character(at: index)
+  }
+
+  public func makeIterator() -> Iterator {
+    return Iterator(index: 0, string: string)
   }
 
   public subscript(range: Range<Int>) -> String {
@@ -52,5 +56,94 @@ public final class PieceTable: TextBuffer, CustomStringConvertible {
       "eofRead": eofRead,
     ]
     return "PieceTable \(properties)"
+  }
+}
+
+public protocol NSStringIterator {
+  var index: Int { get }
+  mutating func next() -> unichar?
+}
+
+extension PieceTable {
+  public struct Iterator: NSStringIterator, IteratorProtocol {
+    internal init(index: Int, string: NSString) {
+      self.index = index
+      self.string = string
+    }
+
+    public var index: Int
+    private let string: NSString
+
+    public mutating func next() -> unichar? {
+      guard index < string.length else {
+        return nil
+      }
+      let char = string.character(at: index)
+      index += 1
+      return char
+    }
+  }
+
+  public struct EndingAfterIterator: NSStringIterator {
+    internal init(iterator: NSStringIterator, pattern: Pattern) {
+      self.innerIterator = iterator
+      self.pattern = pattern
+    }
+
+    private var innerIterator: NSStringIterator
+    private var pattern: Pattern
+    private var foundPattern = false
+    public var index: Int { innerIterator.index }
+
+    public mutating func next() -> unichar? {
+      guard !foundPattern, let char = innerIterator.next() else {
+        return nil
+      }
+      foundPattern = pattern.patternRecognized(after: char) == .yes
+      return char
+    }
+  }
+
+  public struct EndingBeforeIterator: NSStringIterator {
+    internal init(iterator: NSStringIterator, pattern: Pattern) {
+      self.innerIterator = iterator
+      self.pattern = pattern
+    }
+
+    private var innerIterator: NSStringIterator
+    private var pattern: Pattern
+    public var index: Int { innerIterator.index }
+
+    public mutating func next() -> unichar? {
+      var seekahead = innerIterator
+      var patternFound = false
+      while let char = seekahead.next() {
+        let result = pattern.patternRecognized(after: char)
+        if result == .yes {
+          patternFound = true
+          break
+        } else if result == .no {
+          break
+        }
+      }
+      guard !patternFound, let char = innerIterator.next() else {
+        return nil
+      }
+      return char
+    }
+  }
+}
+
+extension NSStringIterator {
+  public func iterator(endingAfter pattern: Pattern) -> PieceTable.EndingAfterIterator {
+    return PieceTable.EndingAfterIterator(iterator: self, pattern: pattern)
+  }
+
+  public func iterator(endingAfter pattern: StringLiteralPattern) -> PieceTable.EndingAfterIterator {
+    return PieceTable.EndingAfterIterator(iterator: self, pattern: pattern)
+  }
+
+  public func iterator(endingBefore pattern: StringLiteralPattern) -> PieceTable.EndingBeforeIterator {
+    return PieceTable.EndingBeforeIterator(iterator: self, pattern: pattern)
   }
 }

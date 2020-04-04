@@ -21,7 +21,7 @@ extension NodeType {
   public static let header: NodeType = "header"
 }
 
-public struct Header: SequenceRecognizer, SentinelContaining {
+public struct Header: SequenceRecognizerProtocol, SentinelContaining {
   public init() {}
   public var sentinels: CharacterSet { CharacterSet(charactersIn: "#") }
   public var type: NodeType { .header }

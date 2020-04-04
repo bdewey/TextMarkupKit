@@ -30,39 +30,49 @@ struct ParsingTestCase {
 
 final class MiniMarkdownParsingTests: XCTestCase {
   let testCases: [String: ParsingTestCase] = [
-    "headerAndBody": ParsingTestCase(input: """
-    # This is a header
-
-    And this is a body.
-    The two lines are part of the same paragraph.
-
-    The line break indicates a new paragraph.
-
-    """, compactStructure: "(document (header delimiter text) blank_line (paragraph text) blank_line (paragraph text))"),
-
+//    "headerAndBody": ParsingTestCase(input: """
+//    # This is a header
+//
+//    And this is a body.
+//    The two lines are part of the same paragraph.
+//
+//    The line break indicates a new paragraph.
+//
+//    """, compactStructure: "(document (header delimiter text) blank_line (paragraph text) blank_line (paragraph text))"),
+//
     "justEmphasis": ParsingTestCase(input: "*This is emphasized text.*", compactStructure: "(document (paragraph (emphasis delimiter text delimiter)))"),
-    "textWithEmphasis":
-      .expect("(document (paragraph text (emphasis delimiter text delimiter)))", for: "This is text with *emphasis.*"),
-    "textWithBold":
-      .expect("(document (paragraph text (strong_emphasis delimiter text delimiter) text))", for: "This is text with **bold**."),
-    "textAndHeader": .expect("(document (paragraph text) (header delimiter text))", for: "Text\n# Heading"),
-    "textAndCode": .expect("(document (paragraph text (code delimiter text delimiter) text))", for: "This is text with `code`.")
+//    "textWithEmphasis":
+//      .expect("(document (paragraph text (emphasis delimiter text delimiter)))", for: "This is text with *emphasis.*"),
+//    "textWithBold":
+//      .expect("(document (paragraph text (strong_emphasis delimiter text delimiter) text))", for: "This is text with **bold**."),
+//    "textAndHeader": .expect("(document (paragraph text) (header delimiter text))", for: "Text\n# Heading"),
+//    "textAndCode": .expect("(document (paragraph text (code delimiter text delimiter) text))", for: "This is text with `code`."),
+//    "headersHaveFormatting": .expect("(document (heading delimiter text (emphasis delimiter text delimiter)))", for: "# This is a heading with *emphasis*"),
   ]
 
-  func testRunner() {
+  func __testOldParser() {
+    runTests(on: DocumentParser.miniMarkdown, named: "old")
+  }
+
+  func testNewParser() {
+    runTests(on: MiniMarkdownRecognizer(), named: "new")
+  }
+
+  func runTests(on parser: Parser, named parserName: String) {
     for (name, testCase) in testCases {
       let pieceTable = PieceTable(testCase.input)
-      let tree = DocumentParser.miniMarkdown.parse(textBuffer: pieceTable, position: 0)
+      let tree = parser.parse(textBuffer: pieceTable, position: 0)
       if tree.range.endIndex != pieceTable.endIndex {
         let unparsedText = pieceTable[tree.range.endIndex ..< pieceTable.endIndex]
-        XCTFail("Test case \(name): Unparsed text = '\(unparsedText.debugDescription)'")
+        XCTFail("Test case \(parserName).\(name): Unparsed text = '\(unparsedText.debugDescription)'")
       }
       if testCase.compactStructure != tree.compactStructure {
-        print("### Failure: \(name)")
+        print("### Failure: \(parserName).\(name)")
         print("Got:      " + tree.compactStructure)
         print("Expected: " + testCase.compactStructure)
+        print(tree.debugDescription(withContentsFrom: pieceTable))
       }
-      XCTAssertEqual(tree.compactStructure, testCase.compactStructure, "Test case \(name), unexpected structure")
+      XCTAssertEqual(tree.compactStructure, testCase.compactStructure, "Test case \(parserName).\(name), unexpected structure")
     }
   }
 }

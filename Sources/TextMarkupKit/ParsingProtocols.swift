@@ -30,8 +30,6 @@ public protocol NodeRecognizer {
   func recognizeNode(textBuffer: TextBuffer, position: Int) -> Node?
 }
 
-extension Sequence where Element: NodeRecognizer {}
-
 /// Unlike a recognizer, a `parser` is guaranteed to succeed.
 /// This is what distinguishes a lot of casual markup languages from computer programming
 /// languages. There's no such thing as a "syntax error" in a Markdown document, for example; every text file is a valid Markdown file.
@@ -54,7 +52,7 @@ extension Parser {
 }
 
 /// A parser that succeeds when it recognizes a sequence of child nodes at the specified spot in the buffer.
-public protocol SequenceRecognizer: NodeRecognizer {
+public protocol SequenceRecognizerProtocol: NodeRecognizer {
   /// The type of node that will be created if the sequence is recognized.
   var type: NodeType { get }
 
@@ -62,7 +60,7 @@ public protocol SequenceRecognizer: NodeRecognizer {
   var sequenceRecognizer: (TextBuffer, Int) -> [Node] { get }
 }
 
-extension SequenceRecognizer {
+extension SequenceRecognizerProtocol {
   /// Default `parse` implementation for a SequenceParser.
   public func recognizeNode(textBuffer: TextBuffer, position: Int) -> Node? {
     let children = sequenceRecognizer(textBuffer, position)
