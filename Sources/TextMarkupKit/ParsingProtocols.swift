@@ -34,7 +34,7 @@ public protocol NodeRecognizer {
 /// This is what distinguishes a lot of casual markup languages from computer programming
 /// languages. There's no such thing as a "syntax error" in a Markdown document, for example; every text file is a valid Markdown file.
 /// If you get the syntax wrong your formatting or links might not be recognized, but the text is still valid.
-public protocol Parser {
+public protocol Parser: PieceTableParser {
   /// Parse the text at the given input.
   func parse(textBuffer: TextBuffer, position: Int) -> Node
 }
@@ -48,6 +48,10 @@ extension Parser {
       throw ParseError.incompleteParsing(node.range.upperBound)
     }
     return node
+  }
+
+  public func parse(pieceTable: PieceTable) -> Node {
+    self.parse(textBuffer: pieceTable, position: 0)
   }
 }
 

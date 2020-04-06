@@ -18,7 +18,7 @@
 import Foundation
 
 extension NodeType {
-  static let delimiter: NodeType = "delimiter"
+  public static let delimiter: NodeType = "delimiter"
 }
 
 public struct Delimiter: NodeRecognizer {

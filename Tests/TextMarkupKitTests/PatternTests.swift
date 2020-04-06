@@ -36,15 +36,17 @@ private extension PatternTests {
     var pattern = pattern
     var mostRecentMaybe: Int?
     var results = [Range<Int>]()
-    for (index, ch) in string.utf16.enumerated() {
-      switch pattern.patternRecognized(after: ch) {
+    let pieceTable = PieceTable(string)
+    var iterator = pieceTable.makeIterator()
+    while let ch = iterator.next() {
+      switch pattern.patternRecognized(after: ch, iterator: iterator) {
       case .no:
         mostRecentMaybe = nil
       case .maybe:
-        if mostRecentMaybe == nil { mostRecentMaybe = index }
+        if mostRecentMaybe == nil { mostRecentMaybe = iterator.index - 1 }
       case .yes:
-        let startIndex = mostRecentMaybe ?? index
-        results.append(startIndex ..< index + 1)
+        let startIndex = mostRecentMaybe ?? iterator.index - 1
+        results.append(startIndex ..< iterator.index)
       }
     }
     return results
@@ -53,9 +55,11 @@ private extension PatternTests {
   func yesIndexesOfPattern(_ pattern: StringLiteralPattern, in string: String) -> IndexSet {
     var indexSet = IndexSet()
     var pattern = pattern
-    for (index, ch) in string.utf16.enumerated() {
-      if pattern.patternRecognized(after: ch) == .yes {
-        indexSet.insert(index)
+    let pieceTable = PieceTable(string)
+    var iterator = pieceTable.makeIterator()
+    while let ch = iterator.next() {
+      if pattern.patternRecognized(after: ch, iterator: iterator) == .yes {
+        indexSet.insert(iterator.index - 1)
       }
     }
     return indexSet

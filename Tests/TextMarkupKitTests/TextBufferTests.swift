@@ -7,22 +7,25 @@ import XCTest
 final class TextBufferTests: XCTestCase {
   func testScopeEndingAfter() {
     let buffer = PieceTable("This is content ** with a double-asterisk")
-    let iterator = buffer.makeIterator().iterator(endingAfter: "**")
-    XCTAssertEqual(iterator.stringContents, "This is content **")
+    var iterator = buffer.makeIterator().pushScope(.endAfterPattern, pattern: "**")
+    XCTAssertEqual(iterator.stringContents(), "This is content **")
+    iterator = iterator.popScope()
+    XCTAssertEqual(iterator.stringContents(), " with a double-asterisk")
   }
 
   func testScopeEndingBefore() {
     let buffer = PieceTable("This is content ** with a double-asterisk")
-    let iterator = buffer.makeIterator().iterator(endingBefore: "**")
-    XCTAssertEqual(iterator.stringContents, "This is content ")
+    var iterator = buffer.makeIterator().pushScope(.endBeforePattern, pattern: "**")
+    XCTAssertEqual(iterator.stringContents(), "This is content ")
+    iterator = iterator.popScope()
+    XCTAssertEqual(iterator.stringContents(), "** with a double-asterisk")
   }
 }
 
 private extension NSStringIterator {
-  var stringContents: String {
-    var i = self
+  mutating func stringContents() -> String {
     var chars = [unichar]()
-    while let char = i.next() {
+    while let char = next() {
       chars.append(char)
     }
     return String(utf16CodeUnits: chars, count: chars.count)

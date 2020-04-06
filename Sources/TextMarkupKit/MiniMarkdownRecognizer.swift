@@ -2,7 +2,11 @@
 
 import Foundation
 
-public final class MiniMarkdownRecognizer: Parser {
+public protocol PieceTableParser {
+  func parse(pieceTable: PieceTable) -> Node
+}
+
+public final class MiniMarkdownRecognizer: PieceTableParser {
   public init() {}
   
   public lazy var blockRecognizers: RuleCollection = [
@@ -18,23 +22,25 @@ public final class MiniMarkdownRecognizer: Parser {
 
   public let defaultTextType = NodeType.text
 
-  public func parse(textBuffer: TextBuffer, position: Int) -> Node {
-    return parser(textBuffer, position)!
+  public func parse(pieceTable: PieceTable) -> Node {
+    var iterator: NSStringIterator = pieceTable.makeIterator()
+    guard let node = parser(&iterator) else {
+      assertionFailure()
+      return Node(type: .markdownDocument, range: pieceTable.startIndex ..< pieceTable.endIndex)
+    }
+    return node
   }
 
   private lazy var parser = bind(nodeType: .markdownDocument, sequenceRecognizer: blockSequence)
 
-  private lazy var blockSequence: SequenceRecognizer = { [weak self] textBuffer, index in
+  private lazy var blockSequence: SequenceRecognizer = { [weak self] iterator in
     guard let self = self else { return [] }
     var blocks = [Node]()
-    var currentPosition = index
     repeat {
-      if let node = self.blockRecognizers.recognizeNode(textBuffer: textBuffer, position: currentPosition) {
+      if let node = self.blockRecognizers.recognize(iterator: &iterator) {
         blocks.append(node)
-        currentPosition = node.range.upperBound
-      } else if let node = self.paragraph.recognizer(textBuffer, currentPosition) {
+      } else if let node = self.paragraph.recognizer(&iterator) {
         blocks.append(node)
-        currentPosition = node.range.upperBound
       } else {
         break
       }
@@ -42,25 +48,23 @@ public final class MiniMarkdownRecognizer: Parser {
     return blocks
   }
 
-  func styledText(textBuffer: TextBuffer, index: Int) -> [Node] {
+  func styledText(iterator: inout NSStringIterator) -> [Node] {
     var children = [Node]()
-    var defaultRange = index ..< index
-    var index = index
-    while let utf16 = textBuffer.utf16(at: index) {
+    var defaultRange = iterator.index ..< iterator.index
+    while let utf16 = iterator.peek() {
       if
         styledTextRecognizers.sentinels.characterIsMember(utf16),
-        let node = styledTextRecognizers.recognizeNode(textBuffer: textBuffer, position: index) {
+        let node = styledTextRecognizers.recognize(iterator: &iterator) {
         if !defaultRange.isEmpty {
           let defaultNode = Node(type: defaultTextType, range: defaultRange)
           children.append(defaultNode)
         }
         children.append(node)
-        index = node.range.upperBound
-        defaultRange = index ..< index
+        defaultRange = iterator.index ..< iterator.index
       } else {
-        index += 1
+        _ = iterator.next()
       }
-      defaultRange = defaultRange.settingUpperBound(index)
+      defaultRange = defaultRange.settingUpperBound(iterator.index)
     }
     if !defaultRange.isEmpty {
       let defaultNode = Node(type: defaultTextType, range: defaultRange)
@@ -69,18 +73,17 @@ public final class MiniMarkdownRecognizer: Parser {
     return children
   }
 
-  let anything: SequenceRecognizer = { textBuffer, index in
-    var endIndex = index
-    while textBuffer.utf16(at: endIndex) != nil {
-      endIndex += 1
+  let anything: SequenceRecognizer = { iterator in
+    let startIndex = iterator.index
+    while iterator.next() != nil {
     }
-    return [Node(type: .text, range: index ..< endIndex)]
+    return [Node(type: .text, range: startIndex ..< iterator.index)]
   }
 
   func styledText(_ type: NodeType) -> Recognizer {
-    return { [weak self] textBuffer, index in
+    return { [weak self] iterator in
       guard let self = self else { return nil }
-      let children = self.styledText(textBuffer: textBuffer, index: index)
+      let children = self.styledText(iterator: &iterator)
       if let range = children.encompassingRange {
         return Node(type: type, range: range, children: children)
       } else {
@@ -92,86 +95,59 @@ public final class MiniMarkdownRecognizer: Parser {
   // MARK: - blocks
 
   private lazy var header = RuleBuilder(.header)
-    .startsWith(.pattern("#", min: 1, max: 6))
-    .then(anything)
-    .endsWith(Self.paragraphTermination)
+    .startsWith(.repeating(.octothorpe, allowableRange: 1 ..< 7))
+    .then(styledText)
+    .endsAfter(.paragraphTermination)
+    .build()
 
-//  let blankLine = SentinelRecognizer(["\n"]) { textBuffer, position in
-//    guard
-//      textBuffer.utf16(at: position) == unichar.newline,
-//      textBuffer.utf16(at: position + 1) != nil
-//    else {
-//      return nil
-//    }
-//    return Node(type: .blankLine, range: position ..< position + 1)
-//  }
 
   private lazy var blankLine = RuleBuilder(.blankLine)
-    .startsWith(.pattern("\n", min: 1, max: 1))
-    .endsWith(Self.paragraphTermination)
+    .startsWith("\n")
+    .build()
 
   lazy var paragraph = RuleBuilder(.paragraph)
     .startsWith(.anything)
     .then(styledText)
-    .endsWith(Self.paragraphTermination)
+    .endsAfter(.paragraphTermination)
+    .build()
 
   // MARK: - text
 
-  private(set) lazy var strongEmphasis = delimitedText(.strongEmphasis, leftDelimiter: "**")
-  private(set) lazy var emphasis = delimitedText(.emphasis, leftDelimiter: "*")
-  private(set) lazy var code = delimitedText(.code, leftDelimiter: "`")
+  private lazy var strongEmphasis = delimitedText(.strongEmphasis, leftDelimiter: "**")
+  private lazy var emphasis = delimitedText(.emphasis, leftDelimiter: "*")
+  private lazy var code = delimitedText(.code, leftDelimiter: "`")
 }
 
-//struct RecognizerBuilder {
-//  var type: NodeType?
-//  var filter: TextBufferFilter?
-//  var sequence: TextRecognizer.SequenceRecognizer?
-//
-//  func build() -> TextRecognizer.Recognizer {
-//    guard let sequence = sequence else {
-//      assertionFailure()
-//      return { _, _ in nil }
-//    }
-//    let recognizer = bind(nodeType: type ?? .anonymous, sequenceRecognizer: sequence)
-//    if let filter = filter {
-//      return { textBuffer, index in
-//        let filteringTextBuffer = FilteringTextBuffer(textBuffer: textBuffer, startIndex: index, isIncluded: filter)
-//        return recognizer(filteringTextBuffer, index)
-//      }
-//    } else {
-//      return recognizer
-//    }
-//  }
-//
-//  private func bind(nodeType: NodeType, sequenceRecognizer: @escaping TextRecognizer.SequenceRecognizer) -> TextRecognizer.Recognizer {
-//    return { textBuffer, index in
-//      let children = sequenceRecognizer(textBuffer, index)
-//      guard let range = children.encompassingRange else {
-//        return nil
-//      }
-//      return Node(type: nodeType, range: range, children: children)
-//    }
-//  }
-//}
-
 // MARK: - Paragraphs
-private extension MiniMarkdownRecognizer {
-  private static let paragraphTerminationCharacters = NSCharacterSet(charactersIn: "#\n")
+struct ParagraphTerminationPattern: Pattern {
+  let sentinels: CharacterSet = ["\n"]
+  private let paragraphTermination: CharacterSet = ["\n", "#"]
 
-  /// True if a character belongs to a paragraph. Criteria for a paragraph boundary:
-  /// 1. `character` is a member of `paragraphTermination`
-  /// 2. The *previous* character is a newline.
-  /// A character that meets this criteria is the first character in a **new** block and gets filtered out.
-  static func paragraphTermination(
-    character: unichar,
-    textBuffer: TextBuffer,
-    index: Int
-  ) -> Bool {
-    if paragraphTerminationCharacters.characterIsMember(character), textBuffer.utf16(at: index - 1) == .newline {
-      return true
+  func patternRecognized(after character: unichar, iterator: NSStringIterator) -> PatternRecognitionResult {
+    guard character == .newline else {
+      return .no
     }
-    return false
+    if let nextChar = iterator.peek() {
+      return paragraphTermination.contains(nextChar) ? .yes : .no
+    } else {
+      return .yes
+    }
   }
+}
+
+// TODO: Move this to a separate file
+extension CharacterSet {
+  func contains(_ char: unichar) -> Bool {
+    guard let scalar = UnicodeScalar(char) else {
+      assertionFailure()
+      return false
+    }
+    return contains(scalar)
+  }
+}
+
+extension AnyPattern {
+  static let paragraphTermination = ParagraphTerminationPattern().asAnyPattern()
 }
 
 // MARK: - Helpers
@@ -180,7 +156,11 @@ private extension MiniMarkdownRecognizer {
 private extension MiniMarkdownRecognizer {
   func delimitedText(_ type: NodeType, leftDelimiter: String, maybeRightDelimiter: String? = nil) -> RuleCollection.Rule {
     let rightDelimiter = maybeRightDelimiter ?? leftDelimiter
-    return RuleBuilder(type).startsWith(leftDelimiter).then(anything).endsWith(rightDelimiter)
+    return RuleBuilder(type)
+      .startsWith(.stringPattern(leftDelimiter))
+      .then(anything)
+      .endsWith(.stringPattern(rightDelimiter))
+      .build()
   }
 }
 
@@ -190,3 +170,4 @@ private extension Range {
     return lowerBound ..< newUpperBound
   }
 }
+

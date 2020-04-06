@@ -59,9 +59,17 @@ public final class PieceTable: TextBuffer, CustomStringConvertible, Sequence {
   }
 }
 
+public enum NSStringIteratorScopeType {
+  case endBeforePattern
+  case endAfterPattern
+}
+
 public protocol NSStringIterator {
-  var index: Int { get }
+  var index: Int { get set }
+  func peek() -> unichar?
   mutating func next() -> unichar?
+  func pushScope(_ scopeType: NSStringIteratorScopeType, pattern: AnyPattern) -> NSStringIterator
+  func popScope() -> NSStringIterator
 }
 
 extension PieceTable {
@@ -74,13 +82,25 @@ extension PieceTable {
     public var index: Int
     private let string: NSString
 
+    public func peek() -> unichar? {
+      guard index < string.length else {
+        return nil
+      }
+      return string.character(at: index)
+    }
+
     public mutating func next() -> unichar? {
       guard index < string.length else {
         return nil
       }
-      let char = string.character(at: index)
+      let char = peek()
       index += 1
       return char
+    }
+
+    public func popScope() -> NSStringIterator {
+      assertionFailure()
+      return self
     }
   }
 
@@ -93,14 +113,30 @@ extension PieceTable {
     private var innerIterator: NSStringIterator
     private var pattern: Pattern
     private var foundPattern = false
-    public var index: Int { innerIterator.index }
+    public var index: Int {
+      get { innerIterator.index }
+      set { innerIterator.index = newValue }
+    }
+
+    public func peek() -> unichar? {
+      guard !foundPattern else {
+        return nil
+      }
+      return innerIterator.peek()
+    }
 
     public mutating func next() -> unichar? {
       guard !foundPattern, let char = innerIterator.next() else {
         return nil
       }
-      foundPattern = pattern.patternRecognized(after: char) == .yes
+      foundPattern = pattern.patternRecognized(after: char, iterator: self) == .yes
       return char
+    }
+
+    public func popScope() -> NSStringIterator {
+      var popped = innerIterator
+      popped.index = index
+      return popped
     }
   }
 
@@ -112,13 +148,33 @@ extension PieceTable {
 
     private var innerIterator: NSStringIterator
     private var pattern: Pattern
-    public var index: Int { innerIterator.index }
+    public var index: Int {
+      get { innerIterator.index }
+      set { innerIterator.index = newValue }
+    }
+
+    public func peek() -> unichar? {
+      var seekahead = innerIterator
+      var patternFound = false
+      var pattern = self.pattern
+      while let char = seekahead.next() {
+        let result = pattern.patternRecognized(after: char, iterator: self)
+        if result == .yes {
+          patternFound = true
+          break
+        } else if result == .no {
+          break
+        }
+      }
+      if patternFound { return nil }
+      return innerIterator.peek()
+    }
 
     public mutating func next() -> unichar? {
       var seekahead = innerIterator
       var patternFound = false
       while let char = seekahead.next() {
-        let result = pattern.patternRecognized(after: char)
+        let result = pattern.patternRecognized(after: char, iterator: self)
         if result == .yes {
           patternFound = true
           break
@@ -131,19 +187,25 @@ extension PieceTable {
       }
       return char
     }
+
+    public func popScope() -> NSStringIterator {
+      var popped = innerIterator
+      popped.index = index
+      return popped
+    }
   }
 }
 
 extension NSStringIterator {
-  public func iterator(endingAfter pattern: Pattern) -> PieceTable.EndingAfterIterator {
-    return PieceTable.EndingAfterIterator(iterator: self, pattern: pattern)
-  }
-
-  public func iterator(endingAfter pattern: StringLiteralPattern) -> PieceTable.EndingAfterIterator {
-    return PieceTable.EndingAfterIterator(iterator: self, pattern: pattern)
-  }
-
-  public func iterator(endingBefore pattern: StringLiteralPattern) -> PieceTable.EndingBeforeIterator {
-    return PieceTable.EndingBeforeIterator(iterator: self, pattern: pattern)
+  public func pushScope(
+    _ scopeType: NSStringIteratorScopeType,
+    pattern: AnyPattern
+  ) -> NSStringIterator {
+    switch scopeType {
+    case .endAfterPattern:
+      return PieceTable.EndingAfterIterator(iterator: self, pattern: pattern.innerPattern)
+    case .endBeforePattern:
+      return PieceTable.EndingBeforeIterator(iterator: self, pattern: pattern.innerPattern)
+    }
   }
 }

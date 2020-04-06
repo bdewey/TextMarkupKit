@@ -3,7 +3,7 @@
 import Foundation
 
 /// A collection of sentinel-containing recognizers. `sentinels` lets you know if you can skip looking at any of these.
-public struct RuleCollection: NodeRecognizer, ExpressibleByArrayLiteral {
+public struct RuleCollection: ExpressibleByArrayLiteral {
   public struct Rule {
     let sentinels: CharacterSet
     let recognizer: Recognizer
@@ -35,12 +35,14 @@ public struct RuleCollection: NodeRecognizer, ExpressibleByArrayLiteral {
   /// you can skip trying to recognize anything in this collection.
   public private(set) var sentinels: NSCharacterSet
 
-  /// If you have an sequence of ConditionalParsers, returns the first non-nil result.
-  public func recognizeNode(textBuffer: TextBuffer, position: Int) -> Node? {
-    for rule in rules {
-      if let node = rule.recognizer(textBuffer, position) {
+  /// Tries all of the rules in the collection in order and returns the first non-nil result.
+  public func recognize(iterator: inout NSStringIterator) -> Node? {
+    for rule in self.rules {
+      let restorePoint = iterator
+      if let node = rule.recognizer(&iterator) {
         return node
       }
+      iterator = restorePoint
     }
     return nil
   }

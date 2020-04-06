@@ -25,29 +25,95 @@ import Foundation
 //  .then(.anything)
 //  .endsWith("`")
 
-public typealias Recognizer = (TextBuffer, Int) -> Node?
-public typealias SequenceRecognizer = (TextBuffer, Int) -> [Node]
+public typealias Recognizer = (inout NSStringIterator) -> Node?
+public typealias SequenceRecognizer = (inout NSStringIterator) -> [Node]
 
 func concat(_ recognizer: Recognizer?, _ sequence: @escaping SequenceRecognizer) -> SequenceRecognizer {
   guard let recognizer = recognizer else {
     return sequence
   }
-  return { textBuffer, index in
-    guard let initialNode = recognizer(textBuffer, index) else {
+  return { iterator in
+    guard let initialNode = recognizer(&iterator) else {
       return []
     }
-    let remainder = sequence(textBuffer, initialNode.range.endIndex)
+    let remainder = sequence(&iterator)
     return [initialNode] + remainder
   }
 }
 
 func bind(nodeType: NodeType, sequenceRecognizer: @escaping SequenceRecognizer) -> Recognizer {
-  return { textBuffer, index in
-    let children = sequenceRecognizer(textBuffer, index)
+  return { iterator in
+    let children = sequenceRecognizer(&iterator)
     guard let range = children.encompassingRange else {
       return nil
     }
     return Node(type: nodeType, range: range, children: children)
+  }
+}
+
+func recognizer(
+  type: NodeType,
+  opening: Recognizer?,
+  body: @escaping SequenceRecognizer,
+  endingWith pattern: AnyPattern
+) -> Recognizer {
+  return { iterator in
+    let savepoint = iterator
+    var children: [Node] = []
+    if let opening = opening {
+      if let node = opening(&iterator) {
+        children.append(node)
+      } else {
+        iterator = savepoint
+        return nil
+      }
+    }
+    var scopedIterator = iterator.pushScope(.endBeforePattern, pattern: pattern)
+    children.append(contentsOf: body(&scopedIterator))
+    iterator = scopedIterator.popScope()
+    if let closingRecognizer = pattern.recognizer(type: .delimiter) {
+      if let node = closingRecognizer(&iterator) {
+        children.append(node)
+      } else {
+        iterator = savepoint
+        return nil
+      }
+    }
+    if let range = children.encompassingRange {
+      return Node(type: type, range: range, children: children)
+    } else {
+      iterator = savepoint
+      return nil
+    }
+  }
+}
+
+func recognizer(
+  type: NodeType,
+  opening: Recognizer?,
+  body: @escaping SequenceRecognizer,
+  endingAfter pattern: AnyPattern
+) -> Recognizer {
+  return { iterator in
+    let savepoint = iterator
+    var children: [Node] = []
+    if let opening = opening {
+      if let node = opening(&iterator) {
+        children.append(node)
+      } else {
+        iterator = savepoint
+        return nil
+      }
+    }
+    var scopedIterator = iterator.pushScope(.endAfterPattern, pattern: pattern)
+    children.append(contentsOf: body(&scopedIterator))
+    iterator = scopedIterator.popScope()
+    if let range = children.encompassingRange {
+      return Node(type: type, range: range, children: children)
+    } else {
+      iterator = savepoint
+      return nil
+    }
   }
 }
 
@@ -58,79 +124,24 @@ public struct RuleBuilder {
     self.type = type
   }
 
-  public enum OpeningSequence: ExpressibleByStringLiteral {
-    case anything
-    case literal(String)
-    case pattern(UnicodeScalar, min: Int, max: Int)
+  private struct TypedPattern {
+    let type: NodeType
+    let pattern: Pattern
 
-    public init(stringLiteral value: StringLiteralType) {
-      self = .literal(value)
-    }
-
-    internal var sentinels: CharacterSet {
-      switch self {
-      case .anything:
-        // TODO: This doesn't seem right
-        return CharacterSet.alphanumerics.union(.whitespacesAndNewlines)
-      case .literal(let string):
-        if let opening = string.unicodeScalars.first {
-          return CharacterSet(charactersIn: opening...opening)
-        } else {
-          assertionFailure()
-          return CharacterSet.alphanumerics.union(.whitespacesAndNewlines)
-        }
-      case .pattern(let scalar, min: _, max: _):
-        return CharacterSet(charactersIn: scalar...scalar)
-      }
-    }
-
-    internal var recognizer: Recognizer? {
-      switch self {
-      case .anything:
-        return nil
-      case .literal(let delimiter):
-        return { textBuffer, position in
-          var currentPosition = position
-          for character in delimiter.utf16 {
-            guard character == textBuffer.utf16(at: currentPosition) else {
-              return nil
-            }
-            currentPosition += 1
-          }
-          return Node(type: .delimiter, range: position ..< currentPosition)
-        }
-      case .pattern(let scalar, min: let min, max: let max):
-        return { textBuffer, position in
-          var currentPositon = position
-          let utf16: unichar = scalar.utf16.first!
-          var matchCount = 0
-          while let ch = textBuffer.utf16(at: currentPositon), ch == utf16 {
-            matchCount += 1
-            currentPositon += 1
-            if matchCount > max { return nil }
-          }
-          if matchCount < min { return nil }
-          return Node(type: .delimiter, range: position ..< currentPositon)
-        }
-      }
+    var recognizer: Recognizer? {
+      pattern.recognizer(type: type)
     }
   }
 
-  public var startsWith: OpeningSequence?
+  private var startsWith: TypedPattern?
 
-  public func startsWith(_ openingSequence: OpeningSequence) -> Self {
+  public func startsWith(_ openingSequence: AnyPattern, type: NodeType = .delimiter) -> Self {
     var copy = self
-    copy.startsWith = openingSequence
+    copy.startsWith = TypedPattern(type: type, pattern: openingSequence.innerPattern)
     return copy
   }
 
-  public func startsWith(_ string: String) -> Self {
-    var copy = self
-    copy.startsWith = .literal(string)
-    return copy
-  }
-
-  public var body: SequenceRecognizer?
+  private var body: SequenceRecognizer?
 
   public func then(_ sequenceRecognizer: @escaping SequenceRecognizer) -> Self {
     var copy = self
@@ -138,77 +149,67 @@ public struct RuleBuilder {
     return copy
   }
 
-  public enum EndingSequence: ExpressibleByStringLiteral {
-    case literal(String)
-    case block(ScopedTextBuffer.Scope)
+  private var endsWith: TypedPattern?
 
-    public init(stringLiteral value: StringLiteralType) {
-      self = .literal(value)
+  public func endsWith(_ endingSequence: AnyPattern, type: NodeType = .delimiter) -> Self {
+    var copy = self
+    copy.endsWith = TypedPattern(type: type, pattern: endingSequence.innerPattern)
+    return copy
+  }
+
+  private var endsAfterPattern: Pattern?
+
+  public func endsAfter(_ endingSequence: AnyPattern) -> Self {
+    var copy = self
+    copy.endsAfterPattern = endingSequence.innerPattern
+    return copy
+  }
+
+  public func build() -> RuleCollection.Rule {
+    let sentinels = startsWith?.pattern.sentinels ?? CharacterSet.illegalCharacters.inverted
+    return RuleCollection.Rule(sentinels, makeRecognizer())
+  }
+
+  private func makeRecognizer() -> Recognizer {
+    guard let body = self.body else {
+      return startsWith?.pattern.recognizer(type: type) ?? { _ in nil }
     }
-
-    var terminationBlock: ScopedTextBuffer.Scope? {
-      switch self {
-      case .block(let terminationBlock):
-        return terminationBlock
-      case .literal(let literal):
-        return ScopedTextBuffer.endAfter(literal)
+    let opening = startsWith?.recognizer
+    let closing = endsWith?.recognizer
+    let pattern = endsAfterPattern ?? endsWith?.pattern
+    let scopeType: NSStringIteratorScopeType = (endsAfterPattern == nil) ? .endBeforePattern : .endAfterPattern
+    return { [type] iterator in
+      let savepoint = iterator
+      var children: [Node] = []
+      if let opening = opening {
+        if let node = opening(&iterator) {
+          children.append(node)
+        } else {
+          iterator = savepoint
+          return nil
+        }
+      }
+      if let pattern = pattern {
+        var scopedIterator = iterator.pushScope(scopeType, pattern: pattern.asAnyPattern())
+        children.append(contentsOf: body(&scopedIterator))
+        iterator = scopedIterator.popScope()
+      } else {
+        children.append(contentsOf: body(&iterator))
+      }
+      if let closing = closing {
+        if let node = closing(&iterator) {
+          children.append(node)
+        } else {
+          iterator = savepoint
+          return nil
+        }
+      }
+      if let range = children.encompassingRange {
+        return Node(type: type, range: range, children: children)
+      } else {
+        iterator = savepoint
+        return nil
       }
     }
   }
-
-  public func endsWith(_ endingSequence: EndingSequence) -> RuleCollection.Rule {
-    let openingSequence = startsWith ?? .anything
-    let sentinels = openingSequence.sentinels
-    let body = self.body ?? { _, _ in [] }
-    let recognizer = bind(
-      nodeType: type,
-      sequenceRecognizer: concat(openingSequence.recognizer, scopeRecognizer(body, with: endingSequence.terminationBlock))
-    )
-    return RuleCollection.Rule(sentinels, recognizer)
-  }
-
-  public func endsWith(_ block: @escaping ScopedTextBuffer.Scope) -> RuleCollection.Rule {
-    return endsWith(.block(block))
-  }
-
-  public func endsWith(_ string: String) -> RuleCollection.Rule {
-    return endsWith(.literal(string))
-  }
 }
-
-private extension RuleBuilder {
-  func scopeRecognizer(
-    _ recognizer: @escaping Recognizer,
-    with endingSequenceBlock: ScopedTextBuffer.Scope?
-  ) -> Recognizer {
-    guard let endingSequenceBlock = endingSequenceBlock else {
-      return recognizer
-    }
-    return { textBuffer, index in
-      let scopedBuffer = ScopedTextBuffer(
-        textBuffer: textBuffer,
-        startIndex: index,
-        scopeEnd: endingSequenceBlock
-      )
-      return recognizer(scopedBuffer, index)
-    }
-  }
-
-  func scopeRecognizer(
-    _ recognizer: @escaping SequenceRecognizer,
-    with endingSequenceBlock: ScopedTextBuffer.Scope?
-  ) -> SequenceRecognizer {
-    guard let endingSequenceBlock = endingSequenceBlock else {
-      return recognizer
-    }
-    return { textBuffer, index in
-      let scopedBuffer = ScopedTextBuffer(
-        textBuffer: textBuffer,
-        startIndex: index,
-        scopeEnd: endingSequenceBlock
-      )
-      return recognizer(scopedBuffer, index)
-    }
-  }
-}
-
