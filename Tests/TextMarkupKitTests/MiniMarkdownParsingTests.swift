@@ -55,7 +55,7 @@ final class MiniMarkdownParsingTests: XCTestCase {
   }
 
   func testNewParser() {
-     runTests(on: MiniMarkdownRecognizer(), named: "new")
+    runTests(on: MiniMarkdownRecognizer(), named: "new")
   }
 
   func runTests(on parser: PieceTableParser, named parserName: String) {

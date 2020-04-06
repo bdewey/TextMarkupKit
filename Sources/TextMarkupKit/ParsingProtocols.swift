@@ -51,7 +51,7 @@ extension Parser {
   }
 
   public func parse(pieceTable: PieceTable) -> Node {
-    self.parse(textBuffer: pieceTable, position: 0)
+    parse(textBuffer: pieceTable, position: 0)
   }
 }
 
