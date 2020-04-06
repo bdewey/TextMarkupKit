@@ -39,7 +39,7 @@ public final class MiniMarkdownRecognizer: PieceTableParser {
 
   public func parse(pieceTable: PieceTable) -> Node {
     var iterator: NSStringIterator = pieceTable.makeIterator()
-    guard let node = parser(&iterator) else {
+    guard let node = parser(iterator) else {
       assertionFailure()
       return Node(type: .markdownDocument, range: pieceTable.startIndex ..< pieceTable.endIndex)
     }
@@ -52,9 +52,9 @@ public final class MiniMarkdownRecognizer: PieceTableParser {
     guard let self = self else { return [] }
     var blocks = [Node]()
     repeat {
-      if let node = self.blockRecognizers.recognize(iterator: &iterator) {
+      if let node = self.blockRecognizers.recognize(iterator: iterator) {
         blocks.append(node)
-      } else if let node = self.paragraph.recognizer(&iterator) {
+      } else if let node = self.paragraph.recognizer(iterator) {
         blocks.append(node)
       } else {
         break
@@ -63,14 +63,14 @@ public final class MiniMarkdownRecognizer: PieceTableParser {
     return blocks
   }
 
-  func styledText(iterator: inout NSStringIterator) -> [Node] {
+  func styledText(iterator: NSStringIterator) -> [Node] {
     var children = [Node]()
     var defaultTextLowerBound = iterator.index
     let recognizers = styledTextRecognizers
     while let utf16 = iterator.next() {
       if recognizers.sentinels.characterIsMember(utf16) {
         iterator.rewind()
-        if let node = recognizers.recognize(iterator: &iterator) {
+        if let node = recognizers.recognize(iterator: iterator) {
           let defaultRange = defaultTextLowerBound ..< node.range.lowerBound
           if !defaultRange.isEmpty {
             let defaultNode = Node(type: defaultTextType, range: defaultRange)
@@ -100,7 +100,7 @@ public final class MiniMarkdownRecognizer: PieceTableParser {
   func styledText(_ type: NodeType) -> Recognizer {
     return { [weak self] iterator in
       guard let self = self else { return nil }
-      let children = self.styledText(iterator: &iterator)
+      let children = self.styledText(iterator: iterator)
       if let range = children.encompassingRange {
         return Node(type: type, range: range, children: children)
       } else {

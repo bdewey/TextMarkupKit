@@ -125,7 +125,7 @@ public struct Scope {
 }
 
 extension PieceTable {
-  public struct Iterator: IteratorProtocol {
+  public final class Iterator: IteratorProtocol {
     internal init(index: Int, string: PieceTable) {
       self.index = index
       self.string = string
@@ -139,7 +139,8 @@ extension PieceTable {
     private var scopes: [Scope] = []
     private var memoizedAllScopesAreValid = true
 
-    public mutating func rewind() -> Bool {
+    @discardableResult
+    public func rewind() -> Bool {
       if index > 0 {
         index -= 1
         return true
@@ -147,7 +148,7 @@ extension PieceTable {
       return false
     }
 
-    public mutating func next() -> unichar? {
+    public func next() -> unichar? {
       guard index < string.length, memoizedAllScopesAreValid else {
         return nil
       }
@@ -171,7 +172,7 @@ extension PieceTable {
       }
     }
 
-    private mutating func getCharFromBuffer(at index: Int) -> unichar? {
+    private func getCharFromBuffer(at index: Int) -> unichar? {
       let char: unichar?
       let bufferIndex = index - bufferStartIndex
       if buffer.indices.contains(bufferIndex) {
@@ -184,11 +185,11 @@ extension PieceTable {
       return char
     }
 
-    public mutating func pushingScope(_ scope: Scope) {
+    public func pushingScope(_ scope: Scope) {
       scopes.append(scope)
     }
 
-    public mutating func poppingScope() {
+    public func poppingScope() {
       scopes.removeLast()
       memoizedAllScopesAreValid = true
       for index in scopes.indices {
@@ -197,152 +198,5 @@ extension PieceTable {
         }
       }
     }
-
-    public func popScope() -> NSStringIterator {
-      assertionFailure()
-      return self
-    }
   }
-
-//  public struct EndingAfterIterator: NSStringIterator {
-//    internal init(iterator: NSStringIterator, pattern: Pattern) {
-//      self.innerIterator = iterator
-//      self.pattern = pattern
-//    }
-//
-//    private var innerIterator: NSStringIterator
-//    private var pattern: Pattern
-//    private var patternEndIndex: Int?
-//    public var index: Int {
-//      get { innerIterator.index }
-//      set { innerIterator.index = newValue }
-//    }
-//
-//    public mutating func rewind() -> Bool {
-//      return innerIterator.rewind()
-//    }
-//
-//    public mutating func next() -> unichar? {
-//      guard !atEndOfPattern, let char = innerIterator.next() else {
-//        return nil
-//      }
-//      if patternEndIndex == nil {
-//        switch pattern.patternRecognized(after: char) {
-//        case let .foundPattern(patternLength: patternLength, patternStart: patternStart):
-//          assert(patternLength == patternStart)
-//          patternEndIndex = innerIterator.index
-//        case .needsMoreInput:
-//          patternEndIndex = innerIterator.index(afterPrefix: pattern)
-//        case .no:
-//          break
-//        }
-//      }
-//      return char
-//    }
-//
-//    private var atEndOfPattern: Bool {
-//      guard let patternEndIndex = patternEndIndex else {
-//        return false
-//      }
-//      return index >= patternEndIndex
-//    }
-//
-//    public func popScope() -> NSStringIterator {
-//      var popped = innerIterator
-//      popped.index = index
-//      return popped
-//    }
-//  }
-//
-//  public struct EndingBeforeIterator: NSStringIterator {
-//    internal init(iterator: NSStringIterator, pattern: Pattern) {
-//      self.innerIterator = iterator
-//      self.pattern = pattern
-//    }
-//
-//    private var innerIterator: NSStringIterator
-//    private var pattern: Pattern
-//    public var index: Int {
-//      get { innerIterator.index }
-//      set { innerIterator.index = newValue }
-//    }
-//
-//    public mutating func rewind() -> Bool {
-//      return innerIterator.rewind()
-//    }
-//
-//    public mutating func next() -> unichar? {
-//      guard let char = innerIterator.next() else {
-//        return nil
-//      }
-//      let patternFound: Bool
-//      switch pattern.patternRecognized(after: char) {
-//      case .foundPattern:
-//        patternFound = true
-//      case .no:
-//        patternFound = false
-//      case .needsMoreInput:
-//        patternFound = innerIterator.index(afterPrefix: pattern) != nil
-//      }
-//      if patternFound {
-//        _ = rewind()
-//        return nil
-//      } else {
-//        return char
-//      }
-//    }
-//
-//    public func popScope() -> NSStringIterator {
-//      var popped = innerIterator
-//      popped.index = index
-//      return popped
-//    }
-//  }
 }
-
-//extension NSStringIterator {
-//  public func pushScope(
-//    _ scopeType: NSStringIteratorScopeType,
-//    pattern: AnyPattern
-//  ) -> NSStringIterator {
-//    switch scopeType {
-//    case .endAfterPattern:
-//      return PieceTable.EndingAfterIterator(iterator: self, pattern: pattern.innerPattern)
-//    case .endBeforePattern:
-//      return PieceTable.EndingBeforeIterator(iterator: self, pattern: pattern.innerPattern)
-//    }
-//  }
-//
-//  public func index(afterPrefix pattern: Pattern) -> Int? {
-//    var pattern = pattern
-//    var iterator = self
-//    while let char = iterator.next() {
-//      switch pattern.patternRecognized(after: char) {
-//      case .no:
-//        return nil
-//      case .needsMoreInput:
-//        continue
-//      case let .foundPattern(patternLength: patternLength, patternStart: patternStart):
-//        return iterator.index - patternStart + patternLength
-//      }
-//    }
-//    return nil
-//  }
-//
-//  public var debugDescription: String {
-//    var copy = self
-//    var chars = [unichar]()
-//    while let char = copy.next() {
-//      chars.append(char)
-//    }
-//    return String(utf16CodeUnits: chars, count: chars.count)
-//  }
-//
-////  public mutating func pushingScope(_ scope: Scope) {
-////    assertionFailure()
-////  }
-////
-////  public mutating func poppingScope() {
-////    assertionFailure()
-////  }
-//}

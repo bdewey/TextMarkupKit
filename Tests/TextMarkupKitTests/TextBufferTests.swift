@@ -22,7 +22,7 @@ import XCTest
 final class TextBufferTests: XCTestCase {
   func testScopeEndingAfter() {
     let buffer = PieceTable("This is content ** with a double-asterisk")
-    var iterator = buffer.makeIterator()
+    let iterator = buffer.makeIterator()
     iterator.pushingScope(.endingAfterPattern("**"))
     XCTAssertEqual(iterator.stringContents(), "This is content **")
     iterator.poppingScope()
@@ -31,7 +31,7 @@ final class TextBufferTests: XCTestCase {
 
   func testScopeEndingBefore() {
     let buffer = PieceTable("This is content ** with a double-asterisk")
-    var iterator = buffer.makeIterator()
+    let iterator = buffer.makeIterator()
     iterator.pushingScope(.endingBeforePattern("**"))
     XCTAssertEqual(iterator.stringContents(), "This is content ")
     iterator.poppingScope()
@@ -40,7 +40,7 @@ final class TextBufferTests: XCTestCase {
 
   func testScopeEndingBeforeAtEnd() {
     let buffer = PieceTable("Marker at end *")
-    var iterator = buffer.makeIterator()
+    let iterator = buffer.makeIterator()
     iterator.pushingScope(.endingBeforePattern("*"))
     XCTAssertEqual(iterator.stringContents(), "Marker at end ")
     iterator.poppingScope()
@@ -49,7 +49,7 @@ final class TextBufferTests: XCTestCase {
 }
 
 private extension NSStringIterator {
-  mutating func stringContents() -> String {
+  func stringContents() -> String {
     var chars = [unichar]()
     while let char = next() {
       chars.append(char)

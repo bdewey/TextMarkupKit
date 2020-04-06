@@ -51,13 +51,13 @@ public struct RuleCollection: ExpressibleByArrayLiteral {
   public private(set) var sentinels: NSCharacterSet
 
   /// Tries all of the rules in the collection in order and returns the first non-nil result.
-  public func recognize(iterator: inout NSStringIterator) -> Node? {
+  public func recognize(iterator: NSStringIterator) -> Node? {
     for rule in rules {
-      let restorePoint = iterator
-      if let node = rule.recognizer(&iterator) {
+      let restorePoint = iterator.index
+      if let node = rule.recognizer(iterator) {
         return node
       }
-      iterator = restorePoint
+      iterator.index = restorePoint
     }
     return nil
   }

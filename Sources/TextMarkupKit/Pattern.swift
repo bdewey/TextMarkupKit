@@ -28,7 +28,7 @@ extension Pattern {
   public func recognizer(type: NodeType) -> Recognizer? {
     var pattern = self
     return { iterator in
-      let savepoint = iterator
+      let savepoint = iterator.index
       var patternResult: PatternRecognitionResult = .needsMoreInput
       while let char = iterator.next() {
         patternResult = pattern.patternRecognized(after: char)
@@ -36,9 +36,9 @@ extension Pattern {
       }
       if case .foundPattern = patternResult {
         for _ in 0 ..< patternResult.extraCharacters { iterator.rewind() }
-        return Node(type: type, range: savepoint.index ..< iterator.index)
+        return Node(type: type, range: savepoint ..< iterator.index)
       } else {
-        iterator = savepoint
+        iterator.index = savepoint
         return nil
       }
     }

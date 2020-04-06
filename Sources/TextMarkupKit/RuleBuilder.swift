@@ -40,25 +40,25 @@ import Foundation
 //  .then(.anything)
 //  .endsWith("`")
 
-public typealias Recognizer = (inout NSStringIterator) -> Node?
-public typealias SequenceRecognizer = (inout NSStringIterator) -> [Node]
+public typealias Recognizer = (NSStringIterator) -> Node?
+public typealias SequenceRecognizer = (NSStringIterator) -> [Node]
 
 func concat(_ recognizer: Recognizer?, _ sequence: @escaping SequenceRecognizer) -> SequenceRecognizer {
   guard let recognizer = recognizer else {
     return sequence
   }
   return { iterator in
-    guard let initialNode = recognizer(&iterator) else {
+    guard let initialNode = recognizer(iterator) else {
       return []
     }
-    let remainder = sequence(&iterator)
+    let remainder = sequence(iterator)
     return [initialNode] + remainder
   }
 }
 
 func bind(nodeType: NodeType, sequenceRecognizer: @escaping SequenceRecognizer) -> Recognizer {
   return { iterator in
-    let children = sequenceRecognizer(&iterator)
+    let children = sequenceRecognizer(iterator)
     guard let range = children.encompassingRange else {
       return nil
     }
@@ -73,31 +73,31 @@ func recognizer(
   endingWith pattern: AnyPattern
 ) -> Recognizer {
   return { iterator in
-    let savepoint = iterator
+    let savepoint = iterator.index
     var children: [Node] = []
     if let opening = opening {
-      if let node = opening(&iterator) {
+      if let node = opening(iterator) {
         children.append(node)
       } else {
-        iterator = savepoint
+        iterator.index = savepoint
         return nil
       }
     }
     iterator.pushingScope(.endingBeforePattern(pattern))
-    children.append(contentsOf: body(&iterator))
+    children.append(contentsOf: body(iterator))
     iterator.poppingScope()
     if let closingRecognizer = pattern.recognizer(type: .delimiter) {
-      if let node = closingRecognizer(&iterator) {
+      if let node = closingRecognizer(iterator) {
         children.append(node)
       } else {
-        iterator = savepoint
+        iterator.index = savepoint
         return nil
       }
     }
     if let range = children.encompassingRange {
       return Node(type: type, range: range, children: children)
     } else {
-      iterator = savepoint
+      iterator.index = savepoint
       return nil
     }
   }
@@ -110,23 +110,23 @@ func recognizer(
   endingAfter pattern: AnyPattern
 ) -> Recognizer {
   return { iterator in
-    let savepoint = iterator
+    let savepoint = iterator.index
     var children: [Node] = []
     if let opening = opening {
-      if let node = opening(&iterator) {
+      if let node = opening(iterator) {
         children.append(node)
       } else {
-        iterator = savepoint
+        iterator.index = savepoint
         return nil
       }
     }
     iterator.pushingScope(.endingAfterPattern(pattern))
-    children.append(contentsOf: body(&iterator))
+    children.append(contentsOf: body(iterator))
     iterator.poppingScope()
     if let range = children.encompassingRange {
       return Node(type: type, range: range, children: children)
     } else {
-      iterator = savepoint
+      iterator.index = savepoint
       return nil
     }
   }
@@ -200,35 +200,35 @@ public struct RuleBuilder {
       scope = nil
     }
     return { [type] iterator in
-      let savepoint = iterator
+      let savepoint = iterator.index
       var children: [Node] = []
       if let opening = opening {
-        if let node = opening(&iterator) {
+        if let node = opening(iterator) {
           children.append(node)
         } else {
-          iterator = savepoint
+          iterator.index = savepoint
           return nil
         }
       }
       if let scope = scope {
         iterator.pushingScope(scope)
-        children.append(contentsOf: body(&iterator))
+        children.append(contentsOf: body(iterator))
         iterator.poppingScope()
       } else {
-        children.append(contentsOf: body(&iterator))
+        children.append(contentsOf: body(iterator))
       }
       if let closing = closing {
-        if let node = closing(&iterator) {
+        if let node = closing(iterator) {
           children.append(node)
         } else {
-          iterator = savepoint
+          iterator.index = savepoint
           return nil
         }
       }
       if let range = children.encompassingRange {
         return Node(type: type, range: range, children: children)
       } else {
-        iterator = savepoint
+        iterator.index = savepoint
         return nil
       }
     }
