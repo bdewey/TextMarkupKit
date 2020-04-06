@@ -145,7 +145,7 @@ struct ParagraphTerminationPattern: Pattern {
     if previousCharacter == .newline && paragraphTermination.contains(character) {
       result = .yes
     } else if character == .newline {
-      result = .maybe
+      result = .needsMoreInput
     } else {
       result = .no
     }

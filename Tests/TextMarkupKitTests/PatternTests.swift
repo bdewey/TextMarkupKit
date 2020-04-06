@@ -57,7 +57,7 @@ private extension PatternTests {
       switch pattern.patternRecognized(after: ch) {
       case .no:
         mostRecentMaybe = nil
-      case .maybe:
+      case .needsMoreInput:
         if mostRecentMaybe == nil { mostRecentMaybe = iterator.index - 1 }
       case .yes:
         let startIndex = mostRecentMaybe ?? iterator.index - 1

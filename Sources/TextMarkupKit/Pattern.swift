@@ -29,10 +29,10 @@ extension Pattern {
     var pattern = self
     return { iterator in
       let savepoint = iterator
-      var patternResult: PatternRecognitionResult = .maybe
+      var patternResult: PatternRecognitionResult = .needsMoreInput
       while let char = iterator.next() {
         patternResult = pattern.patternRecognized(after: char)
-        if patternResult != .maybe { break }
+        if patternResult != .needsMoreInput { break }
       }
       if patternResult == .yes {
         return Node(type: type, range: savepoint.index ..< iterator.index)
@@ -88,7 +88,7 @@ public enum PatternRecognitionResult {
   case no
 
   /// The most recent character *might* be part of a pattern that will be completed with more characters.
-  case maybe
+  case needsMoreInput
 }
 
 /// Concrete implementation of Pattern that finds a string in a stream of characters.
@@ -127,7 +127,7 @@ public struct StringLiteralPattern: Pattern, ExpressibleByStringLiteral {
     } else if nextMatchIndexes.isEmpty {
       return .no
     } else {
-      return .maybe
+      return .needsMoreInput
     }
   }
 
@@ -161,7 +161,7 @@ public struct RepeatingPattern: Pattern {
       matchCount = 0
     }
     if allowableRange.contains(matchCount) { return .yes }
-    if matchCount > 0, matchCount < allowableRange.lowerBound { return .maybe }
+    if matchCount > 0, matchCount < allowableRange.lowerBound { return .needsMoreInput }
     return .no
   }
 }
