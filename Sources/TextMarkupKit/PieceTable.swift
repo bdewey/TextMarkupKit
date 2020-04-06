@@ -73,7 +73,7 @@ public enum NSStringIteratorScopeType {
 
 public protocol NSStringIterator {
   var index: Int { get set }
-  func peek() -> unichar?
+  mutating func rewind() -> Bool
   mutating func next() -> unichar?
   func pushScope(_ scopeType: NSStringIteratorScopeType, pattern: AnyPattern) -> NSStringIterator
   func popScope() -> NSStringIterator
@@ -89,18 +89,19 @@ extension PieceTable {
     public var index: Int
     private let string: PieceTable
 
-    public func peek() -> unichar? {
-      guard index < string.length else {
-        return nil
+    public mutating func rewind() -> Bool {
+      if index > 0 {
+        index -= 1
+        return true
       }
-      return string.utf16(at: index)
+      return false
     }
 
     public mutating func next() -> unichar? {
       guard index < string.length else {
         return nil
       }
-      let char = peek()
+      let char = string.utf16(at: index)
       index += 1
       return char
     }
@@ -125,11 +126,8 @@ extension PieceTable {
       set { innerIterator.index = newValue }
     }
 
-    public func peek() -> unichar? {
-      guard !foundPattern else {
-        return nil
-      }
-      return innerIterator.peek()
+    public mutating func rewind() -> Bool {
+      return innerIterator.rewind()
     }
 
     public mutating func next() -> unichar? {
@@ -160,21 +158,8 @@ extension PieceTable {
       set { innerIterator.index = newValue }
     }
 
-    public func peek() -> unichar? {
-      var seekahead = innerIterator
-      var patternFound = false
-      var pattern = self.pattern
-      while let char = seekahead.next() {
-        let result = pattern.patternRecognized(after: char, iterator: self)
-        if result == .yes {
-          patternFound = true
-          break
-        } else if result == .no {
-          break
-        }
-      }
-      if patternFound { return nil }
-      return innerIterator.peek()
+    public mutating func rewind() -> Bool {
+      return innerIterator.rewind()
     }
 
     public mutating func next() -> unichar? {

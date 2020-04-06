@@ -66,9 +66,10 @@ public final class MiniMarkdownRecognizer: PieceTableParser {
   func styledText(iterator: inout NSStringIterator) -> [Node] {
     var children = [Node]()
     var defaultRange = iterator.index ..< iterator.index
-    while let utf16 = iterator.peek() {
+    while let utf16 = iterator.next() {
       if
         styledTextRecognizers.sentinels.characterIsMember(utf16),
+        iterator.rewind(),
         let node = styledTextRecognizers.recognize(iterator: &iterator) {
         if !defaultRange.isEmpty {
           let defaultNode = Node(type: defaultTextType, range: defaultRange)
@@ -76,8 +77,6 @@ public final class MiniMarkdownRecognizer: PieceTableParser {
         }
         children.append(node)
         defaultRange = iterator.index ..< iterator.index
-      } else {
-        _ = iterator.next()
       }
       defaultRange = defaultRange.settingUpperBound(iterator.index)
     }
@@ -141,7 +140,8 @@ struct ParagraphTerminationPattern: Pattern {
     guard character == .newline else {
       return .no
     }
-    if let nextChar = iterator.peek() {
+    var iterator = iterator
+    if let nextChar = iterator.next() {
       return paragraphTermination.contains(nextChar) ? .yes : .no
     } else {
       return .yes
