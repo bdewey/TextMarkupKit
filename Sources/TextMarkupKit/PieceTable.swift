@@ -28,8 +28,15 @@ public final class PieceTable: TextBuffer, CustomStringConvertible, Sequence {
   public var startIndex: Int { 0 }
   public var endIndex: Int { string.length }
 
-  public var eofRead = 0
-  public var charactersRead = 0
+  public var length: Int { string.length }
+
+  public private(set) var eofRead = 0
+  public private(set) var charactersRead = 0
+
+  public func clearStatistics() {
+    eofRead = 0
+    charactersRead = 0
+  }
 
   public func utf16(at index: Int) -> unichar? {
     guard index >= 0, index < string.length else {
@@ -41,7 +48,7 @@ public final class PieceTable: TextBuffer, CustomStringConvertible, Sequence {
   }
 
   public func makeIterator() -> Iterator {
-    return Iterator(index: 0, string: string)
+    return Iterator(index: 0, string: self)
   }
 
   public subscript(range: Range<Int>) -> String {
@@ -74,19 +81,19 @@ public protocol NSStringIterator {
 
 extension PieceTable {
   public struct Iterator: NSStringIterator, IteratorProtocol {
-    internal init(index: Int, string: NSString) {
+    internal init(index: Int, string: PieceTable) {
       self.index = index
       self.string = string
     }
 
     public var index: Int
-    private let string: NSString
+    private let string: PieceTable
 
     public func peek() -> unichar? {
       guard index < string.length else {
         return nil
       }
-      return string.character(at: index)
+      return string.utf16(at: index)
     }
 
     public mutating func next() -> unichar? {
