@@ -65,23 +65,24 @@ public final class MiniMarkdownRecognizer: PieceTableParser {
 
   func styledText(iterator: inout NSStringIterator) -> [Node] {
     var children = [Node]()
-    var defaultRange = iterator.index ..< iterator.index
+    var defaultTextLowerBound = iterator.index
     while let utf16 = iterator.next() {
       if styledTextRecognizers.sentinels.characterIsMember(utf16) {
         iterator.rewind()
         if let node = styledTextRecognizers.recognize(iterator: &iterator) {
+          let defaultRange = defaultTextLowerBound ..< node.range.lowerBound
           if !defaultRange.isEmpty {
             let defaultNode = Node(type: defaultTextType, range: defaultRange)
             children.append(defaultNode)
           }
           children.append(node)
-          defaultRange = iterator.index ..< iterator.index
+          defaultTextLowerBound = node.range.upperBound
         } else {
           _ = iterator.next()
         }
       }
-      defaultRange = defaultRange.settingUpperBound(iterator.index)
     }
+    let defaultRange = defaultTextLowerBound ..< iterator.index
     if !defaultRange.isEmpty {
       let defaultNode = Node(type: defaultTextType, range: defaultRange)
       children.append(defaultNode)
