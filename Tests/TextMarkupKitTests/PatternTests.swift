@@ -52,7 +52,7 @@ private extension PatternTests {
     var mostRecentMaybe: Int?
     var results = [Range<Int>]()
     let pieceTable = PieceTable(string)
-    var iterator = pieceTable.makeIterator()
+    let iterator = pieceTable.makeIterator()
     while let ch = iterator.next() {
       switch pattern.patternRecognized(after: ch) {
       case .no:
@@ -71,7 +71,7 @@ private extension PatternTests {
     var indexSet = IndexSet()
     var pattern = pattern
     let pieceTable = PieceTable(string)
-    var iterator = pieceTable.makeIterator()
+    let iterator = pieceTable.makeIterator()
     while let ch = iterator.next() {
       if case .foundPattern = pattern.patternRecognized(after: ch) {
         indexSet.insert(iterator.index - 1)

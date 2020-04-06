@@ -38,11 +38,12 @@ public final class MiniMarkdownRecognizer: PieceTableParser {
   public let defaultTextType = NodeType.text
 
   public func parse(pieceTable: PieceTable) -> Node {
-    var iterator: NSStringIterator = pieceTable.makeIterator()
+    let iterator: NSStringIterator = pieceTable.makeIterator()
     guard let node = parser(iterator) else {
       assertionFailure()
       return Node(type: .markdownDocument, range: pieceTable.startIndex ..< pieceTable.endIndex)
     }
+    assert(iterator.index == pieceTable.endIndex)
     return node
   }
 
