@@ -143,7 +143,7 @@ struct ParagraphTerminationPattern: Pattern {
   mutating func patternRecognized(after character: unichar) -> PatternRecognitionResult {
     let result: PatternRecognitionResult
     if previousCharacter == .newline && paragraphTermination.contains(character) {
-      result = .yes
+      result = .foundPattern(patternLength: 1, patternStart: 2)
     } else if character == .newline {
       result = .needsMoreInput
     } else {

@@ -59,7 +59,7 @@ private extension PatternTests {
         mostRecentMaybe = nil
       case .needsMoreInput:
         if mostRecentMaybe == nil { mostRecentMaybe = iterator.index - 1 }
-      case .yes:
+      case .foundPattern:
         let startIndex = mostRecentMaybe ?? iterator.index - 1
         results.append(startIndex ..< iterator.index)
       }
@@ -73,7 +73,7 @@ private extension PatternTests {
     let pieceTable = PieceTable(string)
     var iterator = pieceTable.makeIterator()
     while let ch = iterator.next() {
-      if pattern.patternRecognized(after: ch) == .yes {
+      if case .foundPattern = pattern.patternRecognized(after: ch) {
         indexSet.insert(iterator.index - 1)
       }
     }

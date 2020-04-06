@@ -71,12 +71,13 @@ public enum NSStringIteratorScopeType {
   case endAfterPattern
 }
 
-public protocol NSStringIterator {
+public protocol NSStringIterator: CustomDebugStringConvertible {
   var index: Int { get set }
   @discardableResult mutating func rewind() -> Bool
   mutating func next() -> unichar?
   func pushScope(_ scopeType: NSStringIteratorScopeType, pattern: AnyPattern) -> NSStringIterator
   func popScope() -> NSStringIterator
+  func index(afterPrefix pattern: Pattern) -> Int?
 }
 
 extension PieceTable {
@@ -120,7 +121,7 @@ extension PieceTable {
 
     private var innerIterator: NSStringIterator
     private var pattern: Pattern
-    private var foundPattern = false
+    private var patternEndIndex: Int?
     public var index: Int {
       get { innerIterator.index }
       set { innerIterator.index = newValue }
@@ -131,11 +132,28 @@ extension PieceTable {
     }
 
     public mutating func next() -> unichar? {
-      guard !foundPattern, let char = innerIterator.next() else {
+      guard !atEndOfPattern, let char = innerIterator.next() else {
         return nil
       }
-      foundPattern = pattern.patternRecognized(after: char) == .yes
+      if patternEndIndex == nil {
+        switch pattern.patternRecognized(after: char) {
+        case let .foundPattern(patternLength: patternLength, patternStart: patternStart):
+          assert(patternLength == patternStart)
+          patternEndIndex = innerIterator.index
+        case .needsMoreInput:
+          patternEndIndex = innerIterator.index(afterPrefix: pattern)
+        case .no:
+          break
+        }
+      }
       return char
+    }
+
+    private var atEndOfPattern: Bool {
+      guard let patternEndIndex = patternEndIndex else {
+        return false
+      }
+      return index >= patternEndIndex
     }
 
     public func popScope() -> NSStringIterator {
@@ -163,21 +181,24 @@ extension PieceTable {
     }
 
     public mutating func next() -> unichar? {
-      var seekahead = innerIterator
-      var patternFound = false
-      while let char = seekahead.next() {
-        let result = pattern.patternRecognized(after: char)
-        if result == .yes {
-          patternFound = true
-          break
-        } else if result == .no {
-          break
-        }
-      }
-      guard !patternFound, let char = innerIterator.next() else {
+      guard let char = innerIterator.next() else {
         return nil
       }
-      return char
+      let patternFound: Bool
+      switch pattern.patternRecognized(after: char) {
+      case .foundPattern:
+        patternFound = true
+      case .no:
+        patternFound = false
+      case .needsMoreInput:
+        patternFound = innerIterator.index(afterPrefix: pattern) != nil
+      }
+      if patternFound {
+        _ = rewind()
+        return nil
+      } else {
+        return char
+      }
     }
 
     public func popScope() -> NSStringIterator {
@@ -199,5 +220,30 @@ extension NSStringIterator {
     case .endBeforePattern:
       return PieceTable.EndingBeforeIterator(iterator: self, pattern: pattern.innerPattern)
     }
+  }
+
+  public func index(afterPrefix pattern: Pattern) -> Int? {
+    var pattern = pattern
+    var iterator = self
+    while let char = iterator.next() {
+      switch pattern.patternRecognized(after: char) {
+      case .no:
+        return nil
+      case .needsMoreInput:
+        continue
+      case let .foundPattern(patternLength: patternLength, patternStart: patternStart):
+        return iterator.index - patternStart + patternLength
+      }
+    }
+    return nil
+  }
+
+  public var debugDescription: String {
+    var copy = self
+    var chars = [unichar]()
+    while let char = copy.next() {
+      chars.append(char)
+    }
+    return String(utf16CodeUnits: chars, count: chars.count)
   }
 }

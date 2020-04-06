@@ -18,7 +18,7 @@
 import Foundation
 
 /// A node in the markup language's syntax tree.
-public final class Node {
+public final class Node: CustomStringConvertible {
   public init(type: NodeType, range: Range<Int>, children: [Node] = []) {
     self.type = type
     self.range = range
@@ -41,6 +41,10 @@ public final class Node {
   /// True if this node corresponds to no text in the input buffer.
   public var isEmpty: Bool {
     return range.isEmpty
+  }
+
+  public var description: String {
+    return compactStructure
   }
 }
 

@@ -34,7 +34,8 @@ extension Pattern {
         patternResult = pattern.patternRecognized(after: char)
         if patternResult != .needsMoreInput { break }
       }
-      if patternResult == .yes {
+      if case .foundPattern = patternResult {
+        for _ in 0 ..< patternResult.extraCharacters { iterator.rewind() }
         return Node(type: type, range: savepoint.index ..< iterator.index)
       } else {
         iterator = savepoint
@@ -80,15 +81,24 @@ public struct AnyPattern: Pattern, ExpressibleByStringLiteral {
 }
 
 /// Possible states of finding a pattern inside a stream.
-public enum PatternRecognitionResult {
+public enum PatternRecognitionResult: Equatable {
   /// The most recent character completes the pattern
-  case yes
+  case foundPattern(patternLength: Int, patternStart: Int)
 
   /// The most recent character is definitely *not* part of the pattern.
   case no
 
   /// The most recent character *might* be part of a pattern that will be completed with more characters.
   case needsMoreInput
+
+  var extraCharacters: Int {
+    switch self {
+    case let .foundPattern(patternLength: patternLength, patternStart: patternStart):
+      return patternStart - patternLength
+    case .no, .needsMoreInput:
+      return 0
+    }
+  }
 }
 
 /// Concrete implementation of Pattern that finds a string in a stream of characters.
@@ -123,7 +133,7 @@ public struct StringLiteralPattern: Pattern, ExpressibleByStringLiteral {
 
     nextMatchIndexes = nextIndexes.filter { $0 < stringUtf16.count }
     if nextMatchIndexes.count != nextIndexes.count {
-      return .yes
+      return .foundPattern(patternLength: stringUtf16.count, patternStart: stringUtf16.count)
     } else if nextMatchIndexes.isEmpty {
       return .no
     } else {
@@ -157,12 +167,17 @@ public struct RepeatingPattern: Pattern {
   public mutating func patternRecognized(after character: unichar) -> PatternRecognitionResult {
     if character == targetCharacter {
       matchCount += 1
+      return .needsMoreInput
     } else {
+      let result: PatternRecognitionResult
+      if allowableRange.contains(matchCount) {
+        result = .foundPattern(patternLength: matchCount, patternStart: matchCount + 1)
+      } else {
+        result = .no
+      }
       matchCount = 0
+      return result
     }
-    if allowableRange.contains(matchCount) { return .yes }
-    if matchCount > 0, matchCount < allowableRange.lowerBound { return .needsMoreInput }
-    return .no
   }
 }
 
@@ -172,7 +187,7 @@ public struct MatchEverythingPattern: Pattern {
   }()
 
   public func patternRecognized(after character: unichar) -> PatternRecognitionResult {
-    return .yes
+    return .foundPattern(patternLength: 1, patternStart: 1)
   }
 
   public func recognizer(type: NodeType) -> Recognizer? {

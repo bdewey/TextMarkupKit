@@ -35,6 +35,14 @@ final class TextBufferTests: XCTestCase {
     iterator = iterator.popScope()
     XCTAssertEqual(iterator.stringContents(), "** with a double-asterisk")
   }
+
+  func testScopeEndingBeforeAtEnd() {
+    let buffer = PieceTable("Marker at end *")
+    var iterator = buffer.makeIterator().pushScope(.endBeforePattern, pattern: "*")
+    XCTAssertEqual(iterator.stringContents(), "Marker at end ")
+    iterator = iterator.popScope()
+    XCTAssertEqual(iterator.stringContents(), "*")
+  }
 }
 
 private extension NSStringIterator {
