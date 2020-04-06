@@ -83,9 +83,9 @@ func recognizer(
         return nil
       }
     }
-    var scopedIterator = iterator.pushScope(.endBeforePattern, pattern: pattern)
-    children.append(contentsOf: body(&scopedIterator))
-    iterator = scopedIterator.popScope()
+    iterator.pushingScope(.endingBeforePattern(pattern))
+    children.append(contentsOf: body(&iterator))
+    iterator.poppingScope()
     if let closingRecognizer = pattern.recognizer(type: .delimiter) {
       if let node = closingRecognizer(&iterator) {
         children.append(node)
@@ -120,9 +120,9 @@ func recognizer(
         return nil
       }
     }
-    var scopedIterator = iterator.pushScope(.endAfterPattern, pattern: pattern)
-    children.append(contentsOf: body(&scopedIterator))
-    iterator = scopedIterator.popScope()
+    iterator.pushingScope(.endingAfterPattern(pattern))
+    children.append(contentsOf: body(&iterator))
+    iterator.poppingScope()
     if let range = children.encompassingRange {
       return Node(type: type, range: range, children: children)
     } else {
@@ -191,8 +191,14 @@ public struct RuleBuilder {
     }
     let opening = startsWith?.recognizer
     let closing = endsWith?.recognizer
-    let pattern = endsAfterPattern ?? endsWith?.pattern
-    let scopeType: NSStringIteratorScopeType = (endsAfterPattern == nil) ? .endBeforePattern : .endAfterPattern
+    let scope: Scope?
+    if let pattern = endsAfterPattern {
+      scope = Scope.endingAfterPattern(pattern.asAnyPattern())
+    } else if let pattern = endsWith?.pattern {
+      scope = Scope.endingBeforePattern(pattern.asAnyPattern())
+    } else {
+      scope = nil
+    }
     return { [type] iterator in
       let savepoint = iterator
       var children: [Node] = []
@@ -204,10 +210,10 @@ public struct RuleBuilder {
           return nil
         }
       }
-      if let pattern = pattern {
-        var scopedIterator = iterator.pushScope(scopeType, pattern: pattern.asAnyPattern())
-        children.append(contentsOf: body(&scopedIterator))
-        iterator = scopedIterator.popScope()
+      if let scope = scope {
+        iterator.pushingScope(scope)
+        children.append(contentsOf: body(&iterator))
+        iterator.poppingScope()
       } else {
         children.append(contentsOf: body(&iterator))
       }

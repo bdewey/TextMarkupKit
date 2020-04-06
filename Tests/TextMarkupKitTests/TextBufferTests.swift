@@ -22,25 +22,28 @@ import XCTest
 final class TextBufferTests: XCTestCase {
   func testScopeEndingAfter() {
     let buffer = PieceTable("This is content ** with a double-asterisk")
-    var iterator = buffer.makeIterator().pushScope(.endAfterPattern, pattern: "**")
+    var iterator = buffer.makeIterator()
+    iterator.pushingScope(.endingAfterPattern("**"))
     XCTAssertEqual(iterator.stringContents(), "This is content **")
-    iterator = iterator.popScope()
+    iterator.poppingScope()
     XCTAssertEqual(iterator.stringContents(), " with a double-asterisk")
   }
 
   func testScopeEndingBefore() {
     let buffer = PieceTable("This is content ** with a double-asterisk")
-    var iterator = buffer.makeIterator().pushScope(.endBeforePattern, pattern: "**")
+    var iterator = buffer.makeIterator()
+    iterator.pushingScope(.endingBeforePattern("**"))
     XCTAssertEqual(iterator.stringContents(), "This is content ")
-    iterator = iterator.popScope()
+    iterator.poppingScope()
     XCTAssertEqual(iterator.stringContents(), "** with a double-asterisk")
   }
 
   func testScopeEndingBeforeAtEnd() {
     let buffer = PieceTable("Marker at end *")
-    var iterator = buffer.makeIterator().pushScope(.endBeforePattern, pattern: "*")
+    var iterator = buffer.makeIterator()
+    iterator.pushingScope(.endingBeforePattern("*"))
     XCTAssertEqual(iterator.stringContents(), "Marker at end ")
-    iterator = iterator.popScope()
+    iterator.poppingScope()
     XCTAssertEqual(iterator.stringContents(), "*")
   }
 }

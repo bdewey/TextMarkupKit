@@ -79,9 +79,47 @@ public protocol NSStringIterator: CustomDebugStringConvertible {
   var index: Int { get set }
   @discardableResult mutating func rewind() -> Bool
   mutating func next() -> unichar?
-  func pushScope(_ scopeType: NSStringIteratorScopeType, pattern: AnyPattern) -> NSStringIterator
-  func popScope() -> NSStringIterator
+//  func pushScope(_ scopeType: NSStringIteratorScopeType, pattern: AnyPattern) -> NSStringIterator
+//  func popScope() -> NSStringIterator
+  mutating func pushingScope(_ scope: Scope)
+  mutating func poppingScope()
   func index(afterPrefix pattern: Pattern) -> Int?
+}
+
+public struct Scope {
+  let endBeforePattern: Bool
+  var pattern: Pattern
+  var terminationIndex: Int?
+
+  public static func endingBeforePattern(_ pattern: AnyPattern) -> Scope {
+    return Scope(endBeforePattern: true, pattern: pattern.innerPattern)
+  }
+
+  public static func endingAfterPattern(_ pattern: AnyPattern) -> Scope {
+    return Scope(endBeforePattern: false, pattern: pattern.innerPattern)
+  }
+
+  func validIndex(_ index: Int) -> Bool {
+    guard let terminationIndex = terminationIndex else {
+      return true
+    }
+    return index < terminationIndex
+  }
+
+  mutating func needsMoreInputToFindPattern(char: unichar?, index: Int) -> Bool {
+    guard terminationIndex == nil, let char = char else {
+      return false
+    }
+    switch pattern.patternRecognized(after: char) {
+    case let .foundPattern(patternLength: patternLength, patternStart: patternStart):
+      terminationIndex = endBeforePattern ? index - patternStart : index - patternStart + patternLength
+      return false
+    case .needsMoreInput:
+      return false
+    case .no:
+      return true
+    }
+  }
 }
 
 extension PieceTable {
@@ -96,6 +134,8 @@ extension PieceTable {
     private var buffer = [unichar]()
     private var bufferStartIndex = 0
 
+    private var scopes: [Scope] = []
+
     public mutating func rewind() -> Bool {
       if index > 0 {
         index -= 1
@@ -105,20 +145,45 @@ extension PieceTable {
     }
 
     public mutating func next() -> unichar? {
-      guard index < string.length else {
+      guard index < string.length, scopes.allSatisfy({ $0.validIndex(index) }) else {
         return nil
       }
+      let char = getCharFromBuffer(at: index)
+      for scopeIndex in scopes.indices {
+        var innerIndex = index
+        var innerChar = char
+        while scopes[scopeIndex].needsMoreInputToFindPattern(char: innerChar, index: innerIndex) {
+          innerIndex += 1
+          innerChar = getCharFromBuffer(at: innerIndex)
+        }
+      }
+      if scopes.allSatisfy({ $0.validIndex(index) }) {
+        index += 1
+        return char
+      } else {
+        return nil
+      }
+    }
+
+    private mutating func getCharFromBuffer(at index: Int) -> unichar? {
       let char: unichar?
       let bufferIndex = index - bufferStartIndex
-      if bufferIndex < buffer.count {
+      if buffer.indices.contains(bufferIndex) {
         char = buffer[bufferIndex]
       } else {
         buffer = string[index ..< index + 4096]
         bufferStartIndex = index
         char = buffer.first
       }
-      index += 1
       return char
+    }
+
+    public mutating func pushingScope(_ scope: Scope) {
+      scopes.append(scope)
+    }
+
+    public mutating func poppingScope() {
+      scopes.removeLast()
     }
 
     public func popScope() -> NSStringIterator {
@@ -259,5 +324,13 @@ extension NSStringIterator {
       chars.append(char)
     }
     return String(utf16CodeUnits: chars, count: chars.count)
+  }
+
+  public mutating func pushingScope(_ scope: Scope) {
+    assertionFailure()
+  }
+
+  public mutating func poppingScope() {
+    assertionFailure()
   }
 }
