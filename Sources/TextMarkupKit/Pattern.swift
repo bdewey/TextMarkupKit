@@ -20,7 +20,7 @@ import Foundation
 /// A `Pattern` is a sequence that appears inside a stream of characters.
 public protocol Pattern {
   var sentinels: CharacterSet { get }
-  mutating func patternRecognized(after character: unichar, iterator: NSStringIterator) -> PatternRecognitionResult
+  mutating func patternRecognized(after character: unichar) -> PatternRecognitionResult
   func recognizer(type: NodeType) -> Recognizer?
 }
 
@@ -31,7 +31,7 @@ extension Pattern {
       let savepoint = iterator
       var patternResult: PatternRecognitionResult = .maybe
       while let char = iterator.next() {
-        patternResult = pattern.patternRecognized(after: char, iterator: iterator)
+        patternResult = pattern.patternRecognized(after: char)
         if patternResult != .maybe { break }
       }
       if patternResult == .yes {
@@ -70,8 +70,8 @@ public struct AnyPattern: Pattern, ExpressibleByStringLiteral {
   public var innerPattern: Pattern
 
   public var sentinels: CharacterSet { innerPattern.sentinels }
-  public mutating func patternRecognized(after character: unichar, iterator: NSStringIterator) -> PatternRecognitionResult {
-    return innerPattern.patternRecognized(after: character, iterator: iterator)
+  public mutating func patternRecognized(after character: unichar) -> PatternRecognitionResult {
+    return innerPattern.patternRecognized(after: character)
   }
 
   public func recognizer(type: NodeType) -> Recognizer? {
@@ -113,7 +113,7 @@ public struct StringLiteralPattern: Pattern, ExpressibleByStringLiteral {
   /// to keep the possibilities going.
   private var nextMatchIndexes: [Int] = []
 
-  public mutating func patternRecognized(after character: unichar, iterator: NSStringIterator) -> PatternRecognitionResult {
+  public mutating func patternRecognized(after character: unichar) -> PatternRecognitionResult {
     guard !stringUtf16.isEmpty else {
       return .no
     }
@@ -154,7 +154,7 @@ public struct RepeatingPattern: Pattern {
 
   private var matchCount = 0
 
-  public mutating func patternRecognized(after character: unichar, iterator: NSStringIterator) -> PatternRecognitionResult {
+  public mutating func patternRecognized(after character: unichar) -> PatternRecognitionResult {
     if character == targetCharacter {
       matchCount += 1
     } else {
@@ -171,7 +171,7 @@ public struct MatchEverythingPattern: Pattern {
     CharacterSet.alphanumerics.union(.whitespacesAndNewlines)
   }()
 
-  public func patternRecognized(after character: unichar, iterator: NSStringIterator) -> PatternRecognitionResult {
+  public func patternRecognized(after character: unichar) -> PatternRecognitionResult {
     return .yes
   }
 

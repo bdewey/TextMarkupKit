@@ -138,16 +138,19 @@ struct ParagraphTerminationPattern: Pattern {
   let sentinels: CharacterSet = ["\n"]
   private let paragraphTermination: CharacterSet = ["\n", "#"]
 
-  func patternRecognized(after character: unichar, iterator: NSStringIterator) -> PatternRecognitionResult {
-    guard character == .newline else {
-      return .no
-    }
-    var iterator = iterator
-    if let nextChar = iterator.next() {
-      return paragraphTermination.contains(nextChar) ? .yes : .no
+  private var previousCharacter: unichar?
+
+  mutating func patternRecognized(after character: unichar) -> PatternRecognitionResult {
+    let result: PatternRecognitionResult
+    if previousCharacter == .newline && paragraphTermination.contains(character) {
+      result = .yes
+    } else if character == .newline {
+      result = .maybe
     } else {
-      return .yes
+      result = .no
     }
+    previousCharacter = character
+    return result
   }
 }
 

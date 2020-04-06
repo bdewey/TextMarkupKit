@@ -54,7 +54,7 @@ private extension PatternTests {
     let pieceTable = PieceTable(string)
     var iterator = pieceTable.makeIterator()
     while let ch = iterator.next() {
-      switch pattern.patternRecognized(after: ch, iterator: iterator) {
+      switch pattern.patternRecognized(after: ch) {
       case .no:
         mostRecentMaybe = nil
       case .maybe:
@@ -73,7 +73,7 @@ private extension PatternTests {
     let pieceTable = PieceTable(string)
     var iterator = pieceTable.makeIterator()
     while let ch = iterator.next() {
-      if pattern.patternRecognized(after: ch, iterator: iterator) == .yes {
+      if pattern.patternRecognized(after: ch) == .yes {
         indexSet.insert(iterator.index - 1)
       }
     }

@@ -134,7 +134,7 @@ extension PieceTable {
       guard !foundPattern, let char = innerIterator.next() else {
         return nil
       }
-      foundPattern = pattern.patternRecognized(after: char, iterator: self) == .yes
+      foundPattern = pattern.patternRecognized(after: char) == .yes
       return char
     }
 
@@ -166,7 +166,7 @@ extension PieceTable {
       var seekahead = innerIterator
       var patternFound = false
       while let char = seekahead.next() {
-        let result = pattern.patternRecognized(after: char, iterator: self)
+        let result = pattern.patternRecognized(after: char)
         if result == .yes {
           patternFound = true
           break
