@@ -135,6 +135,7 @@ extension PieceTable {
     private var bufferStartIndex = 0
 
     private var scopes: [Scope] = []
+    private var memoizedAllScopesAreValid = true
 
     public mutating func rewind() -> Bool {
       if index > 0 {
@@ -145,7 +146,7 @@ extension PieceTable {
     }
 
     public mutating func next() -> unichar? {
-      guard index < string.length, scopes.allSatisfy({ $0.validIndex(index) }) else {
+      guard index < string.length, memoizedAllScopesAreValid else {
         return nil
       }
       let char = getCharFromBuffer(at: index)
@@ -156,8 +157,11 @@ extension PieceTable {
           innerIndex += 1
           innerChar = getCharFromBuffer(at: innerIndex)
         }
+        if !scopes[scopeIndex].validIndex(index) {
+          memoizedAllScopesAreValid = false
+        }
       }
-      if scopes.allSatisfy({ $0.validIndex(index) }) {
+      if memoizedAllScopesAreValid {
         index += 1
         return char
       } else {
@@ -184,6 +188,12 @@ extension PieceTable {
 
     public mutating func poppingScope() {
       scopes.removeLast()
+      memoizedAllScopesAreValid = true
+      for index in scopes.indices {
+        if !scopes[index].validIndex(index) {
+          memoizedAllScopesAreValid = false
+        }
+      }
     }
 
     public func popScope() -> NSStringIterator {
