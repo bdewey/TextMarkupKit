@@ -112,12 +112,12 @@ public struct Scope {
     }
     switch pattern.patternRecognized(after: char) {
     case let .foundPattern(patternLength: patternLength, patternStart: patternStart):
-      terminationIndex = endBeforePattern ? index - patternStart : index - patternStart + patternLength
+      terminationIndex = endBeforePattern ? index - patternStart : index - patternStart + patternLength + 1
       return false
     case .needsMoreInput:
-      return false
-    case .no:
       return true
+    case .no:
+      return false
     }
   }
 }
