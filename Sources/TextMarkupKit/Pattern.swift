@@ -107,6 +107,7 @@ public struct StringLiteralPattern: Pattern, ExpressibleByStringLiteral {
   public init(_ string: String) {
     self.stringUtf16 = Array(string.utf16)
     self.sentinels = CharacterSet(charactersIn: String(string.prefix(1)))
+    self.matchAtIndex = Array(repeating: false, count: stringUtf16.count)
   }
 
   /// Initialize with a string literal
@@ -119,25 +120,30 @@ public struct StringLiteralPattern: Pattern, ExpressibleByStringLiteral {
   /// The UTF-16 characters we need to match
   private let stringUtf16: [unichar]
 
-  /// Expresses all current partial matches. We expect the next incoming character to match `stringUtf16` at these indexes
-  /// to keep the possibilities going.
-  private var nextMatchIndexes: [Int] = []
+  private var matchAtIndex: [Bool]
 
   public mutating func patternRecognized(after character: unichar) -> PatternRecognitionResult {
     guard !stringUtf16.isEmpty else {
       return .no
     }
 
-    var nextIndexes = nextMatchIndexes.compactMap { advanceIndex($0, ifMatches: character) }
-    if stringUtf16[0] == character { nextIndexes.append(1) }
+    var anyMatches = false
 
-    nextMatchIndexes = nextIndexes.filter { $0 < stringUtf16.count }
-    if nextMatchIndexes.count != nextIndexes.count {
+    for index in (1 ..< stringUtf16.count).reversed() {
+      let match = matchAtIndex[index-1] && stringUtf16[index] == character
+      anyMatches = anyMatches || match
+      matchAtIndex[index] = match
+    }
+    let initialMatch = stringUtf16[0] == character
+    anyMatches = anyMatches || initialMatch
+    matchAtIndex[0] = initialMatch
+
+    if matchAtIndex.last ?? false {
       return .foundPattern(patternLength: stringUtf16.count, patternStart: stringUtf16.count)
-    } else if nextMatchIndexes.isEmpty {
-      return .no
-    } else {
+    } else if anyMatches {
       return .needsMoreInput
+    } else {
+      return .no
     }
   }
 
