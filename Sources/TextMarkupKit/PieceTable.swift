@@ -51,9 +51,13 @@ public final class PieceTable: TextBuffer, CustomStringConvertible, Sequence {
     return Iterator(index: 0, string: self)
   }
 
-  public subscript(range: Range<Int>) -> String {
-    let stringIndexRange = NSRange(location: range.lowerBound, length: range.count)
-    return string.substring(with: stringIndexRange) as String
+  public subscript(range: Range<Int>) -> [unichar] {
+    guard let stringIndexRange = NSRange(location: range.lowerBound, length: range.count).intersection(NSRange(location: 0, length: string.length)) else {
+      return []
+    }
+    var chars = Array<unichar>(repeating: 0, count: stringIndexRange.length)
+    string.getCharacters(&chars, range: stringIndexRange)
+    return chars
   }
 
   public var description: String {
@@ -89,6 +93,8 @@ extension PieceTable {
 
     public var index: Int
     private let string: PieceTable
+    private var buffer = [unichar]()
+    private var bufferStartIndex = 0
 
     public mutating func rewind() -> Bool {
       if index > 0 {
@@ -102,7 +108,15 @@ extension PieceTable {
       guard index < string.length else {
         return nil
       }
-      let char = string.utf16(at: index)
+      let char: unichar?
+      let bufferIndex = index - bufferStartIndex
+      if bufferIndex < buffer.count {
+        char = buffer[bufferIndex]
+      } else {
+        buffer = string[index ..< index + 4096]
+        bufferStartIndex = index
+        char = buffer.first
+      }
       index += 1
       return char
     }
