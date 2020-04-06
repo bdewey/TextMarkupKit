@@ -73,7 +73,7 @@ public enum NSStringIteratorScopeType {
 
 public protocol NSStringIterator {
   var index: Int { get set }
-  mutating func rewind() -> Bool
+  @discardableResult mutating func rewind() -> Bool
   mutating func next() -> unichar?
   func pushScope(_ scopeType: NSStringIteratorScopeType, pattern: AnyPattern) -> NSStringIterator
   func popScope() -> NSStringIterator

@@ -67,16 +67,18 @@ public final class MiniMarkdownRecognizer: PieceTableParser {
     var children = [Node]()
     var defaultRange = iterator.index ..< iterator.index
     while let utf16 = iterator.next() {
-      if
-        styledTextRecognizers.sentinels.characterIsMember(utf16),
-        iterator.rewind(),
-        let node = styledTextRecognizers.recognize(iterator: &iterator) {
-        if !defaultRange.isEmpty {
-          let defaultNode = Node(type: defaultTextType, range: defaultRange)
-          children.append(defaultNode)
+      if styledTextRecognizers.sentinels.characterIsMember(utf16) {
+        iterator.rewind()
+        if let node = styledTextRecognizers.recognize(iterator: &iterator) {
+          if !defaultRange.isEmpty {
+            let defaultNode = Node(type: defaultTextType, range: defaultRange)
+            children.append(defaultNode)
+          }
+          children.append(node)
+          defaultRange = iterator.index ..< iterator.index
+        } else {
+          _ = iterator.next()
         }
-        children.append(node)
-        defaultRange = iterator.index ..< iterator.index
       }
       defaultRange = defaultRange.settingUpperBound(iterator.index)
     }
