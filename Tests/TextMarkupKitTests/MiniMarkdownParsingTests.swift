@@ -50,11 +50,7 @@ final class MiniMarkdownParsingTests: XCTestCase {
     "headersHaveFormatting": .expect("(document (header delimiter text (emphasis delimiter text delimiter)))", for: "# This is a heading with *emphasis*"),
   ]
 
-  func __testOldParser() {
-    runTests(on: DocumentParser.miniMarkdown, named: "old")
-  }
-
-  func testNewParser() {
+  func testParser() {
     runTests(on: MiniMarkdownRecognizer(), named: "new")
   }
 
