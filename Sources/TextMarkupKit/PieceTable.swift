@@ -60,6 +60,11 @@ public final class PieceTable: CustomStringConvertible, Sequence {
     return chars
   }
 
+  public func substring(range: Range<Int>) -> String {
+    var chars = self[range]
+    return String(utf16CodeUnits: &chars, count: chars.count)
+  }
+
   public var description: String {
     let properties: [String: Any] = [
       "length": string.length,
@@ -125,7 +130,7 @@ public struct Scope {
 }
 
 extension PieceTable {
-  public final class Iterator: IteratorProtocol {
+  public final class Iterator: IteratorProtocol, CustomStringConvertible {
     internal init(index: Int, string: PieceTable) {
       self.index = index
       self.string = string
@@ -135,9 +140,32 @@ extension PieceTable {
     private let string: PieceTable
     private var buffer = [unichar]()
     private var bufferStartIndex = 0
+    public var pauseIndexes: IndexSet?
 
     private var scopes: [Scope] = []
     private var memoizedAllScopesAreValid = true
+
+    public var description: String {
+      let properties: [String: Any] = [
+        "index": index,
+        "scopes": scopes,
+      ]
+      let priorRange = Swift.max(0, index - 8) ..< index
+      let laterRange = index ..< index + 16
+      return "PieceTable.Iterator\n\(snippet(range: priorRange).debugDescription)\n\(snippet(range: laterRange).debugDescription)\n\(properties)"
+    }
+
+    private func snippet(range: Range<Int>) -> String {
+      var chars = [unichar]()
+      for i in range {
+        guard let char = getCharFromBuffer(at: i) else {
+          break
+        }
+        chars.append(char)
+      }
+      let string = String(utf16CodeUnits: &chars, count: chars.count)
+      return string
+    }
 
     @discardableResult
     public func rewind() -> Bool {
@@ -151,6 +179,9 @@ extension PieceTable {
     public func next() -> unichar? {
       guard index < string.length, memoizedAllScopesAreValid else {
         return nil
+      }
+      if pauseIndexes?.contains(index + 1) ?? false {
+        print("Good spot to pause")
       }
       let char = getCharFromBuffer(at: index)
       for scopeIndex in scopes.indices {

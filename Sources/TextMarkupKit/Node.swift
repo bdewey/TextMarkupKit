@@ -84,7 +84,7 @@ extension Node {
   }
 
   /// Returns the syntax tree and which parts of `textBuffer` the leaf nodes correspond to.
-  public func debugDescription(withContentsFrom pieceTable: PieceTable) -> String {
+  public func outline(withContentsFrom pieceTable: PieceTable) -> String {
     var lines = [String]()
     writeDebugDescription(to: &lines, pieceTable: pieceTable, indentLevel: 0)
     return lines.joined(separator: "\n")
@@ -97,10 +97,10 @@ extension Node {
     indentLevel: Int
   ) {
     var result = String(repeating: " ", count: 2 * indentLevel)
-    result.append(type.rawValue)
+    result.append("\(type.rawValue) \(range.lowerBound) ..< \(range.upperBound)")
     result.append(": ")
     if children.isEmpty {
-      result.append(pieceTable[range].debugDescription)
+      result.append(pieceTable.substring(range: range).debugDescription)
     }
     lines.append(result)
     for child in children {

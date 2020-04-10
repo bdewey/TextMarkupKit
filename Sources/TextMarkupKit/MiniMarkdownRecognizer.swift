@@ -29,8 +29,6 @@ public extension NodeType {
   static let text: NodeType = "text"
 }
 
-
-
 public protocol PieceTableParser {
   func parse(pieceTable: PieceTable) -> Node
 }
@@ -53,6 +51,7 @@ public final class MiniMarkdownRecognizer: PieceTableParser {
 
   public func parse(pieceTable: PieceTable) -> Node {
     let iterator: NSStringIterator = pieceTable.makeIterator()
+    iterator.pauseIndexes = [1074]
     guard let node = parser(iterator) else {
       assertionFailure()
       return Node(type: .markdownDocument, range: pieceTable.startIndex ..< pieceTable.endIndex)

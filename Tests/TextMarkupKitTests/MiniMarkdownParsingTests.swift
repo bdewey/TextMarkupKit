@@ -54,6 +54,11 @@ final class MiniMarkdownParsingTests: XCTestCase {
     runTests(on: MiniMarkdownRecognizer(), named: "new")
   }
 
+  func testCanonical() {
+    let pieceTable = PieceTable(TestStrings.markdownCanonical)
+    let tree = MiniMarkdownRecognizer().parse(pieceTable: pieceTable)
+  }
+
   func runTests(on parser: PieceTableParser, named parserName: String) {
     for (name, testCase) in testCases {
       let pieceTable = PieceTable(testCase.input)
@@ -66,7 +71,7 @@ final class MiniMarkdownParsingTests: XCTestCase {
         print("### Failure: \(parserName).\(name)")
         print("Got:      " + tree.compactStructure)
         print("Expected: " + testCase.compactStructure)
-        print(tree.debugDescription(withContentsFrom: pieceTable))
+        print(tree.outline(withContentsFrom: pieceTable))
       }
       XCTAssertEqual(tree.compactStructure, testCase.compactStructure, "Test case \(parserName).\(name), unexpected structure")
     }
