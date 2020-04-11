@@ -29,6 +29,9 @@ open class ParsingRule {
   public func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
     preconditionFailure("Subclasses should override")
   }
+
+  static let dot = DotRule()
+  static let whitespace = Characters(.whitespaces)
 }
 
 open class ParsingRuleWrapper: ParsingRule {
@@ -46,24 +49,12 @@ open class ParsingRuleWrapper: ParsingRule {
 open class ParsingRuleSequenceWrapper: ParsingRule {
   public var rules: [ParsingRule]
 
-  public init(_ rules: [ParsingRule]) {
+  public init(_ rules: ParsingRule...) {
     self.rules = rules
   }
 
   public override func wrapInnerRules(_ wrapFunction: (ParsingRule) -> ParsingRule) {
     rules = rules.map(wrapFunction)
-  }
-}
-
-public enum ParsingRules {
-  static let dot = DotRule()
-  static let whitespace = CharacterSetMatcher(characters: .whitespaces)
-  static func sequence(_ rules: ParsingRule...) -> ParsingRule {
-    return SequenceRule(rules)
-  }
-
-  static func choice(_ rules: ParsingRule...) -> ParsingRule {
-    return ChoiceRule(rules)
   }
 }
 
@@ -167,8 +158,8 @@ final class DotRule: ParsingRule {
 
 /// Matches single characters that belong to a character set. The result is not put into a syntax tree node and should get absorbed
 /// by another rule.
-final class CharacterSetMatcher: ParsingRule {
-  init(characters: CharacterSet) {
+final class Characters: ParsingRule {
+  init(_ characters: CharacterSet) {
     self.characters = characters
   }
 
@@ -267,8 +258,8 @@ final class WrappingRule: ParsingRuleWrapper {
 }
 
 /// A rule that succeeds only if each child rule succeeds in sequence.
-final class SequenceRule: ParsingRuleSequenceWrapper {
-  override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
+public final class InOrder: ParsingRuleSequenceWrapper {
+  public override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
     var result = ParsingResult(succeeded: true)
     var currentIndex = index
     for rule in rules {
@@ -302,8 +293,8 @@ final class NotAssertionRule: ParsingRuleWrapper {
 }
 
 /// Returns the result of the first successful match, or .fail otherwise.
-final class ChoiceRule: ParsingRuleSequenceWrapper {
-  override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
+public final class Choice: ParsingRuleSequenceWrapper {
+  public override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
     var examinedLength = 0
     for rule in rules {
       var result = rule.apply(to: parser, at: index)

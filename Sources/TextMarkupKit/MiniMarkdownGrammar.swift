@@ -9,33 +9,36 @@ public final class MiniMarkdownGrammar: PackratGrammar {
     .repeating(0...)
     .wrapping(in: .markdownDocument)
 
-  lazy var block = ParsingRules.choice(
+  lazy var block = Choice(
     blankLine,
     header,
     paragraph
   ).memoize()
 
-  let blankLine = ParsingRules.sequence(
-    CharacterSetMatcher(characters: ["\n"]),
-    ParsingRules.dot.assert()
+  lazy var blankLine = InOrder(
+    newline,
+    dot.assert()
   ).absorb(into: .blankLine).memoize()
 
-  var header = ParsingRules.sequence(
-    CharacterSetMatcher(characters: ["#"]).repeating(1..<7).absorb(into: .delimiter),
-    ParsingRules.sequence(
-      ParsingRules.whitespace.repeating(0...),
-      ParsingRules.sequence(CharacterSetMatcher(characters: ["\n"]).assertInverse(), ParsingRules.dot).repeating(0...),
-      CharacterSetMatcher(characters: ["\n"])
+  lazy var header = InOrder(
+    Characters(["#"]).repeating(1..<7).absorb(into: .delimiter),
+    InOrder(
+      ParsingRule.whitespace.repeating(0...),
+      InOrder(newline.assertInverse(), .dot).repeating(0...),
+      Characters(["\n"])
     ).absorb(into: .text)
   ).wrapping(in: .header).memoize()
 
-  lazy var paragraph = ParsingRules.sequence(
-    ParsingRules.sequence(paragraphTermination.assertInverse(), ParsingRules.dot).repeating(1...),
+  lazy var paragraph = InOrder(
+    InOrder(paragraphTermination.assertInverse(), ParsingRule.dot).repeating(1...),
     paragraphTermination.repeating(0...)
   ).wrapping(in: .text).wrapping(in: .paragraph).memoize()
 
-  let paragraphTermination = ParsingRules.sequence(
-    CharacterSetMatcher(characters: ["\n"]),
-    CharacterSetMatcher(characters: ["#", "\n"]).assert()
+  lazy var paragraphTermination = InOrder(
+    newline,
+    Characters(["#", "\n"]).assert()
   )
+
+  let dot = DotRule()
+  let newline = Characters(["\n"])
 }
