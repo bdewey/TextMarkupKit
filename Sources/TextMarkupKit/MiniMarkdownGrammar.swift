@@ -2,10 +2,10 @@
 
 import Foundation
 
-public struct MiniMarkdownGrammar: PackratGrammar {
+public final class MiniMarkdownGrammar: PackratGrammar {
   public init() { }
 
-  public var start: ParsingRule = rule(\.block).zeroOrMore().wrapping(in: .markdownDocument)
+  public let start: ParsingRule = rule(\.block).zeroOrMore().wrapping(in: .markdownDocument)
 
   var block = ParsingRules.choice(
     rule(\.blankLine),
@@ -25,16 +25,16 @@ public struct MiniMarkdownGrammar: PackratGrammar {
     CharacterSetMatcher(characters: ["\n"])
   ).absorb(into: .header)
 
-  let paragraph = ParsingRules.sequence(
+  lazy var paragraph = ParsingRules.sequence(
     ParsingRules.sequence(paragraphTermination.assertInverse(), ParsingRules.dot).repeating(1...),
     paragraphTermination.zeroOrMore()
   ).wrapping(in: .paragraph)
-}
 
-let paragraphTermination = ParsingRules.sequence(
-  CharacterSetMatcher(characters: ["\n"]),
-  CharacterSetMatcher(characters: ["#", "\n"]).assert()
-)
+  let paragraphTermination = ParsingRules.sequence(
+    CharacterSetMatcher(characters: ["\n"]),
+    CharacterSetMatcher(characters: ["#", "\n"]).assert()
+  )
+}
 
 func rule(_ keyPath: KeyPath<MiniMarkdownGrammar, ParsingRule>) -> ParsingRule {
   RuleMatcher(ruleIdentifier: keyPath)
