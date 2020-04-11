@@ -26,15 +26,15 @@ public struct MiniMarkdownGrammar: PackratGrammar {
   ).absorb(into: .header)
 
   let paragraph = ParsingRules.sequence(
-    ParsingRules.sequence(rule(\.paragraphTermination).assertInverse(), ParsingRules.dot).repeating(1...),
-    rule(\.paragraphTermination).zeroOrMore()
+    ParsingRules.sequence(paragraphTermination.assertInverse(), ParsingRules.dot).repeating(1...),
+    paragraphTermination.zeroOrMore()
   ).wrapping(in: .paragraph)
-
-  let paragraphTermination = ParsingRules.sequence(
-    CharacterSetMatcher(characters: ["\n"]),
-    CharacterSetMatcher(characters: ["#", "\n"]).assert()
-  )
 }
+
+let paragraphTermination = ParsingRules.sequence(
+  CharacterSetMatcher(characters: ["\n"]),
+  CharacterSetMatcher(characters: ["#", "\n"]).assert()
+)
 
 func rule(_ keyPath: KeyPath<MiniMarkdownGrammar, ParsingRule>) -> ParsingRule {
   RuleMatcher(ruleIdentifier: keyPath)
