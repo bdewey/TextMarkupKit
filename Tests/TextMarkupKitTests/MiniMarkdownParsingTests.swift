@@ -46,7 +46,7 @@ final class MiniMarkdownParsingTests: XCTestCase {
     "textWithBold":
       .expect("(document (paragraph text (strong_emphasis delimiter text delimiter) text))", for: "This is text with **bold**."),
     "textAndHeader": .expect("(document (paragraph text) (header delimiter text))", for: "Text\n# Heading"),
-    "textAndCode": .expect("(document (paragraph text (code delimiter text delimiter) text))", for: "This is text with `code`.")
+    "textAndCode": .expect("(document (paragraph text (code delimiter text delimiter) text))", for: "This is text with `code`."),
   ]
 
   func testRunner() {
