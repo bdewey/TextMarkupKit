@@ -18,7 +18,7 @@ final class PerformanceTests: XCTestCase {
 
   func testPackratParser() {
     let pieceTable = PieceTable(TestStrings.markdownCanonical)
-    let parser = PackratParser(buffer: pieceTable, grammar: MiniMarkdownGrammar.shared)
+    let parser = PackratParser(buffer: pieceTable, grammar: JustTextGrammar.shared)
     measure {
       do {
         let _ = try parser.parse()
