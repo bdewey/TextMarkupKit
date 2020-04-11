@@ -34,7 +34,6 @@ public final class PackratParser {
     self.buffer = buffer
     self.grammar = grammar
     self.memoizedResults = Array(repeating: ResultsAtIndex(), count: buffer.endIndex + 1)
-    self.grammar.start.prepareToParseIfNeeded(self)
   }
 
   /// The contents to parse.
@@ -58,7 +57,7 @@ public final class PackratParser {
   }
 
   /// Returns the memoized result of applying a rule at an index into the buffer, if it exists.
-  public func memoizedResult(rule: AnyKeyPath, index: Int) -> ParsingResult? {
+  public func memoizedResult(rule: ObjectIdentifier, index: Int) -> ParsingResult? {
     return memoizedResults[index][rule]
   }
 
@@ -67,7 +66,7 @@ public final class PackratParser {
   ///   - result: The parsing result to memoize.
   ///   - rule: The
   ///   - index: <#index description#>
-  public func memoizeResult(_ result: ParsingResult, rule: AnyKeyPath, index: Int) {
+  public func memoizeResult(_ result: ParsingResult, rule: ObjectIdentifier, index: Int) {
     memoizedResults[index][rule] = result
   }
 
@@ -85,6 +84,6 @@ public final class PackratParser {
 
   // MARK: - Memoization internals
 
-  private typealias ResultsAtIndex = [AnyKeyPath: ParsingResult]
+  private typealias ResultsAtIndex = [ObjectIdentifier: ParsingResult]
   private var memoizedResults: [ResultsAtIndex]
 }

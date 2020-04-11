@@ -21,17 +21,6 @@ import Foundation
 open class ParsingRule {
   public init() {}
 
-  private var prepared = false
-
-  @discardableResult
-  public func prepareToParseIfNeeded(_ parser: PackratParser) -> Bool {
-    if prepared {
-      return false
-    }
-    prepared = true
-    return prepared
-  }
-
   public func wrapInnerRules(_ wrapFunction: (ParsingRule) -> ParsingRule) {
     // NOTHING
   }
@@ -49,14 +38,6 @@ open class ParsingRuleWrapper: ParsingRule {
     self.rule = rule
   }
 
-  public override func prepareToParseIfNeeded(_ parser: PackratParser) -> Bool {
-    if super.prepareToParseIfNeeded(parser) {
-      rule.prepareToParseIfNeeded(parser)
-      return true
-    }
-    return false
-  }
-
   public override func wrapInnerRules(_ wrapFunction: (ParsingRule) -> ParsingRule) {
     rule = wrapFunction(rule)
   }
@@ -67,15 +48,6 @@ open class ParsingRuleSequenceWrapper: ParsingRule {
 
   public init(_ rules: [ParsingRule]) {
     self.rules = rules
-  }
-
-  public override func prepareToParseIfNeeded(_ parser: PackratParser) -> Bool {
-    if super.prepareToParseIfNeeded(parser) {
-      rules.forEach { $0.prepareToParseIfNeeded(parser) }
-      return true
-    } else {
-      return false
-    }
   }
 
   public override func wrapInnerRules(_ wrapFunction: (ParsingRule) -> ParsingRule) {
@@ -137,11 +109,6 @@ public struct ParsingResult {
 // MARK: - Deriving rules
 
 public extension ParsingRule {
-  /// Returns a rule that matches zero or more occurrences of the receiver.
-  func zeroOrMore() -> ParsingRule {
-    return ZeroOrMoreMatcher(self)
-  }
-
   func wrapping(in nodeType: NodeType) -> ParsingRule {
     return WrappingRule(rule: self, nodeType: nodeType)
   }
@@ -158,8 +125,12 @@ public extension ParsingRule {
     return RangeRule(rule: self, range: range)
   }
 
+  func repeating(_ range: ClosedRange<Int>) -> ParsingRule {
+    return RangeRule(rule: self, range: range.lowerBound ..< range.upperBound + 1)
+  }
+
   func repeating(_ partialRange: PartialRangeFrom<Int>) -> ParsingRule {
-    return UnboundedRangeRule(rule: self, range: partialRange)
+    return RangeRule(rule: self, range: partialRange.lowerBound ..< Int.max)
   }
 
   func assert() -> ParsingRule {
@@ -173,6 +144,10 @@ public extension ParsingRule {
 
   func trace() -> ParsingRule {
     return TraceRule(self, indentLevel: 0)
+  }
+
+  func memoize() -> ParsingRule {
+    return MemoizingRule(self)
   }
 }
 
@@ -209,48 +184,13 @@ final class CharacterSetMatcher: ParsingRule {
 
 /// Looks up a rule in the parser's grammar by identifier. Sees if the parser has already memoized the result of parsing this rule
 /// at this identifier; if so, returns it. Otherwise, applies the rule, memoizes the result in the parser, and returns it.
-final class RuleMatcher<Grammar>: ParsingRule {
-  init(ruleIdentifier: KeyPath<Grammar, ParsingRule>) {
-    self.ruleIdentifier = ruleIdentifier
-  }
-
-  let ruleIdentifier: KeyPath<Grammar, ParsingRule>
-  var rule: ParsingRule!
-
+final class MemoizingRule: ParsingRuleWrapper {
   override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
-    if let memoizedResult = parser.memoizedResult(rule: ruleIdentifier, index: index) {
+    if let memoizedResult = parser.memoizedResult(rule: ObjectIdentifier(self), index: index) {
       return memoizedResult
     }
     let result = rule.apply(to: parser, at: index)
-    parser.memoizeResult(result, rule: ruleIdentifier, index: index)
-    return result
-  }
-
-  override func prepareToParseIfNeeded(_ parser: PackratParser) -> Bool {
-    guard super.prepareToParseIfNeeded(parser) else { return false }
-    guard let grammar = parser.grammar as? Grammar else {
-      preconditionFailure("Parser grammar was not of the expected type")
-    }
-    rule = grammar[keyPath: ruleIdentifier]
-    rule.prepareToParseIfNeeded(parser)
-    return true
-  }
-}
-
-/// Matches zero or more occurrences of a rule. The resulting nodes are concatenated together in the result.
-final class ZeroOrMoreMatcher: ParsingRuleWrapper {
-  override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
-    var result = ParsingResult(succeeded: true, length: 0, examinedLength: 0, nodes: [])
-    var currentIndex = index
-    repeat {
-      let innerResult = rule.apply(to: parser, at: currentIndex)
-      guard innerResult.succeeded else { break }
-      Swift.assert(innerResult.length > 0, "About to enter an infinite loop")
-      result.length += innerResult.length
-      result.examinedLength += innerResult.examinedLength
-      result.nodes.append(contentsOf: innerResult.nodes)
-      currentIndex += innerResult.length
-    } while true
+    parser.memoizeResult(result, rule: ObjectIdentifier(self), index: index)
     return result
   }
 }
@@ -272,6 +212,7 @@ final class RangeRule: ParsingRuleWrapper {
     repeat {
       let innerResult = rule.apply(to: parser, at: currentIndex)
       guard innerResult.succeeded else { break }
+      Swift.assert(innerResult.length > 0, "About to enter an infinite loop")
       repetitionCount += 1
       result.length += innerResult.length
       result.examinedLength += innerResult.examinedLength
@@ -279,34 +220,6 @@ final class RangeRule: ParsingRuleWrapper {
         return result.failed()
       }
       result.nodes.append(contentsOf: innerResult.nodes)
-      currentIndex += innerResult.length
-    } while true
-    if repetitionCount < range.lowerBound {
-      return result.failed()
-    }
-    return result
-  }
-}
-
-/// Counts how many times we can successively match a rule. Succeeds and returns the concatenated result if the number of times
-/// the rule matches falls within an allowed range, fails otherwise.
-final class UnboundedRangeRule: ParsingRuleWrapper {
-  init(rule: ParsingRule, range: PartialRangeFrom<Int>) {
-    self.range = range
-    super.init(rule)
-  }
-
-  let range: PartialRangeFrom<Int>
-
-  override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
-    var result = ParsingResult(succeeded: true, length: 0, examinedLength: 0, nodes: [])
-    var currentIndex = index
-    var repetitionCount = 0
-    repeat {
-      let innerResult = rule.apply(to: parser, at: currentIndex)
-      guard innerResult.succeeded else { break }
-      repetitionCount += 1
-      result.concat(innerResult)
       currentIndex += innerResult.length
     } while true
     if repetitionCount < range.lowerBound {
