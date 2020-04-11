@@ -20,7 +20,7 @@ import Foundation
 /// A Packrat grammar is a collection of parsing rules, one of which is the designated `start` rule.
 public protocol PackratGrammar {
   /// The designated starting rule for parsing the grammar. This rule should produce exactly one syntax tree `Node`.
-  var start: ParsingRule { get }
+  var start: ParsingRule { get set }
 }
 
 /// Implements a packrat parsing algorithm.
@@ -32,6 +32,7 @@ public final class PackratParser {
   public init(buffer: PieceTable, grammar: PackratGrammar) {
     self.buffer = buffer
     self.grammar = grammar
+    self.grammar.start.prepareToParseIfNeeded(self)
   }
 
   /// The contents to parse.

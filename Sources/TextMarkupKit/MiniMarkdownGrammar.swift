@@ -5,9 +5,7 @@ import Foundation
 public struct MiniMarkdownGrammar: PackratGrammar {
   public init() { }
 
-  public var start: ParsingRule {
-    rule(\.block).zeroOrMore().wrapping(in: .markdownDocument)
-  }
+  public var start: ParsingRule = rule(\.block).zeroOrMore().wrapping(in: .markdownDocument)
 
   var block = ParsingRules.choice(
     rule(\.blankLine),
