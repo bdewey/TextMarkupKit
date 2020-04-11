@@ -65,4 +65,23 @@ final class MiniMarkdownParsingTests: XCTestCase {
       XCTAssertEqual(tree.compactStructure, testCase.compactStructure, "Test case \(name), unexpected structure")
     }
   }
+
+  func testPackratOnHeaderAndBody() {
+    let testCase = testCases["headerAndBody"]!
+    let pieceTable = PieceTable(testCase.input)
+    let parser = PackratParser(buffer: pieceTable, grammar: MiniMarkdownGrammar())
+    do {
+      let tree = try parser.parse()
+      if testCase.compactStructure != tree.compactStructure {
+        print("### Failure: \(name)")
+        print("Got:      " + tree.compactStructure)
+        print("Expected: " + testCase.compactStructure)
+      }
+      print(pieceTable)
+      print(tree.debugDescription(withContentsFrom: pieceTable))
+      XCTAssertEqual(tree.compactStructure, testCase.compactStructure, "Test case \(name), unexpected structure")
+    } catch {
+      XCTFail("Unexpected error: \(error)")
+    }
+  }
 }

@@ -20,8 +20,11 @@ import TextMarkupKit
 import XCTest
 
 final class PerformanceTests: XCTestCase {
+  let pieceTable = PieceTable(
+    String(repeating: TestStrings.markdownCanonical, count: 10)
+  )
+
   func testCustomProcessor() {
-    let pieceTable = PieceTable(TestStrings.markdownCanonical)
     measure {
       let tree = DocumentParser.miniMarkdown.parse(textBuffer: pieceTable, position: 0)
       if tree.range.endIndex != pieceTable.endIndex {
@@ -32,10 +35,21 @@ final class PerformanceTests: XCTestCase {
   }
 
   func testPackratParser() {
-    let pieceTable = PieceTable(TestStrings.markdownCanonical)
     let parser = PackratParser(buffer: pieceTable, grammar: JustTextGrammar.shared)
     measure {
       do {
+        _ = try parser.parse()
+      } catch {
+        XCTFail("Unexpected error: \(error)")
+      }
+    }
+  }
+
+  func testMiniMarkdownParser() {
+    let grammar = MiniMarkdownGrammar()
+    measure {
+      do {
+        let parser = PackratParser(buffer: pieceTable, grammar: grammar)
         _ = try parser.parse()
       } catch {
         XCTFail("Unexpected error: \(error)")
