@@ -46,9 +46,9 @@ final class PerformanceTests: XCTestCase {
   }
 
   func testMiniMarkdownParser() {
-    let grammar = MiniMarkdownGrammar()
     measure {
       do {
+        let grammar = MiniMarkdownGrammar()
         let parser = PackratParser(buffer: pieceTable, grammar: grammar)
         _ = try parser.parse()
       } catch {

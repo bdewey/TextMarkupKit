@@ -29,9 +29,11 @@ public final class PackratParser {
   /// - Parameters:
   ///   - buffer: The content to parse.
   ///   - grammar: The grammar rules to apply to the contents of `buffer`
+  // TODO: This should probably take a block that constructs a grammar rather than a grammar
   public init(buffer: PieceTable, grammar: PackratGrammar) {
     self.buffer = buffer
     self.grammar = grammar
+    self.memoizedResults = Array(repeating: ResultsAtIndex(), count: buffer.endIndex + 1)
     self.grammar.start.prepareToParseIfNeeded(self)
   }
 
@@ -57,7 +59,7 @@ public final class PackratParser {
 
   /// Returns the memoized result of applying a rule at an index into the buffer, if it exists.
   public func memoizedResult(rule: AnyKeyPath, index: Int) -> ParsingResult? {
-    return memoTable[MemoKey(rule: rule, index: index)]
+    return memoizedResults[index][rule]
   }
 
   /// Memoizes the result of applying a rule at an index in the buffer.
@@ -66,7 +68,7 @@ public final class PackratParser {
   ///   - rule: The
   ///   - index: <#index description#>
   public func memoizeResult(_ result: ParsingResult, rule: AnyKeyPath, index: Int) {
-    memoTable[MemoKey(rule: rule, index: index)] = result
+    memoizedResults[index][rule] = result
   }
 
   // MARK: - Supporting types
@@ -83,10 +85,6 @@ public final class PackratParser {
 
   // MARK: - Memoization internals
 
-  private struct MemoKey: Hashable {
-    let rule: AnyKeyPath
-    let index: Int
-  }
-
-  private var memoTable = [MemoKey: ParsingResult]()
+  private typealias ResultsAtIndex = [AnyKeyPath: ParsingResult]
+  private var memoizedResults: [ResultsAtIndex]
 }
