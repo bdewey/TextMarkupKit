@@ -16,7 +16,7 @@
 //  under the License.
 
 import Foundation
-import TextMarkupKit
+@testable import TextMarkupKit
 import XCTest
 
 struct ParsingTestCase {
@@ -69,7 +69,8 @@ final class MiniMarkdownParsingTests: XCTestCase {
   func testPackratOnHeaderAndBody() {
     let testCase = testCases["headerAndBody"]!
     let pieceTable = PieceTable(testCase.input)
-    let parser = PackratParser(buffer: pieceTable, grammar: MiniMarkdownGrammar())
+    let grammar = MiniMarkdownGrammar()
+    let parser = PackratParser(buffer: pieceTable, grammar: grammar)
     do {
       let tree = try parser.parse()
       if testCase.compactStructure != tree.compactStructure {

@@ -18,17 +18,19 @@ public final class MiniMarkdownGrammar: PackratGrammar {
     ParsingRules.dot.assert()
   ).absorb(into: .blankLine)
 
-  let header = ParsingRules.sequence(
-    CharacterSetMatcher(characters: ["#"]).repeating(1..<7),
-    ParsingRules.whitespace.zeroOrMore(),
-    ParsingRules.sequence(CharacterSetMatcher(characters: ["\n"]).assertInverse(), ParsingRules.dot).zeroOrMore(),
-    CharacterSetMatcher(characters: ["\n"])
-  ).absorb(into: .header)
+  var header = ParsingRules.sequence(
+    CharacterSetMatcher(characters: ["#"]).repeating(1..<7).absorb(into: .delimiter),
+    ParsingRules.sequence(
+      ParsingRules.whitespace.zeroOrMore(),
+      ParsingRules.sequence(CharacterSetMatcher(characters: ["\n"]).assertInverse(), ParsingRules.dot).zeroOrMore(),
+      CharacterSetMatcher(characters: ["\n"])
+    ).absorb(into: .text)
+  ).wrapping(in: .header)
 
   lazy var paragraph = ParsingRules.sequence(
     ParsingRules.sequence(paragraphTermination.assertInverse(), ParsingRules.dot).repeating(1...),
     paragraphTermination.zeroOrMore()
-  ).wrapping(in: .paragraph)
+  ).wrapping(in: .text).wrapping(in: .paragraph)
 
   let paragraphTermination = ParsingRules.sequence(
     CharacterSetMatcher(characters: ["\n"]),

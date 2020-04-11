@@ -32,6 +32,10 @@ open class ParsingRule {
     return prepared
   }
 
+  public func wrapInnerRules(_ wrapFunction: (ParsingRule) -> ParsingRule) {
+    // NOTHING
+  }
+
   /// Computes the result of applying this rule to a specific parser at a specific index.
   public func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
     preconditionFailure("Subclasses should override")
@@ -52,6 +56,10 @@ open class ParsingRuleWrapper: ParsingRule {
     }
     return false
   }
+
+  public override func wrapInnerRules(_ wrapFunction: (ParsingRule) -> ParsingRule) {
+    rule = wrapFunction(rule)
+  }
 }
 
 open class ParsingRuleSequenceWrapper: ParsingRule {
@@ -68,6 +76,10 @@ open class ParsingRuleSequenceWrapper: ParsingRule {
     } else {
       return false
     }
+  }
+
+  public override func wrapInnerRules(_ wrapFunction: (ParsingRule) -> ParsingRule) {
+    rules = rules.map(wrapFunction)
   }
 }
 
@@ -157,6 +169,10 @@ public extension ParsingRule {
   /// Returns an *assertion* that succeeds if the receiver fails and vice versa.
   func assertInverse() -> ParsingRule {
     return NotAssertionRule(self)
+  }
+
+  func trace() -> ParsingRule {
+    return TraceRule(self, indentLevel: 0)
   }
 }
 
@@ -343,9 +359,10 @@ final class SequenceRule: ParsingRuleSequenceWrapper {
     var result = ParsingResult(succeeded: true)
     var currentIndex = index
     for rule in rules {
-      result.concat(rule.apply(to: parser, at: currentIndex))
-      if !result.succeeded { return result.failed() }
-      currentIndex += result.length
+      let innerResult = rule.apply(to: parser, at: currentIndex)
+      if !innerResult.succeeded { return result.failed() }
+      result.concat(innerResult)
+      currentIndex += innerResult.length
     }
     return result
   }
@@ -384,5 +401,32 @@ final class ChoiceRule: ParsingRuleSequenceWrapper {
       }
     }
     return ParsingResult(succeeded: false, length: 0, examinedLength: examinedLength, nodes: [])
+  }
+}
+
+final class TraceRule: ParsingRuleWrapper {
+  init(_ rule: ParsingRule, indentLevel: Int) {
+    self.indentLevel = indentLevel
+    super.init(rule)
+    rule.wrapInnerRules { (innerRule) -> ParsingRule in
+      return TraceRule(innerRule, indentLevel: indentLevel + 1)
+    }
+  }
+
+  let indentLevel: Int
+
+  override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
+    let space = String(repeating: "| ", count: indentLevel)
+    let currentContents = parser.buffer.utf16(at: index).map { char -> String in
+      guard let scalar = Unicode.Scalar(char) else {
+        assertionFailure()
+        return "invalid"
+      }
+      return scalar.debugDescription
+    }
+    print("\(space)+ \(rule)@\(index): \(currentContents ?? "nil")")
+    let result = rule.apply(to: parser, at: index)
+    print("\(space)= \(rule)@\(index): \(result)")
+    return result
   }
 }
