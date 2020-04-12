@@ -69,23 +69,23 @@ final class MiniMarkdownParsingTests: XCTestCase {
   func testPackratOnHeaderAndBody() {
     for (name, testCase) in testCases {
       do {
-      let pieceTable = PieceTable(testCase.input)
-      let grammar = MiniMarkdownGrammar()
-      let parser = PackratParser(buffer: pieceTable, grammar: grammar)
-      let tree = try parser.parse()
-      if tree.range.endIndex != pieceTable.endIndex {
-        let unparsedText = pieceTable[tree.range.endIndex ..< pieceTable.endIndex]
-        XCTFail("Test case \(name): Unparsed text = '\(unparsedText.debugDescription)'")
-      }
-      if testCase.compactStructure != tree.compactStructure {
-        print("### Failure: \(name)")
-        print("Got:      " + tree.compactStructure)
-        print("Expected: " + testCase.compactStructure)
-        print("\n")
-        print(tree.debugDescription(withContentsFrom: pieceTable))
-        print("\n\n\n")
-      }
-      XCTAssertEqual(tree.compactStructure, testCase.compactStructure, "Test case \(name), unexpected structure")
+        let pieceTable = PieceTable(testCase.input)
+        let grammar = MiniMarkdownGrammar()
+        let parser = PackratParser(buffer: pieceTable, grammar: grammar)
+        let tree = try parser.parse()
+        if tree.range.endIndex != pieceTable.endIndex {
+          let unparsedText = pieceTable[tree.range.endIndex ..< pieceTable.endIndex]
+          XCTFail("Test case \(name): Unparsed text = '\(unparsedText.debugDescription)'")
+        }
+        if testCase.compactStructure != tree.compactStructure {
+          print("### Failure: \(name)")
+          print("Got:      " + tree.compactStructure)
+          print("Expected: " + testCase.compactStructure)
+          print("\n")
+          print(tree.debugDescription(withContentsFrom: pieceTable))
+          print("\n\n\n")
+        }
+        XCTAssertEqual(tree.compactStructure, testCase.compactStructure, "Test case \(name), unexpected structure")
       } catch {
         XCTFail("Unexpected error on test case \(name): \(error)")
       }

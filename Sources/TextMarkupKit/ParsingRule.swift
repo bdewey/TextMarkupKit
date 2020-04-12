@@ -358,7 +358,7 @@ final class TraceRule: ParsingRuleWrapper {
   override init(_ rule: ParsingRule) {
     super.init(rule)
     rule.wrapInnerRules { (innerRule) -> ParsingRule in
-      return TraceRule(innerRule)
+      TraceRule(innerRule)
     }
   }
 
