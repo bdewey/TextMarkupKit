@@ -91,4 +91,15 @@ final class MiniMarkdownParsingTests: XCTestCase {
       }
     }
   }
+
+  func __testFile() {
+    do {
+      let rawFileContents = try String(contentsOfFile: "/Users/brian/Documents/Projects/ParserPerfPlayground/markdown-canonical.md")
+      let pieceTable = PieceTable(rawFileContents)
+      let grammar = MiniMarkdownGrammar()
+      _ = try PackratParser(buffer: pieceTable, grammar: grammar).parse()
+    } catch {
+      XCTFail("Unexpected error: \(error)")
+    }
+  }
 }

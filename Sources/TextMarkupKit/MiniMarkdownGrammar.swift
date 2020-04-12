@@ -3,7 +3,11 @@
 import Foundation
 
 public final class MiniMarkdownGrammar: PackratGrammar {
-  public init() { }
+  public init(trace: Bool = false) {
+    if trace {
+      self.start = self.start.trace()
+    }
+  }
 
   public private(set) lazy var start: ParsingRule = block
     .repeating(0...)
