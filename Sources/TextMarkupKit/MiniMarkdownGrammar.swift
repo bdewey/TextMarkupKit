@@ -25,19 +25,42 @@ public final class MiniMarkdownGrammar: PackratGrammar {
     InOrder(
       ParsingRule.whitespace.repeating(0...),
       InOrder(newline.assertInverse(), .dot).repeating(0...),
-      Characters(["\n"])
+      Choice(newline, dot.assertInverse())
     ).absorb(into: .text)
   ).wrapping(in: .header).memoize()
 
   lazy var paragraph = InOrder(
-    InOrder(paragraphTermination.assertInverse(), ParsingRule.dot).repeating(1...),
-    paragraphTermination.repeating(0...)
-  ).wrapping(in: .text).wrapping(in: .paragraph).memoize()
+    styledText,
+    paragraphTermination.repeating(0...1).wrapping(in: .text)
+  ).wrapping(in: .paragraph).memoize()
 
   lazy var paragraphTermination = InOrder(
     newline,
     Characters(["#", "\n"]).assert()
   )
+
+  func delimitedText(_ nodeType: NodeType, delimiter: ParsingRule) -> ParsingRule {
+    InOrder(
+      delimiter.absorb(into: .delimiter),
+      InOrder(delimiter.assertInverse(), dot).repeating(1...).absorb(into: .text),
+      delimiter.absorb(into: .delimiter)
+    ).wrapping(in: nodeType).memoize()
+  }
+
+  lazy var bold = delimitedText(.strongEmphasis, delimiter: Literal("**"))
+  lazy var italic = delimitedText(.emphasis, delimiter: Literal("*"))
+  lazy var code = delimitedText(.code, delimiter: Literal("`"))
+
+  lazy var textStyles = Choice(
+    bold,
+    italic,
+    code
+  ).memoize()
+
+  lazy var styledText = InOrder(
+    InOrder(paragraphTermination.assertInverse(), textStyles.assertInverse(), dot).repeating(0...).absorb(into: .text),
+    textStyles.repeating(0...)
+  ).repeating(0...).memoize()
 
   let dot = DotRule()
   let newline = Characters(["\n"])

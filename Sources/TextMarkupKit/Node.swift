@@ -33,7 +33,7 @@ public final class Node: CustomStringConvertible {
   public let type: NodeType
 
   /// The range from the original `TextBuffer` that this node in the syntax tree covers.
-  public let range: Range<Int>
+  public var range: Range<Int>
 
   /// Children of this node.
   public let children: [Node]

@@ -173,6 +173,26 @@ final class Characters: ParsingRule {
   }
 }
 
+public final class Literal: ParsingRule {
+  init(_ string: String) {
+    self.chars = Array(string.utf16)
+  }
+
+  let chars: [unichar]
+
+  public override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
+    var length = 0
+    while length < chars.count, let char = parser.buffer.utf16(at: index + length), char == chars[length] {
+      length += 1
+    }
+    if length == chars.count {
+      return ParsingResult(succeeded: true, length: length, examinedLength: length, nodes: [])
+    } else {
+      return ParsingResult(succeeded: false, length: 0, examinedLength: length, nodes: [])
+    }
+  }
+}
+
 /// Looks up a rule in the parser's grammar by identifier. Sees if the parser has already memoized the result of parsing this rule
 /// at this identifier; if so, returns it. Otherwise, applies the rule, memoizes the result in the parser, and returns it.
 final class MemoizingRule: ParsingRuleWrapper {
@@ -202,8 +222,8 @@ final class RangeRule: ParsingRuleWrapper {
     var repetitionCount = 0
     repeat {
       let innerResult = rule.apply(to: parser, at: currentIndex)
-      guard innerResult.succeeded else { break }
-      Swift.assert(innerResult.length > 0, "About to enter an infinite loop")
+      guard innerResult.succeeded, innerResult.length > 0 else { break }
+//      Swift.assert(innerResult.length > 0, "About to enter an infinite loop")
       repetitionCount += 1
       result.length += innerResult.length
       result.examinedLength += innerResult.examinedLength
@@ -232,7 +252,7 @@ final class AbsorbingMatcher: ParsingRuleWrapper {
 
   override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
     var result = rule.apply(to: parser, at: index)
-    if !result.succeeded { return result }
+    if !result.succeeded || result.length == 0 { return result }
     let node = Node(type: nodeType, range: index ..< index + result.length)
     result.nodes = [node]
     return result
@@ -250,8 +270,16 @@ final class WrappingRule: ParsingRuleWrapper {
 
   override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
     var result = rule.apply(to: parser, at: index)
-    if !result.succeeded { return result }
-    let node = Node(type: nodeType, range: index ..< index + result.length, children: result.nodes)
+    if !result.succeeded || result.length == 0 { return result }
+    var children = [Node]()
+    for resultNode in result.nodes {
+      if let lastNode = children.last, lastNode.type == resultNode.type, lastNode.children.isEmpty, resultNode.children.isEmpty {
+        lastNode.range = lastNode.range.lowerBound ..< resultNode.range.upperBound
+      } else {
+        children.append(resultNode)
+      }
+    }
+    let node = Node(type: nodeType, range: index ..< index + result.length, children: children)
     result.nodes = [node]
     return result
   }
