@@ -354,44 +354,6 @@ public final class Choice: ParsingRuleSequenceWrapper {
   }
 }
 
-final class TraceEntry: CustomStringConvertible {
-  init(rule: ParsingRule, index: Int, locationHint: String) {
-    self.rule = rule
-    self.index = index
-    self.locationHint = locationHint
-  }
-
-  let rule: ParsingRule
-  let index: Int
-  let locationHint: String
-  var result: ParsingResult?
-  var subentries: [TraceEntry] = []
-
-  var description: String {
-    var buffer = ""
-    writeRecursiveDescription(to: &buffer, indexPath: [], maxLevel: 2)
-    return buffer
-  }
-
-  var fullDescription: String {
-    var buffer = ""
-    writeRecursiveDescription(to: &buffer, indexPath: [])
-    return buffer
-  }
-
-  private func writeRecursiveDescription(to buffer: inout String, indexPath: IndexPath, maxLevel: Int = Int.max) {
-    let indentLevel = indexPath.count
-    guard indentLevel <= maxLevel else { return }
-    let space = String(repeating: "| ", count: indentLevel)
-    buffer.append("\(space)+ \(rule)@\(index): \(locationHint) \(indexPath)\n")
-    for (index, subentry) in subentries.enumerated() {
-      subentry.writeRecursiveDescription(to: &buffer, indexPath: indexPath.appending(index), maxLevel: maxLevel)
-    }
-    let resultString = result.map(String.init(describing:)) ?? "nil"
-    buffer.append("\(space)= \(rule)@\(index): \(resultString)\n")
-  }
-}
-
 final class TraceRule: ParsingRuleWrapper {
   override init(_ rule: ParsingRule) {
     super.init(rule)
@@ -408,17 +370,11 @@ final class TraceRule: ParsingRuleWrapper {
       }
       return scalar.debugDescription
     } ?? "(eof)"
-    let currentEntry = TraceEntry(rule: rule, index: index, locationHint: locationHint)
-    let parentEntry = parser.activeTraceEntry
-    parser.activeTraceEntry = currentEntry
+    let currentEntry = TraceBuffer.Entry(rule: rule, index: index, locationHint: locationHint)
+    parser.traceBuffer.pushEntry(currentEntry)
     let result = rule.apply(to: parser, at: index)
     currentEntry.result = result
-    if let parentEntry = parentEntry {
-      parentEntry.subentries.append(currentEntry)
-    } else {
-      parser.traceEntries.append(currentEntry)
-    }
-    parser.activeTraceEntry = parentEntry
+    parser.traceBuffer.popEntry()
     return result
   }
 }

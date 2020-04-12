@@ -100,9 +100,7 @@ final class MiniMarkdownParsingTests: XCTestCase {
       _ = try parser.parse()
     } catch {
       XCTFail("Unexpected error: \(error)")
-      for entry in parser.traceEntries {
-        print(entry)
-      }
+      print(parser.traceBuffer)
     }
   }
 }

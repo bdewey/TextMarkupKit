@@ -42,8 +42,8 @@ public final class PackratParser {
   /// The grammar rules to apply to the contents of `buffer`.
   public let grammar: PackratGrammar
 
-  var traceEntries: [TraceEntry] = []
-  var activeTraceEntry: TraceEntry?
+  /// If any rules are tracing evaluation, the trace entries are stored here.
+  public let traceBuffer = TraceBuffer()
 
   /// Parses the contents of the buffer.
   /// - Throws: If the grammar could not parse the entire contents, throws `Error.incompleteParsing`. If the grammar resulted in more than one resulting node, throws `Error.ambiguousParsing`.
