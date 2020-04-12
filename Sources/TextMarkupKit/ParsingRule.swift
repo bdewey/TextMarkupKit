@@ -134,11 +134,15 @@ public extension ParsingRule {
   }
 
   func trace() -> ParsingRule {
-    return TraceRule(self, indentLevel: 0)
+    return TraceRule(self)
   }
 
   func memoize() -> ParsingRule {
     return MemoizingRule(self)
+  }
+
+  func zeroOrOne() -> ParsingRule {
+    return ZeroOrOneRule(self)
   }
 }
 
@@ -240,6 +244,20 @@ final class RangeRule: ParsingRuleWrapper {
   }
 }
 
+/// Matches an inner rule 0 or 1 times.
+final class ZeroOrOneRule: ParsingRuleWrapper {
+  override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
+    var result = rule.apply(to: parser, at: index)
+    if result.succeeded {
+      return result
+    }
+    result.succeeded = true
+    result.length = 0
+    result.nodes.removeAll()
+    return result
+  }
+}
+
 /// "Absorbs" the range consumed by `rule` into a syntax tree node of type `nodeType`. Any syntax tree nodes produced
 /// by `rule` will be discarded.
 final class AbsorbingMatcher: ParsingRuleWrapper {
@@ -336,29 +354,71 @@ public final class Choice: ParsingRuleSequenceWrapper {
   }
 }
 
+final class TraceEntry: CustomStringConvertible {
+  init(rule: ParsingRule, index: Int, locationHint: String) {
+    self.rule = rule
+    self.index = index
+    self.locationHint = locationHint
+  }
+
+  let rule: ParsingRule
+  let index: Int
+  let locationHint: String
+  var result: ParsingResult?
+  var subentries: [TraceEntry] = []
+
+  var description: String {
+    var buffer = ""
+    writeRecursiveDescription(to: &buffer, indexPath: [], maxLevel: 2)
+    return buffer
+  }
+
+  var fullDescription: String {
+    var buffer = ""
+    writeRecursiveDescription(to: &buffer, indexPath: [])
+    return buffer
+  }
+
+  private func writeRecursiveDescription(to buffer: inout String, indexPath: IndexPath, maxLevel: Int = Int.max) {
+    let indentLevel = indexPath.count
+    guard indentLevel <= maxLevel else { return }
+    let space = String(repeating: "| ", count: indentLevel)
+    buffer.append("\(space)+ \(rule)@\(index): \(locationHint) \(indexPath)\n")
+    for (index, subentry) in subentries.enumerated() {
+      subentry.writeRecursiveDescription(to: &buffer, indexPath: indexPath.appending(index), maxLevel: maxLevel)
+    }
+    let resultString = result.map(String.init(describing:)) ?? "nil"
+    buffer.append("\(space)= \(rule)@\(index): \(resultString)\n")
+  }
+}
+
 final class TraceRule: ParsingRuleWrapper {
-  init(_ rule: ParsingRule, indentLevel: Int) {
-    self.indentLevel = indentLevel
+  override init(_ rule: ParsingRule) {
     super.init(rule)
     rule.wrapInnerRules { (innerRule) -> ParsingRule in
-      return TraceRule(innerRule, indentLevel: indentLevel + 1)
+      return TraceRule(innerRule)
     }
   }
 
-  let indentLevel: Int
-
   override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
-    let space = String(repeating: "| ", count: indentLevel)
-    let currentContents = parser.buffer.utf16(at: index).map { char -> String in
+    let locationHint = parser.buffer.utf16(at: index).map { char -> String in
       guard let scalar = Unicode.Scalar(char) else {
         assertionFailure()
         return "invalid"
       }
       return scalar.debugDescription
-    }
-    print("\(space)+ \(rule)@\(index): \(currentContents ?? "nil")")
+    } ?? "(eof)"
+    let currentEntry = TraceEntry(rule: rule, index: index, locationHint: locationHint)
+    let parentEntry = parser.activeTraceEntry
+    parser.activeTraceEntry = currentEntry
     let result = rule.apply(to: parser, at: index)
-    print("\(space)= \(rule)@\(index): \(result)")
+    currentEntry.result = result
+    if let parentEntry = parentEntry {
+      parentEntry.subentries.append(currentEntry)
+    } else {
+      parser.traceEntries.append(currentEntry)
+    }
+    parser.activeTraceEntry = parentEntry
     return result
   }
 }

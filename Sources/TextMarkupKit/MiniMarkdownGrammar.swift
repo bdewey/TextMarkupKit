@@ -35,7 +35,7 @@ public final class MiniMarkdownGrammar: PackratGrammar {
 
   lazy var paragraph = InOrder(
     styledText,
-    paragraphTermination.repeating(0...1).wrapping(in: .text)
+    paragraphTermination.zeroOrOne().wrapping(in: .text)
   ).wrapping(in: .paragraph).memoize()
 
   lazy var paragraphTermination = InOrder(
