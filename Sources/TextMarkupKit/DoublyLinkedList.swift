@@ -29,18 +29,32 @@ public extension DoublyLinkedListLinksContaining {
 
 public struct DoublyLinkedList<Element: DoublyLinkedListLinksContaining> {
   public init() { }
-  
-  private var head: Element?
-  private var tail: Element?
+
+  private var listEnds: (head: Element, tail: Element)?
 
   public mutating func append(_ element: Element) {
-    if let tail = tail {
-      tail.makeForwardLink(to: element)
-      self.tail = element
+    if let listEnds = listEnds {
+      listEnds.tail.makeForwardLink(to: element)
+      self.listEnds = (head: listEnds.head, tail: element)
     } else {
-      assert(head == nil)
-      head = element
-      tail = element
+      self.listEnds = (head: element, tail: element)
+    }
+  }
+
+  public mutating func merge(_ other: inout DoublyLinkedList<Element>) {
+    switch (listEnds, other.listEnds) {
+    case (.some(let listEnds), .some(let otherListEnds)):
+      listEnds.tail.forwardLink = otherListEnds.head
+      otherListEnds.head.backwardLink = listEnds.tail
+      let newListEnds = (head: listEnds.head, tail: otherListEnds.tail)
+      self.listEnds = newListEnds
+      other.listEnds = newListEnds
+    case (.none, .some(let otherListEnds)):
+      self.listEnds = otherListEnds
+    case (.some(let listEnds), .none):
+      other.listEnds = listEnds
+    case (.none, .none):
+      break
     }
   }
 }
@@ -57,6 +71,6 @@ extension DoublyLinkedList: Sequence {
   }
 
   public func makeIterator() -> Iterator {
-    return Iterator(current: head)
+    return Iterator(current: listEnds.map({ $0.head} ))
   }
 }
