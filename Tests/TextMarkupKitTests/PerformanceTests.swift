@@ -24,16 +24,6 @@ final class PerformanceTests: XCTestCase {
     String(repeating: TestStrings.markdownCanonical, count: 10)
   )
 
-  func testCustomProcessor() {
-    measure {
-      let tree = DocumentParser.miniMarkdown.parse(textBuffer: pieceTable, position: 0)
-      if tree.range.endIndex != pieceTable.endIndex {
-        let unparsedText = pieceTable[tree.range.endIndex ..< pieceTable.endIndex]
-        XCTFail("Test case \(name): Unparsed text = '\(unparsedText.debugDescription)'")
-      }
-    }
-  }
-
   func testPackratParser() {
     let parser = PackratParser(buffer: pieceTable, grammar: JustTextGrammar.shared)
     measure {

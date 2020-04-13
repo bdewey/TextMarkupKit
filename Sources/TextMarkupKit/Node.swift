@@ -25,10 +25,6 @@ public final class Node: CustomStringConvertible {
     self.children = children
   }
 
-  public init?(textBuffer: TextBuffer, position: Int) {
-    return nil
-  }
-
   /// The type of this node.
   public let type: NodeType
 
@@ -45,93 +41,6 @@ public final class Node: CustomStringConvertible {
 
   public var description: String {
     "Node: \(range) \(compactStructure)"
-  }
-}
-
-// MARK: - Generic parsing
-
-public extension Node {
-  /// Returns the node at the specified position.
-  typealias ParsingFunction = (TextBuffer, Int) -> Node?
-
-  /// Returns an array of nodes at the the specified position that
-  typealias NodeSequenceParser = (TextBuffer, Int) -> [Node]
-
-  static func choice(of rules: [ParsingFunction]) -> ParsingFunction {
-    return { buffer, position in
-      for rule in rules {
-        if let node = rule(buffer, position) {
-          return node
-        }
-      }
-      return nil
-    }
-  }
-
-  static func sequence(of rules: [ParsingFunction]) -> NodeSequenceParser {
-    return { buffer, position in
-      var childNodes: [Node] = []
-      var currentPosition = position
-      for childRule in rules {
-        guard let childNode = childRule(buffer, currentPosition) else {
-          return []
-        }
-        childNodes.append(childNode)
-        currentPosition = childNode.range.upperBound
-      }
-      return childNodes
-    }
-  }
-
-  static func text(
-    matching predicate: @escaping (unichar) -> Bool,
-    named name: NodeType = .anonymous
-  ) -> ParsingFunction {
-    return { buffer, position in
-      var endPosition = position
-      while buffer.utf16(at: endPosition).map(predicate) ?? false {
-        endPosition += 1
-      }
-      guard endPosition > position else {
-        return nil
-      }
-      return Node(type: name, range: position ..< endPosition, children: [])
-    }
-  }
-
-  static func text(
-    upToAndIncluding terminator: unichar,
-    requiresTerminator: Bool = false,
-    named name: NodeType = .anonymous
-  ) -> ParsingFunction {
-    return { buffer, position in
-      var currentPosition = position
-      var foundTerminator = false
-      while let utf16 = buffer.utf16(at: currentPosition) {
-        if utf16 == terminator {
-          foundTerminator = true
-          break
-        }
-        currentPosition += 1
-      }
-      if requiresTerminator, !foundTerminator {
-        // We never found the terminator
-        return nil
-      }
-      if buffer.utf16(at: currentPosition) != nil {
-        currentPosition += 1
-      }
-      return Node(type: name, range: position ..< currentPosition, children: [])
-    }
-  }
-}
-
-public extension Array where Element: Node {
-  var encompassingRange: Range<Int>? {
-    guard let firstChild = first, let lastChild = last else {
-      return nil
-    }
-    return firstChild.range.lowerBound ..< lastChild.range.upperBound
   }
 }
 

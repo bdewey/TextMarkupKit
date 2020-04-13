@@ -18,7 +18,7 @@
 import Foundation
 
 /// Currently this is an un-editable string. But the goal is to support efficient edits with a Piece Table data structure.
-public final class PieceTable: TextBuffer, CustomStringConvertible {
+public final class PieceTable: CustomStringConvertible {
   public init(_ string: String) {
     self.string = string as NSString
   }
