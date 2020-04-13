@@ -49,23 +49,6 @@ final class MiniMarkdownParsingTests: XCTestCase {
     "textAndCode": .expect("(document (paragraph text (code delimiter text delimiter) text))", for: "This is text with `code`."),
   ]
 
-  func testRunner() {
-    for (name, testCase) in testCases {
-      let pieceTable = PieceTable(testCase.input)
-      let tree = DocumentParser.miniMarkdown.parse(textBuffer: pieceTable, position: 0)
-      if tree.range.endIndex != pieceTable.endIndex {
-        let unparsedText = pieceTable[tree.range.endIndex ..< pieceTable.endIndex]
-        XCTFail("Test case \(name): Unparsed text = '\(unparsedText.debugDescription)'")
-      }
-      if testCase.compactStructure != tree.compactStructure {
-        print("### Failure: \(name)")
-        print("Got:      " + tree.compactStructure)
-        print("Expected: " + testCase.compactStructure)
-      }
-      XCTAssertEqual(tree.compactStructure, testCase.compactStructure, "Test case \(name), unexpected structure")
-    }
-  }
-
   func testPackratOnHeaderAndBody() {
     for (name, testCase) in testCases {
       do {
