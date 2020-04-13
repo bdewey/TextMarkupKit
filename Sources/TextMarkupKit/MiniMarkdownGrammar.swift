@@ -17,6 +17,18 @@
 
 import Foundation
 
+public extension NodeType {
+  static let blankLine: NodeType = "blank_line"
+  static let code: NodeType = "code"
+  static let delimiter: NodeType = "delimiter"
+  static let document: NodeType = "document"
+  static let emphasis: NodeType = "emphasis"
+  static let header: NodeType = "header"
+  static let paragraph: NodeType = "paragraph"
+  static let strongEmphasis: NodeType = "strong_emphasis"
+  static let text: NodeType = "text"
+}
+
 public final class MiniMarkdownGrammar: PackratGrammar {
   public init(trace: Bool = false) {
     if trace {
@@ -26,7 +38,7 @@ public final class MiniMarkdownGrammar: PackratGrammar {
 
   public private(set) lazy var start: ParsingRule = block
     .repeating(0...)
-    .wrapping(in: .markdownDocument)
+    .wrapping(in: .document)
 
   lazy var block = Choice(
     blankLine,
