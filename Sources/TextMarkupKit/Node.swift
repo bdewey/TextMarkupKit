@@ -28,6 +28,10 @@ public final class Node: CustomStringConvertible {
     self.range = range
   }
 
+  public static func makeFragment(at index: Int) -> Node {
+    return Node(type: .documentFragment, range: index ..< index)
+  }
+
   /// The type of this node.
   public var type: NodeType
 
@@ -48,7 +52,17 @@ public final class Node: CustomStringConvertible {
 
   public func appendChild(_ child: Node) {
     range = range.lowerBound ..< child.range.upperBound
-    children.append(child)
+    if child.isFragment {
+      children.merge(&child.children)
+    } else {
+      // Special optimization: Adding a terminal node of the same type of the last terminal node
+      // can just be a range update.
+      if let lastNode = children.last, lastNode.children.isEmpty, child.children.isEmpty, lastNode.type == child.type {
+        lastNode.range = lastNode.range.lowerBound ..< child.range.upperBound
+      } else {
+        children.append(child)
+      }
+    }
   }
 
   /// True if this node corresponds to no text in the input buffer.

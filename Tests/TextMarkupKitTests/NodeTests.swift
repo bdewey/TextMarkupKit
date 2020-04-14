@@ -34,4 +34,42 @@ final class NodeTests: XCTestCase {
     XCTAssertEqual(root.range, 0 ..< 3)
     XCTAssertEqual(childTypes, root.children.map { $0.type })
   }
+
+  func testAppendFragment() {
+    let childTypes: [NodeType] = [
+      "one",
+      "two",
+      "three",
+    ]
+    let root = Node(type: "root", range: 0 ..< 0)
+    let fragment = makeFragment(with: childTypes, startingIndex: 0)
+    root.appendChild(fragment)
+    XCTAssertEqual(root.range, 0 ..< 3)
+    XCTAssertEqual(childTypes, root.children.map { $0.type })
+  }
+
+  func testChildlessSimilarityMerge() {
+    let childTypes: [NodeType] = [
+      "one",
+      "two",
+      "three",
+      "three",
+    ]
+    let root = Node(type: "root", range: 0 ..< 0)
+    for (index, type) in childTypes.enumerated() {
+      let childNode = Node(type: type, range: index ..< index + 1)
+      root.appendChild(childNode)
+    }
+    XCTAssertEqual(root.range, 0 ..< 4)
+    XCTAssertEqual(["one", "two", "three"], root.children.map { $0.type })
+  }
+}
+
+private func makeFragment(with nodeTypes: [NodeType], startingIndex: Int) -> Node {
+  let fragment = Node.makeFragment(at: startingIndex)
+  for (index, type) in nodeTypes.enumerated() {
+    let childNode = Node(type: type, range: startingIndex + index ..< startingIndex + index + 1)
+    fragment.appendChild(childNode)
+  }
+  return fragment
 }
