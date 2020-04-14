@@ -24,6 +24,8 @@ public extension NodeType {
   static let document: NodeType = "document"
   static let emphasis: NodeType = "emphasis"
   static let header: NodeType = "header"
+  static let list: NodeType = "list"
+  static let listItem: NodeType = "list_item"
   static let paragraph: NodeType = "paragraph"
   static let strongEmphasis: NodeType = "strong_emphasis"
   static let text: NodeType = "text"
@@ -43,6 +45,7 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   lazy var block = Choice(
     blankLine,
     header,
+    unorderedList,
     paragraph
   ).memoize()
 
@@ -93,6 +96,29 @@ public final class MiniMarkdownGrammar: PackratGrammar {
     textStyles.repeating(0...)
   ).repeating(0...).memoize()
 
+  // MARK: - Character primitives
   let dot = DotRule()
   let newline = Characters(["\n"])
+  let whitespace = Characters(.whitespaces)
+
+  // MARK: - Lists
+  // https://spec.commonmark.org/0.28/#list-items
+
+  let unorderedListSigil = Characters(["*", "-", "+"])
+
+  lazy var unorderedListOpening = InOrder(
+    whitespace.repeating(0...),
+    unorderedListSigil,
+    whitespace.repeating(1...)
+  ).absorb(into: .delimiter).memoize()
+
+  lazy var unorderedListItem = InOrder(
+    unorderedListOpening,
+    styledText
+  ).wrapping(in: .listItem).memoize()
+
+  lazy var unorderedList = InOrder(
+    unorderedListItem,
+    blankLine.repeating(0...)
+  ).repeating(1...).wrapping(in: .list).memoize()
 }
