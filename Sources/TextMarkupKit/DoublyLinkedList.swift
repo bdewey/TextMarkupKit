@@ -1,4 +1,19 @@
-// 
+//  Licensed to the Apache Software Foundation (ASF) under one
+//  or more contributor license agreements.  See the NOTICE file
+//  distributed with this work for additional information
+//  regarding copyright ownership.  The ASF licenses this file
+//  to you under the Apache License, Version 2.0 (the
+//  "License"); you may not use this file except in compliance
+//  with the License.  You may obtain a copy of the License at
+//
+//  http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing,
+//  software distributed under the License is distributed on an
+//  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+//  KIND, either express or implied.  See the License for the
+//  specific language governing permissions and limitations
+//  under the License.
 
 import Foundation
 
@@ -28,7 +43,7 @@ public extension DoublyLinkedListLinksContaining {
 }
 
 public struct DoublyLinkedList<Element: DoublyLinkedListLinksContaining> {
-  public init() { }
+  public init() {}
 
   private var listEnds: (head: Element, tail: Element)?
 
@@ -53,7 +68,7 @@ public struct DoublyLinkedList<Element: DoublyLinkedListLinksContaining> {
       listEnds.tail.makeForwardLink(to: element)
       self.listEnds = (head: listEnds.head, tail: element)
     } else {
-      self.listEnds = (head: element, tail: element)
+      listEnds = (head: element, tail: element)
     }
   }
 
@@ -66,7 +81,7 @@ public struct DoublyLinkedList<Element: DoublyLinkedListLinksContaining> {
       self.listEnds = newListEnds
       other.listEnds = newListEnds
     case (.none, .some(let otherListEnds)):
-      self.listEnds = otherListEnds
+      listEnds = otherListEnds
     case (.some(let listEnds), .none):
       other.listEnds = listEnds
     case (.none, .none):
@@ -87,6 +102,6 @@ extension DoublyLinkedList: Sequence {
   }
 
   public func makeIterator() -> Iterator {
-    return Iterator(current: listEnds.map({ $0.head} ))
+    return Iterator(current: listEnds.map { $0.head })
   }
 }
