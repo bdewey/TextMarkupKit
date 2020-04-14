@@ -18,21 +18,24 @@
 import Foundation
 
 /// A node in the markup language's syntax tree.
-public final class Node: CustomStringConvertible {
-  public init(type: NodeType, range: Range<Int>, children: [Node] = []) {
+public final class Node: CustomStringConvertible, DoublyLinkedListLinksContaining {
+  public init(type: NodeType, range: Range<Int>) {
     self.type = type
     self.range = range
-    self.children = children
   }
 
   /// The type of this node.
-  public let type: NodeType
+  public var type: NodeType
 
   /// The range from the original `TextBuffer` that this node in the syntax tree covers.
   public var range: Range<Int>
 
+  /// Siblings of this node
+  public var forwardLink: Node?
+  public var backwardLink: Node?
+
   /// Children of this node.
-  public let children: [Node]
+  public var children = DoublyLinkedList<Node>()
 
   /// True if this node corresponds to no text in the input buffer.
   public var isEmpty: Bool {
@@ -57,14 +60,13 @@ extension Node {
 
   /// Recursive helper for generating `compactStructure`
   private func writeCompactStructure(to buffer: inout String) {
-    let filteredChildren = children.filter { $0.type != .anonymous }
-    if filteredChildren.isEmpty {
+    if children.isEmpty {
       buffer.append(type.rawValue)
     } else {
       buffer.append("(")
       buffer.append(type.rawValue)
       buffer.append(" ")
-      for (index, child) in filteredChildren.enumerated() {
+      for (index, child) in children.enumerated() {
         if index > 0 {
           buffer.append(" ")
         }

@@ -50,13 +50,10 @@ public final class PackratParser {
   /// - Returns: The single node at the root of the syntax tree resulting from parsing `buffer`
   public func parse() throws -> Node {
     let result = grammar.start.apply(to: self, at: 0)
-    if result.length != buffer.endIndex {
+    guard let node = result.node, result.length == buffer.endIndex else {
       throw Error.incompleteParsing(length: result.length)
     }
-    if result.nodes.count != 1 {
-      throw Error.ambiguousParsing(nodes: result.nodes)
-    }
-    return result.nodes[0]
+    return node
   }
 
   /// Returns the memoized result of applying a rule at an index into the buffer, if it exists.

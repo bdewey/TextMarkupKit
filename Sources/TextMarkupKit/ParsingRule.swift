@@ -70,7 +70,7 @@ public struct ParsingResult {
   public var examinedLength: Int = 0
 
   /// If we succeeded, what are the parse results? Note that for efficiency some rules may consume input (length > 1) but not actually generate syntax tree nodes.
-  public var nodes: [Node] = []
+  public var node: Node?
 
   /// Marks this result as a failure; useful for truncating in-process results. Notes it leaves `examinedLength` unchanged
   /// so incremental parsing can work.
@@ -78,23 +78,48 @@ public struct ParsingResult {
   public mutating func failed() -> ParsingResult {
     succeeded = false
     length = 0
-    nodes.removeAll()
+    node = nil
     return self
   }
 
+  // TODO: This code is a mess and should be refactored
   public mutating func concat(_ result: ParsingResult) {
     succeeded = succeeded && result.succeeded
-    length += result.length
     examinedLength += result.examinedLength
-    nodes.append(contentsOf: result.nodes)
+    if result.length == 0 { return }
+    length += result.length
+    if let otherNode = result.node {
+      if let node = node {
+        node.range = node.range.lowerBound ..< otherNode.range.upperBound
+        if node.type == otherNode.type {
+          // Just merge the children
+          node.children.merge(&otherNode.children)
+        } else {
+          assert(otherNode.type != .anonymous)
+          // glob optimization -- appending a node that is the same type as the tail when
+          // neither have children -- just change the range
+          if let last = node.children.last, last.children.isEmpty, otherNode.children.isEmpty, last.type == otherNode.type {
+            last.range = last.range.lowerBound ..< otherNode.range.upperBound
+          } else {
+            node.children.append(otherNode)
+          }
+        }
+      } else if otherNode.type == .anonymous {
+        node = otherNode
+      } else {
+        let container = Node(type: .anonymous, range: otherNode.range)
+        container.children.append(otherNode)
+        node = container
+      }
+    }
   }
 
   /// Represents the "dot" in PEG grammars -- matches a single character. Does not create a node; this result will need to
   /// get absorbed into something else.
-  public static let dot = ParsingResult(succeeded: true, length: 1, examinedLength: 1, nodes: [])
+  public static let dot = ParsingResult(succeeded: true, length: 1, examinedLength: 1, node: nil)
 
   /// Static result representing failure after looking at one character.
-  public static let fail = ParsingResult(succeeded: false, length: 0, examinedLength: 1, nodes: [])
+  public static let fail = ParsingResult(succeeded: false, length: 0, examinedLength: 1, node: nil)
 }
 
 // MARK: - Deriving rules
@@ -190,9 +215,9 @@ public final class Literal: ParsingRule {
       length += 1
     }
     if length == chars.count {
-      return ParsingResult(succeeded: true, length: length, examinedLength: length, nodes: [])
+      return ParsingResult(succeeded: true, length: length, examinedLength: length)
     } else {
-      return ParsingResult(succeeded: false, length: 0, examinedLength: length, nodes: [])
+      return ParsingResult(succeeded: false, length: 0, examinedLength: length)
     }
   }
 }
@@ -221,7 +246,7 @@ final class RangeRule: ParsingRuleWrapper {
   let range: Range<Int>
 
   override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
-    var result = ParsingResult(succeeded: true, length: 0, examinedLength: 0, nodes: [])
+    var result = ParsingResult(succeeded: true)
     var currentIndex = index
     var repetitionCount = 0
     repeat {
@@ -229,12 +254,10 @@ final class RangeRule: ParsingRuleWrapper {
       guard innerResult.succeeded, innerResult.length > 0 else { break }
 //      Swift.assert(innerResult.length > 0, "About to enter an infinite loop")
       repetitionCount += 1
-      result.length += innerResult.length
-      result.examinedLength += innerResult.examinedLength
       if repetitionCount >= range.upperBound {
         return result.failed()
       }
-      result.nodes.append(contentsOf: innerResult.nodes)
+      result.concat(innerResult)
       currentIndex += innerResult.length
     } while true
     if repetitionCount < range.lowerBound {
@@ -253,7 +276,7 @@ final class ZeroOrOneRule: ParsingRuleWrapper {
     }
     result.succeeded = true
     result.length = 0
-    result.nodes.removeAll()
+    result.node = nil
     return result
   }
 }
@@ -271,8 +294,12 @@ final class AbsorbingMatcher: ParsingRuleWrapper {
   override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
     var result = rule.apply(to: parser, at: index)
     if !result.succeeded || result.length == 0 { return result }
-    let node = Node(type: nodeType, range: index ..< index + result.length)
-    result.nodes = [node]
+    if let existingNode = result.node, existingNode.type == .anonymous {
+      existingNode.type = nodeType
+    } else {
+      let node = Node(type: nodeType, range: index ..< index + result.length)
+      result.node = node
+    }
     return result
   }
 }
@@ -289,16 +316,12 @@ final class WrappingRule: ParsingRuleWrapper {
   override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
     var result = rule.apply(to: parser, at: index)
     if !result.succeeded || result.length == 0 { return result }
-    var children = [Node]()
-    for resultNode in result.nodes {
-      if let lastNode = children.last, lastNode.type == resultNode.type, lastNode.children.isEmpty, resultNode.children.isEmpty {
-        lastNode.range = lastNode.range.lowerBound ..< resultNode.range.upperBound
-      } else {
-        children.append(resultNode)
-      }
+    if let node = result.node {
+      Swift.assert(node.type == .anonymous)
+      node.type = nodeType
+    } else {
+      result.node = Node(type: nodeType, range: index ..< index + result.length)
     }
-    let node = Node(type: nodeType, range: index ..< index + result.length, children: children)
-    result.nodes = [node]
     return result
   }
 }
@@ -323,7 +346,7 @@ final class AssertionRule: ParsingRuleWrapper {
   override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
     var result = rule.apply(to: parser, at: index)
     result.length = 0
-    result.nodes.removeAll()
+    result.node = nil
     return result
   }
 }
@@ -350,7 +373,7 @@ public final class Choice: ParsingRuleSequenceWrapper {
         return result
       }
     }
-    return ParsingResult(succeeded: false, length: 0, examinedLength: examinedLength, nodes: [])
+    return ParsingResult(succeeded: false, examinedLength: examinedLength)
   }
 }
 
