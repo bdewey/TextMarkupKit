@@ -132,7 +132,7 @@ public extension ParsingRule {
   /// Returns a rule that "absorbs" the contents of the receiver into a syntax tree node of type `nodeType`
   /// - note: "Absorbing" means that all of the nodes in the receiver's `ParsingResult` are discarded, but the resulting span of the
   /// buffer will be covered by this rule's single node.
-  func absorb(into nodeType: NodeType) -> ParsingRule {
+  func `as`(_ nodeType: NodeType) -> ParsingRule {
     return AbsorbingMatcher(rule: self, nodeType: nodeType)
   }
 

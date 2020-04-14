@@ -22,5 +22,5 @@ import Foundation
 public final class JustTextGrammar: PackratGrammar {
   public static let shared = JustTextGrammar()
 
-  public var start: ParsingRule = ParsingRule.dot.repeating(0...).absorb(into: .text)
+  public var start: ParsingRule = ParsingRule.dot.repeating(0...).as(.text)
 }

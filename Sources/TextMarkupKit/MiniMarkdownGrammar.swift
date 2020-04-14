@@ -52,15 +52,15 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   lazy var blankLine = InOrder(
     newline,
     dot.assert()
-  ).absorb(into: .blankLine).memoize()
+  ).as(.blankLine).memoize()
 
   lazy var header = InOrder(
-    Characters(["#"]).repeating(1 ..< 7).absorb(into: .delimiter),
+    Characters(["#"]).repeating(1 ..< 7).as(.delimiter),
     InOrder(
       ParsingRule.whitespace.repeating(0...),
       InOrder(newline.assertInverse(), .dot).repeating(0...),
       Choice(newline, dot.assertInverse())
-    ).absorb(into: .text)
+    ).as(.text)
   ).wrapping(in: .header).memoize()
 
   lazy var paragraph = InOrder(
@@ -75,9 +75,9 @@ public final class MiniMarkdownGrammar: PackratGrammar {
 
   func delimitedText(_ nodeType: NodeType, delimiter: ParsingRule) -> ParsingRule {
     InOrder(
-      delimiter.absorb(into: .delimiter),
-      InOrder(delimiter.assertInverse(), dot).repeating(1...).absorb(into: .text),
-      delimiter.absorb(into: .delimiter)
+      delimiter.as(.delimiter),
+      InOrder(delimiter.assertInverse(), dot).repeating(1...).as(.text),
+      delimiter.as(.delimiter)
     ).wrapping(in: nodeType).memoize()
   }
 
@@ -92,7 +92,7 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   ).memoize()
 
   lazy var styledText = InOrder(
-    InOrder(paragraphTermination.assertInverse(), textStyles.assertInverse(), dot).repeating(0...).absorb(into: .text),
+    InOrder(paragraphTermination.assertInverse(), textStyles.assertInverse(), dot).repeating(0...).as(.text),
     textStyles.repeating(0...)
   ).repeating(0...).memoize()
 
@@ -110,7 +110,7 @@ public final class MiniMarkdownGrammar: PackratGrammar {
     whitespace.repeating(0...),
     unorderedListSigil,
     whitespace.repeating(1...)
-  ).absorb(into: .delimiter).memoize()
+  ).as(.delimiter).memoize()
 
   lazy var unorderedListItem = InOrder(
     unorderedListOpening,
