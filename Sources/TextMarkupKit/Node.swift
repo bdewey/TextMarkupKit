@@ -22,7 +22,7 @@ extension NodeType {
 }
 
 /// A node in the markup language's syntax tree.
-public final class Node: CustomStringConvertible, DoublyLinkedListLinksContaining {
+public final class Node: CustomStringConvertible {
   public init(type: NodeType, range: Range<Int>) {
     self.type = type
     self.range = range
@@ -44,7 +44,12 @@ public final class Node: CustomStringConvertible, DoublyLinkedListLinksContainin
   public var backwardLink: Node?
 
   /// Children of this node.
-  public var children = DoublyLinkedList<Node>()
+  public var children = Children()
+
+  public func appendChild(_ child: Node) {
+    range = range.lowerBound ..< child.range.upperBound
+    children.append(child)
+  }
 
   /// True if this node corresponds to no text in the input buffer.
   public var isEmpty: Bool {
@@ -53,6 +58,83 @@ public final class Node: CustomStringConvertible, DoublyLinkedListLinksContainin
 
   public var description: String {
     "Node: \(range) \(compactStructure)"
+  }
+}
+
+// MARK: - Tree management
+
+public extension Node {
+  struct Children {
+    private var listEnds: (head: Node, tail: Node)?
+
+    public var isEmpty: Bool { listEnds == nil }
+
+    public var first: Node? {
+      guard let listEnds = listEnds else {
+        return nil
+      }
+      return listEnds.head
+    }
+
+    public var last: Node? {
+      guard let listEnds = listEnds else {
+        return nil
+      }
+      return listEnds.tail
+    }
+
+    public mutating func append(_ element: Node) {
+      if let listEnds = listEnds {
+        listEnds.tail.appendSibling(element)
+        self.listEnds = (head: listEnds.head, tail: element)
+      } else {
+        listEnds = (head: element, tail: element)
+      }
+    }
+
+    public mutating func merge(_ other: inout Children) {
+      switch (listEnds, other.listEnds) {
+      case (.some(let listEnds), .some(let otherListEnds)):
+        listEnds.tail.forwardLink = otherListEnds.head
+        otherListEnds.head.backwardLink = listEnds.tail
+        let newListEnds = (head: listEnds.head, tail: otherListEnds.tail)
+        self.listEnds = newListEnds
+        other.listEnds = newListEnds
+      case (.none, .some(let otherListEnds)):
+        listEnds = otherListEnds
+      case (.some(let listEnds), .none):
+        other.listEnds = listEnds
+      case (.none, .none):
+        break
+      }
+    }
+  }
+
+  private func appendSibling(_ sibling: Node) {
+    if let currentSibling = forwardLink {
+      currentSibling.backwardLink = sibling
+    }
+    sibling.forwardLink = forwardLink
+    forwardLink = sibling
+    sibling.backwardLink = self
+  }
+}
+
+// MARK: - Enumerating children
+
+extension Node.Children: Sequence {
+  public struct Iterator: IteratorProtocol {
+    var current: Node?
+
+    public mutating func next() -> Node? {
+      guard let current = current else { return nil }
+      self.current = current.forwardLink
+      return current
+    }
+  }
+
+  public func makeIterator() -> Iterator {
+    return Iterator(current: listEnds.map { $0.head })
   }
 }
 
