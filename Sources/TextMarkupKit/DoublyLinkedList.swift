@@ -32,6 +32,22 @@ public struct DoublyLinkedList<Element: DoublyLinkedListLinksContaining> {
 
   private var listEnds: (head: Element, tail: Element)?
 
+  public var isEmpty: Bool { listEnds == nil }
+
+  public var first: Element? {
+    guard let listEnds = listEnds else {
+      return nil
+    }
+    return listEnds.head
+  }
+
+  public var last: Element? {
+    guard let listEnds = listEnds else {
+      return nil
+    }
+    return listEnds.tail
+  }
+
   public mutating func append(_ element: Element) {
     if let listEnds = listEnds {
       listEnds.tail.makeForwardLink(to: element)
