@@ -31,6 +31,11 @@ public final class Node: CustomStringConvertible, DoublyLinkedListLinksContainin
   /// The type of this node.
   public var type: NodeType
 
+  /// If true, this node should be considered a "fragment" (an ordered list of nodes without a root)
+  public var isFragment: Bool {
+    return type === NodeType.documentFragment
+  }
+
   /// The range from the original `TextBuffer` that this node in the syntax tree covers.
   public var range: Range<Int>
 

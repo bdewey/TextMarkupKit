@@ -95,7 +95,7 @@ public struct ParsingResult {
           // Just merge the children
           node.children.merge(&otherNode.children)
         } else {
-          assert(otherNode.type != .documentFragment)
+          assert(!otherNode.isFragment)
           // glob optimization -- appending a node that is the same type as the tail when
           // neither have children -- just change the range
           if let last = node.children.last, last.children.isEmpty, otherNode.children.isEmpty, last.type == otherNode.type {
@@ -104,7 +104,7 @@ public struct ParsingResult {
             node.children.append(otherNode)
           }
         }
-      } else if otherNode.type == .documentFragment {
+      } else if otherNode.isFragment {
         node = otherNode
       } else {
         let container = Node(type: .documentFragment, range: otherNode.range)
@@ -294,7 +294,7 @@ final class AbsorbingMatcher: ParsingRuleWrapper {
   override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
     var result = rule.apply(to: parser, at: index)
     if !result.succeeded || result.length == 0 { return result }
-    if let existingNode = result.node, existingNode.type == .documentFragment {
+    if let existingNode = result.node, existingNode.isFragment {
       existingNode.type = nodeType
     } else {
       let node = Node(type: nodeType, range: index ..< index + result.length)
@@ -317,7 +317,7 @@ final class WrappingRule: ParsingRuleWrapper {
     var result = rule.apply(to: parser, at: index)
     if !result.succeeded || result.length == 0 { return result }
     if let node = result.node {
-      Swift.assert(node.type == .documentFragment)
+      Swift.assert(node.isFragment)
       node.type = nodeType
     } else {
       result.node = Node(type: nodeType, range: index ..< index + result.length)
