@@ -68,7 +68,7 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   lazy var paragraphTermination = InOrder(
     newline,
     Characters(["#", "\n"]).assert()
-  ).memoize()
+  )
 
   func delimitedText(_ nodeType: NodeType, delimiter: ParsingRule) -> ParsingRule {
     InOrder(
