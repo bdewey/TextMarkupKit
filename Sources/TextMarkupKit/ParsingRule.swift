@@ -60,14 +60,21 @@ open class ParsingRuleSequenceWrapper: ParsingRule {
 
 /// The output of trying to match a rule at an offset into a PieceTable.
 public struct ParsingResult {
+  public init(succeeded: Bool, length: Int = 0, examinedLength: Int = 0, node: Node? = nil) {
+    self.succeeded = succeeded
+    self.length = length
+    self.examinedLength = examinedLength
+    self.node = node
+  }
+
   /// Did the rule succeed?
   public var succeeded: Bool
 
   /// How much of the input is consumed by the rule if it succeeded
-  public var length: Int = 0
+  public var length: Int
 
   /// How far into the input sequence did we look to determine if we succeeded?
-  public var examinedLength: Int = 0
+  public var examinedLength: Int
 
   /// If we succeeded, what are the parse results? Note that for efficiency some rules may consume input (length > 1) but not actually generate syntax tree nodes.
   public var node: Node?
@@ -82,36 +89,36 @@ public struct ParsingResult {
     return self
   }
 
-  // TODO: This code is a mess and should be refactored
-  public mutating func concat(_ result: ParsingResult) {
+  /// Used to accumulate child results into a parent result.
+  public mutating func appendChild(_ result: ParsingResult) {
     succeeded = succeeded && result.succeeded
     examinedLength += result.examinedLength
+    guard succeeded else {
+      length = 0
+      node = nil
+      return
+    }
     if result.length == 0 { return }
     length += result.length
-    if let otherNode = result.node {
-      if let node = node {
-        node.range = node.range.lowerBound ..< otherNode.range.upperBound
-        if node.type == otherNode.type {
-          // Just merge the children
-          node.children.merge(&otherNode.children)
-        } else {
-          assert(!otherNode.isFragment)
-          // glob optimization -- appending a node that is the same type as the tail when
-          // neither have children -- just change the range
-          if let last = node.children.last, last.children.isEmpty, otherNode.children.isEmpty, last.type == otherNode.type {
-            last.range = last.range.lowerBound ..< otherNode.range.upperBound
-          } else {
-            node.children.append(otherNode)
-          }
-        }
-      } else if otherNode.isFragment {
-        node = otherNode
-      } else {
-        let container = Node(type: .documentFragment, range: otherNode.range)
-        container.children.append(otherNode)
-        node = container
-      }
+    guard let resultNode = result.node else {
+      return
     }
+    // Optimization: if resultNode is fragment an we haven't allocated one, steal it.
+    if resultNode.isFragment, node == nil {
+      node = resultNode
+    } else {
+      let fragment = makeFragmentIfNeeded(at: resultNode.range.lowerBound)
+      fragment.appendChild(resultNode)
+    }
+  }
+
+  private mutating func makeFragmentIfNeeded(at lowerBound: Int) -> Node {
+    if let existingNode = node {
+      return existingNode
+    }
+    let node = Node(type: .documentFragment, range: lowerBound ..< lowerBound)
+    self.node = node
+    return node
   }
 
   /// Represents the "dot" in PEG grammars -- matches a single character. Does not create a node; this result will need to
@@ -257,7 +264,7 @@ final class RangeRule: ParsingRuleWrapper {
       if repetitionCount >= range.upperBound {
         return result.failed()
       }
-      result.concat(innerResult)
+      result.appendChild(innerResult)
       currentIndex += innerResult.length
     } while true
     if repetitionCount < range.lowerBound {
@@ -334,7 +341,7 @@ public final class InOrder: ParsingRuleSequenceWrapper {
     for rule in rules {
       let innerResult = rule.apply(to: parser, at: currentIndex)
       if !innerResult.succeeded { return result.failed() }
-      result.concat(innerResult)
+      result.appendChild(innerResult)
       currentIndex += innerResult.length
     }
     return result
