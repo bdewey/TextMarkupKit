@@ -60,14 +60,21 @@ open class ParsingRuleSequenceWrapper: ParsingRule {
 
 /// The output of trying to match a rule at an offset into a PieceTable.
 public struct ParsingResult {
+  public init(succeeded: Bool, length: Int = 0, examinedLength: Int = 0, node: Node? = nil) {
+    self.succeeded = succeeded
+    self.length = length
+    self.examinedLength = examinedLength
+    self.node = node
+  }
+
   /// Did the rule succeed?
   public var succeeded: Bool
 
   /// How much of the input is consumed by the rule if it succeeded
-  public var length: Int = 0
+  public var length: Int
 
   /// How far into the input sequence did we look to determine if we succeeded?
-  public var examinedLength: Int = 0
+  public var examinedLength: Int
 
   /// If we succeeded, what are the parse results? Note that for efficiency some rules may consume input (length > 1) but not actually generate syntax tree nodes.
   public var node: Node?
@@ -80,6 +87,33 @@ public struct ParsingResult {
     length = 0
     node = nil
     return self
+  }
+
+  /// Used to accumulate child results into a parent result.
+  public mutating func appendChild(_ result: ParsingResult) {
+    succeeded = succeeded && result.succeeded
+    examinedLength += result.examinedLength
+    guard succeeded else {
+      length = 0
+      node = nil
+      return
+    }
+    if result.length == 0 { return }
+    length += result.length
+    guard let resultNode = result.node else {
+      return
+    }
+    let fragment = makeFragmentIfNeeded(at: resultNode.range.lowerBound)
+    fragment.appendChild(resultNode)
+  }
+
+  private mutating func makeFragmentIfNeeded(at lowerBound: Int) -> Node {
+    if let existingNode = node {
+      return existingNode
+    }
+    let node = Node(type: .documentFragment, range: lowerBound ..< lowerBound)
+    self.node = node
+    return node
   }
 
   // TODO: This code is a mess and should be refactored
