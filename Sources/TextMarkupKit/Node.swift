@@ -17,6 +17,10 @@
 
 import Foundation
 
+extension NodeType {
+  static let documentFragment: NodeType = "{{fragment}}"
+}
+
 /// A node in the markup language's syntax tree.
 public final class Node: CustomStringConvertible, DoublyLinkedListLinksContaining {
   public init(type: NodeType, range: Range<Int>) {

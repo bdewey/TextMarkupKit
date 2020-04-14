@@ -29,7 +29,5 @@ public final class NodeType: RawRepresentable, ExpressibleByStringLiteral, Hasha
 
   public let rawValue: String
 
-  public static let anonymous: NodeType = "anonymous"
-
   public var description: String { rawValue }
 }
