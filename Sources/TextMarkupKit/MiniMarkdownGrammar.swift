@@ -97,11 +97,13 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   ).repeating(0...).memoize()
 
   // MARK: - Character primitives
+
   let dot = DotRule()
   let newline = Characters(["\n"])
   let whitespace = Characters(.whitespaces)
 
   // MARK: - Lists
+
   // https://spec.commonmark.org/0.28/#list-items
 
   let unorderedListSigil = Characters(["*", "-", "+"])
