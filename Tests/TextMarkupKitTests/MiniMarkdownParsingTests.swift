@@ -16,21 +16,12 @@
 //  under the License.
 
 import Foundation
-@testable import TextMarkupKit
+import TextMarkupKit
 import XCTest
 
-struct ParsingTestCase {
-  let input: String
-  let compactStructure: String
-
-  static func expect(_ compactStructure: String, for input: String) -> ParsingTestCase {
-    ParsingTestCase(input: input, compactStructure: compactStructure)
-  }
-}
-
 final class MiniMarkdownParsingTests: XCTestCase {
-  let testCases: [String: ParsingTestCase] = [
-    "headerAndBody": ParsingTestCase(input: """
+  func testHeaderAndBody() {
+    let markdown = """
     # This is a header
 
     And this is a body.
@@ -38,44 +29,68 @@ final class MiniMarkdownParsingTests: XCTestCase {
 
     The line break indicates a new paragraph.
 
-    """, compactStructure: "(document (header delimiter text) blank_line (paragraph text) blank_line (paragraph text))"),
+    """
+    parseText(
+      markdown,
+      expectedStructure: "(document (header delimiter text) blank_line (paragraph text) blank_line (paragraph text))"
+    )
+  }
 
-    "justEmphasis": ParsingTestCase(input: "*This is emphasized text.*", compactStructure: "(document (paragraph (emphasis delimiter text delimiter)))"),
-    "textWithEmphasis":
-      .expect("(document (paragraph text (emphasis delimiter text delimiter)))", for: "This is text with *emphasis.*"),
-    "textWithBold":
-      .expect("(document (paragraph text (strong_emphasis delimiter text delimiter) text))", for: "This is text with **bold**."),
-    "textAndHeader": .expect("(document (paragraph text) (header delimiter text))", for: "Text\n# Heading"),
-    "textAndCode": .expect("(document (paragraph text (code delimiter text delimiter) text))", for: "This is text with `code`."),
-    "simpleParagraph": .expect("(document (paragraph text) blank_line (paragraph text))", for: "Paragraph\n\nX"),
-    "listItemWithStyling": .expect("(document (list (list_item delimiter text (strong_emphasis delimiter text delimiter))))", for: "- This is a list item with **strong emphasis**"),
-    "listWithMultipleItems": .expect("(document (list (list_item delimiter text) (list_item delimiter text)))", for: "- Item one\n- Item two\n")
-  ]
+  func testJustEmphasis() {
+    parseText(
+      "*This is emphasized text.*",
+      expectedStructure: "(document (paragraph (emphasis delimiter text delimiter)))"
+    )
+  }
 
-  func testPackratOnAllTestCases() {
-    for (name, testCase) in testCases {
-      do {
-        let pieceTable = PieceTable(testCase.input)
-        let grammar = MiniMarkdownGrammar()
-        let parser = PackratParser(buffer: pieceTable, grammar: grammar)
-        let tree = try parser.parse()
-        if tree.range.endIndex != pieceTable.endIndex {
-          let unparsedText = pieceTable[tree.range.endIndex ..< pieceTable.endIndex]
-          XCTFail("Test case \(name): Unparsed text = '\(unparsedText.debugDescription)'")
-        }
-        if testCase.compactStructure != tree.compactStructure {
-          print("### Failure: \(name)")
-          print("Got:      " + tree.compactStructure)
-          print("Expected: " + testCase.compactStructure)
-          print("\n")
-          print(tree.debugDescription(withContentsFrom: pieceTable))
-          print("\n\n\n")
-        }
-        XCTAssertEqual(tree.compactStructure, testCase.compactStructure, "Test case \(name), unexpected structure")
-      } catch {
-        XCTFail("Unexpected error on test case \(name): \(error)")
-      }
-    }
+  func testTextWithEmphasis() {
+    parseText(
+      "This is text with *emphasis.*",
+      expectedStructure: "(document (paragraph text (emphasis delimiter text delimiter)))"
+    )
+  }
+
+  func testWithBold() {
+    parseText(
+      "This is text with **bold**.",
+      expectedStructure: "(document (paragraph text (strong_emphasis delimiter text delimiter) text))"
+    )
+  }
+
+  func testTextAndHeader() {
+    parseText(
+      "Text\n# Heading",
+      expectedStructure: "(document (paragraph text) (header delimiter text))"
+    )
+  }
+
+  func testTextAndCode() {
+    parseText(
+      "This is text with `code`.",
+      expectedStructure: "(document (paragraph text (code delimiter text delimiter) text))"
+    )
+  }
+
+  func testParagraphs() {
+    parseText(
+      "Paragraph\n\nX",
+      expectedStructure: "(document (paragraph text) blank_line (paragraph text))"
+    )
+  }
+
+  func testListWithMultipleItems() {
+    let markdown = """
+    - Item one
+    - Item two
+    """
+    parseText(markdown, expectedStructure: "(document (list (list_item delimiter text) (list_item delimiter text)))")
+  }
+
+  func testListItemWithStyling() {
+    parseText(
+      "- This is a list item with **strong emphasis**",
+      expectedStructure: "(document (list (list_item delimiter text (strong_emphasis delimiter text delimiter))))"
+    )
   }
 
   func testFile() {
@@ -87,6 +102,34 @@ final class MiniMarkdownParsingTests: XCTestCase {
     } catch {
       XCTFail("Unexpected error: \(error)")
       print(parser.traceBuffer)
+    }
+  }
+}
+
+// MARK: - Private
+
+private extension MiniMarkdownParsingTests {
+  func parseText(_ text: String, expectedStructure: String, file: StaticString = #file, line: UInt = #line) {
+    do {
+      let pieceTable = PieceTable(text)
+      let grammar = MiniMarkdownGrammar()
+      let parser = PackratParser(buffer: pieceTable, grammar: grammar)
+      let tree = try parser.parse()
+      if tree.range.endIndex != pieceTable.endIndex {
+        let unparsedText = pieceTable[tree.range.endIndex ..< pieceTable.endIndex]
+        XCTFail("Test case \(name): Unparsed text = '\(unparsedText.debugDescription)'", file: file, line: line)
+      }
+      if expectedStructure != tree.compactStructure {
+        print("### Failure: \(name)")
+        print("Got:      " + tree.compactStructure)
+        print("Expected: " + expectedStructure)
+        print("\n")
+        print(tree.debugDescription(withContentsFrom: pieceTable))
+        print("\n\n\n")
+      }
+      XCTAssertEqual(tree.compactStructure, expectedStructure, "Unexpected structure", file: file, line: line)
+    } catch {
+      XCTFail("Unexpected error: \(error)", file: file, line: line)
     }
   }
 }

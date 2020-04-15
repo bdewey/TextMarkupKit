@@ -54,7 +54,6 @@ public final class MiniMarkdownGrammar: PackratGrammar {
     newline
   ).as(.blankLine).memoize()
 
-
   lazy var header = InOrder(
     Characters(["#"]).repeating(1 ..< 7).as(.delimiter),
     InOrder(
