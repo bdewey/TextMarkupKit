@@ -76,7 +76,7 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   func delimitedText(_ nodeType: NodeType, delimiter: ParsingRule) -> ParsingRule {
     InOrder(
       delimiter.as(.delimiter),
-      InOrder(delimiter.assertInverse(), dot).repeating(1...).as(.text),
+      InOrder(delimiter.assertInverse(), paragraphTermination.assertInverse(), dot).repeating(1...).as(.text),
       delimiter.as(.delimiter)
     ).wrapping(in: nodeType).memoize()
   }

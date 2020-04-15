@@ -93,6 +93,14 @@ final class MiniMarkdownParsingTests: XCTestCase {
     )
   }
 
+  func testEmphasisDoesNotSpanListItems() {
+    let markdown = """
+    - Item *one
+    - Item *two
+    """
+    parseText(markdown, expectedStructure: "(document (list (list_item delimiter text) (list_item delimiter text)))")
+  }
+
   func testFile() {
     let pieceTable = PieceTable(TestStrings.markdownCanonical)
     let grammar = MiniMarkdownGrammar()
