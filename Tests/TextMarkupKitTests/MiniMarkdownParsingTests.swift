@@ -49,6 +49,7 @@ final class MiniMarkdownParsingTests: XCTestCase {
     "textAndCode": .expect("(document (paragraph text (code delimiter text delimiter) text))", for: "This is text with `code`."),
     "simpleParagraph": .expect("(document (paragraph text) blank_line (paragraph text))", for: "Paragraph\n\nX"),
     "listItemWithStyling": .expect("(document (list (list_item delimiter text (strong_emphasis delimiter text delimiter))))", for: "- This is a list item with **strong emphasis**"),
+    "listWithMultipleItems": .expect("(document (list (list_item delimiter text) (list_item delimiter text)))", for: "- Item one\n- Item two\n")
   ]
 
   func testPackratOnAllTestCases() {

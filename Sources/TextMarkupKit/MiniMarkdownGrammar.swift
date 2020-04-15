@@ -50,9 +50,10 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   ).memoize()
 
   lazy var blankLine = InOrder(
-    newline,
-    dot.assert()
+    whitespace.repeating(0...),
+    newline
   ).as(.blankLine).memoize()
+
 
   lazy var header = InOrder(
     Characters(["#"]).repeating(1 ..< 7).as(.delimiter),
@@ -70,7 +71,7 @@ public final class MiniMarkdownGrammar: PackratGrammar {
 
   lazy var paragraphTermination = InOrder(
     newline,
-    Characters(["#", "\n"]).assert()
+    Choice(Characters(["#", "\n"]).assert(), unorderedListOpening.assert())
   )
 
   func delimitedText(_ nodeType: NodeType, delimiter: ParsingRule) -> ParsingRule {
@@ -116,7 +117,8 @@ public final class MiniMarkdownGrammar: PackratGrammar {
 
   lazy var unorderedListItem = InOrder(
     unorderedListOpening,
-    styledText
+    styledText,
+    paragraphTermination.zeroOrOne().as(.text)
   ).wrapping(in: .listItem).memoize()
 
   lazy var unorderedList = InOrder(
