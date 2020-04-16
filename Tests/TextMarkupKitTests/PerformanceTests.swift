@@ -46,4 +46,17 @@ final class PerformanceTests: XCTestCase {
       }
     }
   }
+
+  func testPrintPieceTable() {
+    let localPieceTable = PieceTable(
+      String(repeating: TestStrings.markdownCanonical, count: 10)
+    )
+    let grammar = MiniMarkdownGrammar()
+    let parser = PackratParser(buffer: localPieceTable, grammar: grammar)
+    _ = try! parser.parse()
+    let overreadRatio = String(format: "%.2f%%", 100.0 * ((Double(localPieceTable.charactersRead) / Double(localPieceTable.endIndex)) - 1))
+    print("Overread ratio: \(overreadRatio)")
+    print(localPieceTable)
+    print(parser)
+  }
 }

@@ -24,7 +24,7 @@ public protocol PackratGrammar {
 }
 
 /// Implements a packrat parsing algorithm.
-public final class PackratParser {
+public final class PackratParser: CustomStringConvertible {
   /// Designated initializer.
   /// - Parameters:
   ///   - buffer: The content to parse.
@@ -45,6 +45,18 @@ public final class PackratParser {
   /// If any rules are tracing evaluation, the trace entries are stored here.
   public let traceBuffer = TraceBuffer()
 
+  public var description: String {
+    let (totalEntries, successfulEntries) = memoizationStatistics()
+    let properties: [String: Any] = [
+      "totalEntries": totalEntries,
+      "successfulEntries": successfulEntries,
+      "memoizationChecks": memoizationChecks,
+      "memoizationHits": memoizationHits,
+      "memoizationHitRate": String(format: "%.2f%%", 100.0 * Double(memoizationHits) / Double(memoizationChecks)),
+    ]
+    return "PackratParser: \(properties)"
+  }
+
   /// Parses the contents of the buffer.
   /// - Throws: If the grammar could not parse the entire contents, throws `Error.incompleteParsing`. If the grammar resulted in more than one resulting node, throws `Error.ambiguousParsing`.
   /// - Returns: The single node at the root of the syntax tree resulting from parsing `buffer`
@@ -56,9 +68,15 @@ public final class PackratParser {
     return node
   }
 
+  private var memoizationChecks = 0
+  private var memoizationHits = 0
+
   /// Returns the memoized result of applying a rule at an index into the buffer, if it exists.
   public func memoizedResult(rule: ObjectIdentifier, index: Int) -> ParsingResult? {
-    return memoizedResults[index][rule]
+    let result = memoizedResults[index][rule]
+    memoizationChecks += 1
+    if result != nil { memoizationHits += 1 }
+    return result
   }
 
   /// Memoizes the result of applying a rule at an index in the buffer.
@@ -86,4 +104,16 @@ public final class PackratParser {
 
   private typealias ResultsAtIndex = [ObjectIdentifier: ParsingResult]
   private var memoizedResults: [ResultsAtIndex]
+
+  public func memoizationStatistics() -> (totalEntries: Int, successfulEntries: Int) {
+    var totalEntries = 0
+    var successfulEntries = 0
+    for column in memoizedResults {
+      for (_, result) in column {
+        totalEntries += 1
+        if result.succeeded { successfulEntries += 1 }
+      }
+    }
+    return (totalEntries: totalEntries, successfulEntries: successfulEntries)
+  }
 }
