@@ -47,9 +47,19 @@ final class PerformanceTests: XCTestCase {
     }
   }
 
+  /// Doesn't actually assert anything, but writes out performance counters for analysis if things get slow.
   func testPrintPieceTable() {
+    // Ah, one of the problems I had is an old version of my grammar incorrectly parsed the canonical
+    // markdown string -- it matched "**" literals that spanned multiple paragraphs. This meant that
+    // in the broken version, it spent a big chunk of time parsing simpler rules (have I found the closing "**"?),
+    // which ran fast. When I fixed this, suddenly a big chunk of text was now analyzed with more
+    // complex rules ("which of the many available styles applies?"), which ran slower.
+    //
+    // For simplicity, it can help to analyze a long string of only "x" characters, which is just
+    // a gigantic nonsensical paragraph.
     let localPieceTable = PieceTable(
-      String(repeating: TestStrings.markdownCanonical, count: 10)
+//      String(repeating: TestStrings.markdownCanonical, count: 10)
+      String(repeating: "x", count: 277930)
     )
     let grammar = MiniMarkdownGrammar()
     let parser = PackratParser(buffer: localPieceTable, grammar: grammar)
@@ -58,5 +68,11 @@ final class PerformanceTests: XCTestCase {
     print("Overread ratio: \(overreadRatio)")
     print(localPieceTable)
     print(parser)
+    let counters = parser.grammar.start.allPerformanceCounters()
+    let dedup = Dictionary(counters, uniquingKeysWith: { _, x in x })
+    let topTotal = dedup.sorted(by: { $0.value.total > $1.value.total }).prefix(10).map(String.init(describing:)).joined(separator: "\n")
+    let leastSuccessful = dedup.filter({ $0.value.total > 0 }).sorted(by: { $0.value.successRate < $1.value.successRate }).prefix(10).map(String.init(describing:)).joined(separator: "\n")
+    print("Top rules: \n\(topTotal)\n\n")
+    print("Worst rules: \n\(leastSuccessful)\n\n")
   }
 }

@@ -57,8 +57,8 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   lazy var header = InOrder(
     Characters(["#"]).repeating(1 ..< 7).as(.delimiter),
     InOrder(
-      ParsingRule.whitespace.repeating(0...),
-      InOrder(newline.assertInverse(), .dot).repeating(0...),
+      whitespace.repeating(0...),
+      InOrder(newline.assertInverse(), dot).repeating(0...),
       Choice(newline, dot.assertInverse())
     ).as(.text)
   ).wrapping(in: .header).memoize()
@@ -76,19 +76,29 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   func delimitedText(_ nodeType: NodeType, delimiter: ParsingRule) -> ParsingRule {
     InOrder(
       delimiter.as(.delimiter),
-      InOrder(delimiter.assertInverse(), paragraphTermination.assertInverse(), dot).repeating(1...).as(.text),
+      InOrder(
+        delimiter.assertInverse(),
+        paragraphTermination.assertInverse(),
+        dot
+      ).repeating(1...).as(.text),
       delimiter.as(.delimiter)
     ).wrapping(in: nodeType).memoize()
   }
+
+  /// This is an optimization -- if you're not looking at one of these characters, none of the text styles apply.
+  let textStyleSentinels = Characters(["*", "`"])
 
   lazy var bold = delimitedText(.strongEmphasis, delimiter: Literal("**"))
   lazy var italic = delimitedText(.emphasis, delimiter: Literal("*"))
   lazy var code = delimitedText(.code, delimiter: Literal("`"))
 
-  lazy var textStyles = Choice(
-    bold,
-    italic,
-    code
+  lazy var textStyles = InOrder(
+    textStyleSentinels.assert(),
+    Choice(
+      bold,
+      italic,
+      code
+    )
   ).memoize()
 
   lazy var styledText = InOrder(

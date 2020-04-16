@@ -18,8 +18,52 @@
 import Foundation
 
 /// A rule recognizes a specific bit of structure inside of text content.
-open class ParsingRule {
+open class ParsingRule: CustomStringConvertible {
   public init() {}
+
+  /// A simple description of this rule.
+  public var description: String {
+    "<\(type(of: self)) \(ObjectIdentifier(self))>"
+  }
+
+  /// Holds how many times a rule was invoked and how many times the rule succeeded.
+  public struct PerformanceCounters {
+    public private(set) var total: Int = 0
+    public private(set) var successes: Int = 0
+
+    /// The success rate of this rule.
+    public var successRate: Double {
+      guard total > 0 else { return 0 }
+      return Double(successes) / Double(total)
+    }
+
+    /// Updates the performance counters given the result of applying this rule.
+    /// - returns: The result for syntactic convenience.
+    @discardableResult
+    mutating func recordResult(_ parsingResult: ParsingResult) -> ParsingResult {
+      total += 1
+      if parsingResult.succeeded { successes += 1 }
+      return parsingResult
+    }
+  }
+
+  /// Performance counters for this rule.
+  public internal(set) var performanceCounters = PerformanceCounters()
+
+  /// An entry is a mapping of this rule's description to its performance counters.
+  public typealias PerformanceCounterEntry = (key: String, value: PerformanceCounters)
+
+  /// Writes the rule's performance counters into an array.
+  func gatherPerformanceCounters(into array: inout [PerformanceCounterEntry]) {
+    array.append((key: String(describing: self), value: performanceCounters))
+  }
+
+  /// Returns all of the performance counters for this rule and any inner rules.
+  public func allPerformanceCounters() -> [PerformanceCounterEntry] {
+    var results = [PerformanceCounterEntry]()
+    gatherPerformanceCounters(into: &results)
+    return results
+  }
 
   public func wrapInnerRules(_ wrapFunction: (ParsingRule) -> ParsingRule) {
     // NOTHING
@@ -29,9 +73,6 @@ open class ParsingRule {
   public func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
     preconditionFailure("Subclasses should override")
   }
-
-  static let dot = DotRule()
-  static let whitespace = Characters(.whitespaces)
 }
 
 open class ParsingRuleWrapper: ParsingRule {
@@ -44,6 +85,11 @@ open class ParsingRuleWrapper: ParsingRule {
   public override func wrapInnerRules(_ wrapFunction: (ParsingRule) -> ParsingRule) {
     rule = wrapFunction(rule)
   }
+
+  override func gatherPerformanceCounters(into array: inout [ParsingRule.PerformanceCounterEntry]) {
+    super.gatherPerformanceCounters(into: &array)
+    rule.gatherPerformanceCounters(into: &array)
+  }
 }
 
 open class ParsingRuleSequenceWrapper: ParsingRule {
@@ -55,6 +101,13 @@ open class ParsingRuleSequenceWrapper: ParsingRule {
 
   public override func wrapInnerRules(_ wrapFunction: (ParsingRule) -> ParsingRule) {
     rules = rules.map(wrapFunction)
+  }
+
+  override func gatherPerformanceCounters(into array: inout [ParsingRule.PerformanceCounterEntry]) {
+    super.gatherPerformanceCounters(into: &array)
+    for rule in rules {
+      rule.gatherPerformanceCounters(into: &array)
+    }
   }
 }
 
@@ -185,9 +238,9 @@ public extension ParsingRule {
 final class DotRule: ParsingRule {
   override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
     if index < parser.buffer.endIndex {
-      return .dot
+      return performanceCounters.recordResult(.dot)
     } else {
-      return .fail
+      return performanceCounters.recordResult(.fail)
     }
   }
 }
@@ -203,9 +256,13 @@ final class Characters: ParsingRule {
 
   override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
     guard let char = parser.buffer.utf16(at: index), characters.contains(char) else {
-      return .fail
+      return performanceCounters.recordResult(.fail)
     }
-    return .dot
+    return performanceCounters.recordResult(.dot)
+  }
+
+  override var description: String {
+    "\(super.description) \(characters)"
   }
 }
 
@@ -216,15 +273,20 @@ public final class Literal: ParsingRule {
 
   let chars: [unichar]
 
+  public override var description: String {
+    let str = String(utf16CodeUnits: chars, count: chars.count)
+    return "\(super.description) \(str)"
+  }
+
   public override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
     var length = 0
     while length < chars.count, let char = parser.buffer.utf16(at: index + length), char == chars[length] {
       length += 1
     }
     if length == chars.count {
-      return ParsingResult(succeeded: true, length: length, examinedLength: length)
+      return performanceCounters.recordResult(ParsingResult(succeeded: true, length: length, examinedLength: length))
     } else {
-      return ParsingResult(succeeded: false, length: 0, examinedLength: length)
+      return performanceCounters.recordResult(ParsingResult(succeeded: false, length: 0, examinedLength: length))
     }
   }
 }
@@ -234,11 +296,15 @@ public final class Literal: ParsingRule {
 final class MemoizingRule: ParsingRuleWrapper {
   override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
     if let memoizedResult = parser.memoizedResult(rule: ObjectIdentifier(self), index: index) {
-      return memoizedResult
+      return performanceCounters.recordResult(memoizedResult)
     }
     let result = rule.apply(to: parser, at: index)
     parser.memoizeResult(result, rule: ObjectIdentifier(self), index: index)
-    return result
+    return performanceCounters.recordResult(result)
+  }
+
+  override var description: String {
+    "MEMOIZE \(rule.description)"
   }
 }
 
@@ -262,15 +328,19 @@ final class RangeRule: ParsingRuleWrapper {
 //      Swift.assert(innerResult.length > 0, "About to enter an infinite loop")
       repetitionCount += 1
       if repetitionCount >= range.upperBound {
-        return result.failed()
+        return performanceCounters.recordResult(result.failed())
       }
       result.appendChild(innerResult)
       currentIndex += innerResult.length
     } while true
     if repetitionCount < range.lowerBound {
-      return result.failed()
+      return performanceCounters.recordResult(result.failed())
     }
-    return result
+    return performanceCounters.recordResult(result)
+  }
+
+  override var description: String {
+    "RANGE \(range) \(rule)"
   }
 }
 
@@ -279,12 +349,12 @@ final class ZeroOrOneRule: ParsingRuleWrapper {
   override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
     var result = rule.apply(to: parser, at: index)
     if result.succeeded {
-      return result
+      return performanceCounters.recordResult(result)
     }
     result.succeeded = true
     result.length = 0
     result.node = nil
-    return result
+    return performanceCounters.recordResult(result)
   }
 }
 
@@ -307,7 +377,11 @@ final class AbsorbingMatcher: ParsingRuleWrapper {
       let node = Node(type: nodeType, range: index ..< index + result.length)
       result.node = node
     }
-    return result
+    return performanceCounters.recordResult(result)
+  }
+
+  override var description: String {
+    "\(super.description) \(nodeType.rawValue)"
   }
 }
 
@@ -329,7 +403,11 @@ final class WrappingRule: ParsingRuleWrapper {
     } else {
       result.node = Node(type: nodeType, range: index ..< index + result.length)
     }
-    return result
+    return performanceCounters.recordResult(result)
+  }
+
+  override var description: String {
+    "\(super.description) \(nodeType.rawValue)"
   }
 }
 
@@ -340,11 +418,15 @@ public final class InOrder: ParsingRuleSequenceWrapper {
     var currentIndex = index
     for rule in rules {
       let innerResult = rule.apply(to: parser, at: currentIndex)
-      if !innerResult.succeeded { return result.failed() }
+      if !innerResult.succeeded { return performanceCounters.recordResult(result.failed()) }
       result.appendChild(innerResult)
       currentIndex += innerResult.length
     }
-    return result
+    return performanceCounters.recordResult(result)
+  }
+
+  public override var description: String {
+    "IN ORDER: \(rules.map(String.init(describing:)).joined(separator: ", "))"
   }
 }
 
@@ -354,7 +436,11 @@ final class AssertionRule: ParsingRuleWrapper {
     var result = rule.apply(to: parser, at: index)
     result.length = 0
     result.node = nil
-    return result
+    return performanceCounters.recordResult(result)
+  }
+
+  override var description: String {
+    "ASSERT \(rule.description)"
   }
 }
 
@@ -364,7 +450,11 @@ final class NotAssertionRule: ParsingRuleWrapper {
     var result = rule.apply(to: parser, at: index)
     result.length = 0 // never consume input
     result.succeeded.toggle()
-    return result
+    return performanceCounters.recordResult(result)
+  }
+
+  override var description: String {
+    "NOT \(rule.description)"
   }
 }
 
@@ -377,10 +467,14 @@ public final class Choice: ParsingRuleSequenceWrapper {
       examinedLength = max(examinedLength, result.examinedLength)
       if result.succeeded {
         result.examinedLength = examinedLength
-        return result
+        return performanceCounters.recordResult(result)
       }
     }
-    return ParsingResult(succeeded: false, examinedLength: examinedLength)
+    return performanceCounters.recordResult(ParsingResult(succeeded: false, examinedLength: examinedLength))
+  }
+
+  public override var description: String {
+    "CHOICE: \(rules.map(String.init(describing:)).joined(separator: ", "))"
   }
 }
 
