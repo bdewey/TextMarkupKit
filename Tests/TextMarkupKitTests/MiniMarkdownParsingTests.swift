@@ -101,6 +101,26 @@ final class MiniMarkdownParsingTests: XCTestCase {
     parseText(markdown, expectedStructure: "(document (list (list_item delimiter text) (list_item delimiter text)))")
   }
 
+  func testAllUnorderedListMarkers() {
+    let example = """
+    - This is a list item.
+    + So is this.
+    * And so is this.
+
+    """
+    parseText(example, expectedStructure: "(document (list (list_item delimiter text) (list_item delimiter text) (list_item delimiter text)))")
+  }
+
+  func testOrderedListMarkers() {
+    let example = """
+    1. this is the first item
+    2. this is the second item
+    3) This is also legit.
+
+    """
+    parseText(example, expectedStructure: "(document (list (list_item delimiter text) (list_item delimiter text) (list_item delimiter text)))")
+  }
+
   func testFile() {
     let pieceTable = PieceTable(TestStrings.markdownCanonical)
     let grammar = MiniMarkdownGrammar()

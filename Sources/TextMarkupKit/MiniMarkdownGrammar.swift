@@ -46,6 +46,7 @@ public final class MiniMarkdownGrammar: PackratGrammar {
     blankLine,
     header,
     unorderedList,
+    orderedList,
     paragraph
   ).memoize()
 
@@ -70,7 +71,7 @@ public final class MiniMarkdownGrammar: PackratGrammar {
 
   lazy var paragraphTermination = InOrder(
     newline,
-    Choice(Characters(["#", "\n"]).assert(), unorderedListOpening.assert())
+    Choice(Characters(["#", "\n"]).assert(), unorderedListOpening.assert(), orderedListOpening.assert())
   )
 
   func delimitedText(_ nodeType: NodeType, delimiter: ParsingRule) -> ParsingRule {
@@ -111,6 +112,7 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   let dot = DotRule()
   let newline = Characters(["\n"])
   let whitespace = Characters(.whitespaces)
+  let digit = Characters(.decimalDigits)
 
   // MARK: - Lists
 
@@ -121,7 +123,7 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   lazy var unorderedListOpening = InOrder(
     whitespace.repeating(0...),
     unorderedListSigil,
-    whitespace.repeating(1...)
+    whitespace.repeating(1...4)
   ).as(.delimiter).memoize()
 
   lazy var unorderedListItem = InOrder(
@@ -132,6 +134,23 @@ public final class MiniMarkdownGrammar: PackratGrammar {
 
   lazy var unorderedList = InOrder(
     unorderedListItem,
+    blankLine.repeating(0...)
+  ).repeating(1...).wrapping(in: .list).memoize()
+
+  lazy var orderedListOpening = InOrder(
+    whitespace.repeating(0...),
+    InOrder(digit.repeating(1...9), Characters([".", ")"])),
+    whitespace.repeating(1...4)
+  ).as(.delimiter).memoize()
+
+  lazy var orderedListItem = InOrder(
+    orderedListOpening,
+    styledText,
+    paragraphTermination.zeroOrOne().as(.text)
+  ).wrapping(in: .listItem).memoize()
+
+  lazy var orderedList = InOrder(
+    orderedListItem,
     blankLine.repeating(0...)
   ).repeating(1...).wrapping(in: .list).memoize()
 }
