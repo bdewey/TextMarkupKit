@@ -121,6 +121,13 @@ final class MiniMarkdownParsingTests: XCTestCase {
     parseText(example, expectedStructure: "(document (list (list_item delimiter text) (list_item delimiter text) (list_item delimiter text)))")
   }
 
+  func testOrderedMarkerCannotBeTenDigits() {
+    let example = """
+    12345678900) This isn't a list.
+    """
+    parseText(example, expectedStructure: "(document (paragraph text))")
+  }
+
   func testFile() {
     let pieceTable = PieceTable(TestStrings.markdownCanonical)
     let grammar = MiniMarkdownGrammar()
