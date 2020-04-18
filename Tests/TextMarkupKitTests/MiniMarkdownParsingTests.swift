@@ -148,6 +148,11 @@ final class MiniMarkdownParsingTests: XCTestCase {
     parseText(example, expectedStructure: "(document (paragraph text))")
   }
 
+  func testParseImages() {
+    let example = "This text has an image reference: ![xkcd](https://imgs.xkcd.com/comics/october_30th.png)"
+    parseText(example, expectedStructure: "(document (paragraph text image))")
+  }
+
   func testFile() {
     let pieceTable = PieceTable(TestStrings.markdownCanonical)
     let grammar = MiniMarkdownGrammar()

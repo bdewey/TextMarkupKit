@@ -26,6 +26,7 @@ public extension NodeType {
   static let emphasis: NodeType = "emphasis"
   static let hashtag: NodeType = "hashtag"
   static let header: NodeType = "header"
+  static let image: NodeType = "image"
   static let list: NodeType = "list"
   static let listItem: NodeType = "list_item"
   static let paragraph: NodeType = "paragraph"
@@ -89,6 +90,8 @@ public final class MiniMarkdownGrammar: PackratGrammar {
     Choice(Characters(["#", "\n"]).assert(), unorderedListOpening.assert(), orderedListOpening.assert(), blockquoteOpening.assert())
   )
 
+  // MARK: - Inline styles
+
   func delimitedText(_ nodeType: NodeType, delimiter: ParsingRule) -> ParsingRule {
     InOrder(
       delimiter.as(.delimiter),
@@ -102,7 +105,7 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   }
 
   /// This is an optimization -- if you're not looking at one of these characters, none of the text styles apply.
-  let textStyleSentinels = Characters(["*", "`", " "])
+  let textStyleSentinels = Characters(["*", "`", " ", "!"])
 
   lazy var bold = delimitedText(.strongEmphasis, delimiter: Literal("**"))
   lazy var italic = delimitedText(.emphasis, delimiter: Literal("*"))
@@ -113,13 +116,22 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   )
   lazy var nonDelimitedHashtag = InOrder(Literal("#"), nonWhitespace.repeating(1...)).as(.hashtag).memoize()
 
+  lazy var image = InOrder(
+    Literal("!["),
+    Characters(CharacterSet(charactersIn: "\n]").inverted).repeating(0...),
+    Literal("]("),
+    Characters(CharacterSet(charactersIn: "\n)").inverted).repeating(0...),
+    Literal(")")
+  ).as(.image).memoize()
+
   lazy var textStyles = InOrder(
     textStyleSentinels.assert(),
     Choice(
       bold,
       italic,
       code,
-      hashtag
+      hashtag,
+      image
     )
   ).memoize()
 
