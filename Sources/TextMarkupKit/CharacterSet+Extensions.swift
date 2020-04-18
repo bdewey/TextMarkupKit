@@ -31,6 +31,4 @@ public extension CharacterSet {
     }
     return contains(scalar)
   }
-
-  static let everything = CharacterSet.illegalCharacters.inverted
 }
