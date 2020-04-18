@@ -19,6 +19,7 @@ import Foundation
 
 public extension NodeType {
   static let blankLine: NodeType = "blank_line"
+  static let blockquote: NodeType = "blockquote"
   static let code: NodeType = "code"
   static let delimiter: NodeType = "delimiter"
   static let document: NodeType = "document"
@@ -47,6 +48,7 @@ public final class MiniMarkdownGrammar: PackratGrammar {
     header,
     unorderedList,
     orderedList,
+    blockquote,
     paragraph
   ).memoize()
 
@@ -71,7 +73,7 @@ public final class MiniMarkdownGrammar: PackratGrammar {
 
   lazy var paragraphTermination = InOrder(
     newline,
-    Choice(Characters(["#", "\n"]).assert(), unorderedListOpening.assert(), orderedListOpening.assert())
+    Choice(Characters(["#", "\n"]).assert(), unorderedListOpening.assert(), orderedListOpening.assert(), blockquoteOpening.assert())
   )
 
   func delimitedText(_ nodeType: NodeType, delimiter: ParsingRule) -> ParsingRule {
@@ -113,6 +115,21 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   let newline = Characters(["\n"])
   let whitespace = Characters(.whitespaces)
   let digit = Characters(.decimalDigits)
+
+  // MARK: - Simple block quotes
+  // TODO: Support single block quotes that span multiple lines, and block quotes with multiple
+  //       paragraphs.
+
+  lazy var blockquoteOpening = InOrder(
+    whitespace.repeating(0...3),
+    Characters([">"]),
+    whitespace.zeroOrOne()
+  ).as(.delimiter).memoize()
+
+  lazy var blockquote = InOrder(
+    blockquoteOpening,
+    paragraph
+  ).as(.blockquote).memoize()
 
   // MARK: - Lists
 

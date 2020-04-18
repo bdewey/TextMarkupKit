@@ -121,6 +121,11 @@ final class MiniMarkdownParsingTests: XCTestCase {
     parseText(example, expectedStructure: "(document (list (list_item delimiter text) (list_item delimiter text) (list_item delimiter text)))")
   }
 
+  func testSingleLineBlockQuote() {
+    let example = "> This is a quote with **bold** text."
+    parseText(example, expectedStructure: "(document (blockquote delimiter (paragraph text (strong_emphasis delimiter text delimiter) text)))")
+  }
+
   func testOrderedMarkerCannotBeTenDigits() {
     let example = """
     12345678900) This isn't a list.
