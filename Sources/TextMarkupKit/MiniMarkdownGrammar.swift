@@ -135,24 +135,11 @@ public final class MiniMarkdownGrammar: PackratGrammar {
 
   // https://spec.commonmark.org/0.28/#list-items
 
-  let unorderedListSigil = Characters(["*", "-", "+"])
-
   lazy var unorderedListOpening = InOrder(
     whitespace.repeating(0...),
-    unorderedListSigil,
+    Characters(["*", "-", "+"]),
     whitespace.repeating(1...4)
   ).as(.delimiter).memoize()
-
-  lazy var unorderedListItem = InOrder(
-    unorderedListOpening,
-    styledText,
-    paragraphTermination.zeroOrOne().as(.text)
-  ).wrapping(in: .listItem).memoize()
-
-  lazy var unorderedList = InOrder(
-    unorderedListItem,
-    blankLine.repeating(0...)
-  ).repeating(1...).wrapping(in: .list).memoize()
 
   lazy var orderedListOpening = InOrder(
     whitespace.repeating(0...),
@@ -160,14 +147,18 @@ public final class MiniMarkdownGrammar: PackratGrammar {
     whitespace.repeating(1...4)
   ).as(.delimiter).memoize()
 
-  lazy var orderedListItem = InOrder(
-    orderedListOpening,
-    styledText,
-    paragraphTermination.zeroOrOne().as(.text)
-  ).wrapping(in: .listItem).memoize()
+  func list(type: NodeType, openingDelimiter: ParsingRule) -> ParsingRule {
+    let listItem = InOrder(
+      openingDelimiter,
+      styledText,
+      paragraphTermination.zeroOrOne().as(.text)
+    ).wrapping(in: .listItem).memoize()
+    return InOrder(
+      listItem,
+      blankLine.repeating(0...)
+    ).repeating(1...).wrapping(in: type).memoize()
+  }
 
-  lazy var orderedList = InOrder(
-    orderedListItem,
-    blankLine.repeating(0...)
-  ).repeating(1...).wrapping(in: .list).memoize()
+  lazy var unorderedList = list(type: .list, openingDelimiter: unorderedListOpening)
+  lazy var orderedList = list(type: .list, openingDelimiter: orderedListOpening)
 }
