@@ -17,117 +17,212 @@
 
 import Foundation
 
-/// A node in the markup language's syntax tree.
-public final class Node {
-  public init(type: NodeType, range: Range<Int>, children: [Node] = []) {
-    self.type = type
-    self.range = range
-    self.children = children
+extension NodeType {
+  static let documentFragment: NodeType = "{{fragment}}"
+}
+
+/// A key for associating values of a specific type with a node.
+public protocol NodePropertyKey {
+  associatedtype Value
+
+  /// The string key used to identify the value in the property bag.
+  static var key: String { get }
+
+  /// Type-safe accessor for getting the value from the property bag.
+  static func getProperty(from bag: [String: Any]?) -> Value?
+
+  /// Type-safe setter for the value in the property bag.
+  static func setProperty(_ value: Value, in bag: inout [String: Any]?)
+}
+
+/// Default implementation of getter / setter.
+public extension NodePropertyKey {
+  static func getProperty(from bag: [String: Any]?) -> Value? {
+    guard let bag = bag else { return nil }
+    if let value = bag[key] {
+      return (value as! Value)
+    } else {
+      return nil
+    }
   }
 
-  public init?(textBuffer: TextBuffer, position: Int) {
-    return nil
+  static func setProperty(_ value: Value, in bag: inout [String: Any]?) {
+    if bag == nil {
+      bag = [key: value]
+    } else {
+      bag?[key] = value
+    }
+  }
+}
+
+/// A node in the markup language's syntax tree.
+public final class Node: CustomStringConvertible {
+  public init(type: NodeType, range: Range<Int>) {
+    self.type = type
+    self.range = range
+  }
+
+  public static func makeFragment(at index: Int) -> Node {
+    return Node(type: .documentFragment, range: index ..< index)
   }
 
   /// The type of this node.
-  public let type: NodeType
+  public var type: NodeType
+
+  /// If true, this node should be considered a "fragment" (an ordered list of nodes without a root)
+  public var isFragment: Bool {
+    return type === NodeType.documentFragment
+  }
 
   /// The range from the original `TextBuffer` that this node in the syntax tree covers.
-  public let range: Range<Int>
+  public var range: Range<Int>
+
+  /// Siblings of this node
+  public var forwardLink: Node?
+  public var backwardLink: Node?
 
   /// Children of this node.
-  public let children: [Node]
+  public var children = Children()
+
+  public func appendChild(_ child: Node) {
+    range = range.lowerBound ..< child.range.upperBound
+    if child.isFragment {
+      children.merge(&child.children)
+    } else {
+      // Special optimization: Adding a terminal node of the same type of the last terminal node
+      // can just be a range update.
+      if let lastNode = children.last, lastNode.children.isEmpty, child.children.isEmpty, lastNode.type == child.type {
+        lastNode.range = lastNode.range.lowerBound ..< child.range.upperBound
+      } else {
+        children.append(child)
+      }
+    }
+  }
+
+  /// Removes this node from its sibling list.
+  private func unlink() {
+    forwardLink?.backwardLink = backwardLink
+    backwardLink?.forwardLink = forwardLink
+  }
 
   /// True if this node corresponds to no text in the input buffer.
   public var isEmpty: Bool {
     return range.isEmpty
   }
+
+  public var description: String {
+    "Node: \(range) \(compactStructure)"
+  }
+
+  /// Walks down the tree of nodes to find a specific node.
+  public func node(at indexPath: IndexPath) -> Node? {
+    if indexPath.isEmpty { return self }
+    let nextChild = children.dropFirst(indexPath[0]).first(where: { _ in true })
+    assert(nextChild != nil)
+    return nextChild?.node(at: indexPath.dropFirst())
+  }
+
+  // MARK: - Properties
+
+  /// Lazily-allocated property bag.
+  private var propertyBag: [String: Any]?
+
+  /// Type-safe property accessor.
+  public subscript<K: NodePropertyKey>(key: K.Type) -> K.Value? {
+    get {
+      return key.getProperty(from: propertyBag)
+    }
+    set {
+      if let value = newValue {
+        key.setProperty(value, in: &propertyBag)
+      } else {
+        propertyBag?.removeValue(forKey: key.key)
+      }
+    }
+  }
 }
 
-// MARK: - Generic parsing
+// MARK: - Tree management
 
 public extension Node {
-  /// Returns the node at the specified position.
-  typealias ParsingFunction = (TextBuffer, Int) -> Node?
+  struct Children {
+    private var listEnds: (head: Node, tail: Node)?
 
-  /// Returns an array of nodes at the the specified position that
-  typealias NodeSequenceParser = (TextBuffer, Int) -> [Node]
+    public var isEmpty: Bool { listEnds == nil }
 
-  static func choice(of rules: [ParsingFunction]) -> ParsingFunction {
-    return { buffer, position in
-      for rule in rules {
-        if let node = rule(buffer, position) {
-          return node
-        }
-      }
-      return nil
-    }
-  }
-
-  static func sequence(of rules: [ParsingFunction]) -> NodeSequenceParser {
-    return { buffer, position in
-      var childNodes: [Node] = []
-      var currentPosition = position
-      for childRule in rules {
-        guard let childNode = childRule(buffer, currentPosition) else {
-          return []
-        }
-        childNodes.append(childNode)
-        currentPosition = childNode.range.upperBound
-      }
-      return childNodes
-    }
-  }
-
-  static func text(
-    matching predicate: @escaping (unichar) -> Bool,
-    named name: NodeType = .anonymous
-  ) -> ParsingFunction {
-    return { buffer, position in
-      var endPosition = position
-      while buffer.utf16(at: endPosition).map(predicate) ?? false {
-        endPosition += 1
-      }
-      guard endPosition > position else {
+    public var first: Node? {
+      guard let listEnds = listEnds else {
         return nil
       }
-      return Node(type: name, range: position ..< endPosition, children: [])
+      return listEnds.head
+    }
+
+    public var last: Node? {
+      guard let listEnds = listEnds else {
+        return nil
+      }
+      return listEnds.tail
+    }
+
+    public mutating func append(_ element: Node) {
+      if let listEnds = listEnds {
+        listEnds.tail.appendSibling(element)
+        self.listEnds = (head: listEnds.head, tail: element)
+      } else {
+        listEnds = (head: element, tail: element)
+      }
+    }
+
+    public mutating func merge(_ other: inout Children) {
+      switch (listEnds, other.listEnds) {
+      case (.some(let listEnds), .some(let otherListEnds)):
+        listEnds.tail.forwardLink = otherListEnds.head
+        otherListEnds.head.backwardLink = listEnds.tail
+        let fusePoint = listEnds.tail
+        let newListEnds = (head: listEnds.head, tail: otherListEnds.tail)
+        // Optimization: If we fused two nodes of identical types with no children, just keep
+        // one node that spans the range.
+        if fusePoint.children.isEmpty, otherListEnds.head.children.isEmpty, fusePoint.type == otherListEnds.head.type {
+          fusePoint.range = fusePoint.range.lowerBound ..< otherListEnds.head.range.upperBound
+          otherListEnds.head.unlink()
+        }
+        self.listEnds = newListEnds
+        other.listEnds = newListEnds
+      case (.none, .some(let otherListEnds)):
+        listEnds = otherListEnds
+      case (.some(let listEnds), .none):
+        other.listEnds = listEnds
+      case (.none, .none):
+        break
+      }
     }
   }
 
-  static func text(
-    upToAndIncluding terminator: unichar,
-    requiresTerminator: Bool = false,
-    named name: NodeType = .anonymous
-  ) -> ParsingFunction {
-    return { buffer, position in
-      var currentPosition = position
-      var foundTerminator = false
-      while let utf16 = buffer.utf16(at: currentPosition) {
-        if utf16 == terminator {
-          foundTerminator = true
-          break
-        }
-        currentPosition += 1
-      }
-      if requiresTerminator, !foundTerminator {
-        // We never found the terminator
-        return nil
-      }
-      if buffer.utf16(at: currentPosition) != nil {
-        currentPosition += 1
-      }
-      return Node(type: name, range: position ..< currentPosition, children: [])
+  private func appendSibling(_ sibling: Node) {
+    if let currentSibling = forwardLink {
+      currentSibling.backwardLink = sibling
     }
+    sibling.forwardLink = forwardLink
+    forwardLink = sibling
+    sibling.backwardLink = self
   }
 }
 
-public extension Array where Element: Node {
-  var encompassingRange: Range<Int>? {
-    guard let firstChild = first, let lastChild = last else {
-      return nil
+// MARK: - Enumerating children
+
+extension Node.Children: Sequence {
+  public struct Iterator: IteratorProtocol {
+    var current: Node?
+
+    public mutating func next() -> Node? {
+      guard let current = current else { return nil }
+      self.current = current.forwardLink
+      return current
     }
-    return firstChild.range.lowerBound ..< lastChild.range.upperBound
+  }
+
+  public func makeIterator() -> Iterator {
+    return Iterator(current: listEnds.map { $0.head })
   }
 }
 
@@ -144,14 +239,13 @@ extension Node {
 
   /// Recursive helper for generating `compactStructure`
   private func writeCompactStructure(to buffer: inout String) {
-    let filteredChildren = children.filter { $0.type != .anonymous }
-    if filteredChildren.isEmpty {
+    if children.isEmpty {
       buffer.append(type.rawValue)
     } else {
       buffer.append("(")
       buffer.append(type.rawValue)
       buffer.append(" ")
-      for (index, child) in filteredChildren.enumerated() {
+      for (index, child) in children.enumerated() {
         if index > 0 {
           buffer.append(" ")
         }

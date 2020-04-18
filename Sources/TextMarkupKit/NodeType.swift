@@ -18,7 +18,7 @@
 import Foundation
 
 /// Opaque class representing the type of a markup node.
-public final class NodeType: RawRepresentable, ExpressibleByStringLiteral, Hashable {
+public final class NodeType: RawRepresentable, ExpressibleByStringLiteral, Hashable, CustomStringConvertible {
   public init(rawValue: String) {
     self.rawValue = rawValue
   }
@@ -29,5 +29,5 @@ public final class NodeType: RawRepresentable, ExpressibleByStringLiteral, Hasha
 
   public let rawValue: String
 
-  public static let anonymous: NodeType = ""
+  public var description: String { rawValue }
 }
