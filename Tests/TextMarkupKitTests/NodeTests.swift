@@ -63,6 +63,23 @@ final class NodeTests: XCTestCase {
     XCTAssertEqual(root.range, 0 ..< 4)
     XCTAssertEqual(["one", "two", "three"], root.children.map { $0.type })
   }
+
+  func testAppendFragmentDoesSimilarityMerge() {
+    let childTypes: [NodeType] = [
+      "one",
+      "two",
+      "one",
+    ]
+    let root = Node(type: "root", range: 0 ..< 0)
+    let fragment = makeFragment(with: childTypes, startingIndex: 0)
+    root.appendChild(fragment)
+    XCTAssertEqual(root.range, 0 ..< 3)
+    XCTAssertEqual(childTypes, root.children.map { $0.type })
+    let fragment2 = makeFragment(with: childTypes, startingIndex: root.range.upperBound)
+    root.appendChild(fragment2)
+    XCTAssertEqual(root.range, 0 ..< 6)
+    XCTAssertEqual(["one", "two", "one", "two", "one"], root.children.map { $0.type })
+  }
 }
 
 private func makeFragment(with nodeTypes: [NodeType], startingIndex: Int) -> Node {

@@ -99,6 +99,12 @@ public final class Node: CustomStringConvertible {
     }
   }
 
+  /// Removes this node from its sibling list.
+  private func unlink() {
+    forwardLink?.backwardLink = backwardLink
+    backwardLink?.forwardLink = forwardLink
+  }
+
   /// True if this node corresponds to no text in the input buffer.
   public var isEmpty: Bool {
     return range.isEmpty
@@ -172,7 +178,14 @@ public extension Node {
       case (.some(let listEnds), .some(let otherListEnds)):
         listEnds.tail.forwardLink = otherListEnds.head
         otherListEnds.head.backwardLink = listEnds.tail
+        let fusePoint = listEnds.tail
         let newListEnds = (head: listEnds.head, tail: otherListEnds.tail)
+        // Optimization: If we fused two nodes of identical types with no children, just keep
+        // one node that spans the range.
+        if fusePoint.children.isEmpty, otherListEnds.head.children.isEmpty, fusePoint.type == otherListEnds.head.type {
+          fusePoint.range = fusePoint.range.lowerBound ..< otherListEnds.head.range.upperBound
+          otherListEnds.head.unlink()
+        }
         self.listEnds = newListEnds
         other.listEnds = newListEnds
       case (.none, .some(let otherListEnds)):

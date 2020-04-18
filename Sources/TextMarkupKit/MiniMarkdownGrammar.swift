@@ -79,6 +79,7 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   ).wrapping(in: .header).memoize()
 
   lazy var paragraph = InOrder(
+    nonDelimitedHashtag.zeroOrOne(),
     styledText,
     paragraphTermination.zeroOrOne().wrapping(in: .text)
   ).wrapping(in: .paragraph).memoize()
@@ -101,15 +102,16 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   }
 
   /// This is an optimization -- if you're not looking at one of these characters, none of the text styles apply.
-  let textStyleSentinels = Characters(["*", "`", "#"])
+  let textStyleSentinels = Characters(["*", "`", " "])
 
   lazy var bold = delimitedText(.strongEmphasis, delimiter: Literal("**"))
   lazy var italic = delimitedText(.emphasis, delimiter: Literal("*"))
   lazy var code = delimitedText(.code, delimiter: Literal("`"))
   lazy var hashtag = InOrder(
-    Literal("#"),
-    nonWhitespace.repeating(1...)
-  ).as(.hashtag)
+    whitespace.as(.text),
+    nonDelimitedHashtag
+  )
+  lazy var nonDelimitedHashtag = InOrder(Literal("#"), nonWhitespace.repeating(1...)).as(.hashtag).memoize()
 
   lazy var textStyles = InOrder(
     textStyleSentinels.assert(),
