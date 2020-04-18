@@ -21,6 +21,40 @@ extension NodeType {
   static let documentFragment: NodeType = "{{fragment}}"
 }
 
+/// A key for associating values of a specific type with a node.
+public protocol NodePropertyKey {
+  associatedtype Value
+
+  /// The string key used to identify the value in the property bag.
+  static var key: String { get }
+
+  /// Type-safe accessor for getting the value from the property bag.
+  static func getProperty(from bag: [String: Any]?) -> Value?
+
+  /// Type-safe setter for the value in the property bag.
+  static func setProperty(_ value: Value, in bag: inout [String: Any]?)
+}
+
+/// Default implementation of getter / setter.
+public extension NodePropertyKey {
+  static func getProperty(from bag: [String: Any]?) -> Value? {
+    guard let bag = bag else { return nil }
+    if let value = bag[key] {
+      return (value as! Value)
+    } else {
+      return nil
+    }
+  }
+
+  static func setProperty(_ value: Value, in bag: inout [String: Any]?) {
+    if bag == nil {
+      bag = [key: value]
+    } else {
+      bag?[key] = value
+    }
+  }
+}
+
 /// A node in the markup language's syntax tree.
 public final class Node: CustomStringConvertible {
   public init(type: NodeType, range: Range<Int>) {
@@ -72,6 +106,33 @@ public final class Node: CustomStringConvertible {
 
   public var description: String {
     "Node: \(range) \(compactStructure)"
+  }
+
+  /// Walks down the tree of nodes to find a specific node.
+  public func node(at indexPath: IndexPath) -> Node? {
+    if indexPath.isEmpty { return self }
+    let nextChild = children.dropFirst(indexPath[0]).first(where: { _ in true })
+    assert(nextChild != nil)
+    return nextChild?.node(at: indexPath.dropFirst())
+  }
+
+  // MARK: - Properties
+
+  /// Lazily-allocated property bag.
+  private var propertyBag: [String: Any]?
+
+  /// Type-safe property accessor.
+  public subscript<K: NodePropertyKey>(key: K.Type) -> K.Value? {
+    get {
+      return key.getProperty(from: propertyBag)
+    }
+    set {
+      if let value = newValue {
+        key.setProperty(value, in: &propertyBag)
+      } else {
+        propertyBag?.removeValue(forKey: key.key)
+      }
+    }
   }
 }
 

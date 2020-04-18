@@ -229,6 +229,10 @@ public extension ParsingRule {
   func zeroOrOne() -> ParsingRule {
     return ZeroOrOneRule(self)
   }
+
+  func property<K: NodePropertyKey>(key: K.Type, value: K.Value) -> ParsingRule {
+    return PropertyRule(key: key, value: value, rule: self)
+  }
 }
 
 // MARK: - Building block rules
@@ -499,6 +503,24 @@ final class TraceRule: ParsingRuleWrapper {
     let result = rule.apply(to: parser, at: index)
     currentEntry.result = result
     parser.traceBuffer.popEntry()
+    return result
+  }
+}
+
+
+final class PropertyRule<K: NodePropertyKey>: ParsingRuleWrapper {
+  init(key: K.Type, value: K.Value, rule: ParsingRule) {
+    self.key = key
+    self.value = value
+    super.init(rule)
+  }
+
+  let key: K.Type
+  let value: K.Value
+
+  override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
+    let result = rule.apply(to: parser, at: index)
+    result.node?[key] = value
     return result
   }
 }

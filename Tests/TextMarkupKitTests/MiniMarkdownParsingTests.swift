@@ -108,7 +108,8 @@ final class MiniMarkdownParsingTests: XCTestCase {
     * And so is this.
 
     """
-    parseText(example, expectedStructure: "(document (list (list_item delimiter (paragraph text)) (list_item delimiter (paragraph text)) (list_item delimiter (paragraph text))))")
+    let tree = parseText(example, expectedStructure: "(document (list (list_item delimiter (paragraph text)) (list_item delimiter (paragraph text)) (list_item delimiter (paragraph text))))")
+    XCTAssertEqual(tree?.node(at: [0])?[ListTypeKey.self], .unordered)
   }
 
   func testOrderedListMarkers() {
@@ -118,7 +119,8 @@ final class MiniMarkdownParsingTests: XCTestCase {
     3) This is also legit.
 
     """
-    parseText(example, expectedStructure: "(document (list (list_item delimiter (paragraph text)) (list_item delimiter (paragraph text)) (list_item delimiter (paragraph text))))")
+    let tree = parseText(example, expectedStructure: "(document (list (list_item delimiter (paragraph text)) (list_item delimiter (paragraph text)) (list_item delimiter (paragraph text))))")
+    XCTAssertEqual(tree?.node(at: [0])?[ListTypeKey.self], .ordered)
   }
 
   func testSingleLineBlockQuote() {
@@ -149,7 +151,8 @@ final class MiniMarkdownParsingTests: XCTestCase {
 // MARK: - Private
 
 private extension MiniMarkdownParsingTests {
-  func parseText(_ text: String, expectedStructure: String, file: StaticString = #file, line: UInt = #line) {
+  @discardableResult
+  func parseText(_ text: String, expectedStructure: String, file: StaticString = #file, line: UInt = #line) -> Node? {
     do {
       let pieceTable = PieceTable(text)
       let grammar = MiniMarkdownGrammar()
@@ -168,8 +171,10 @@ private extension MiniMarkdownParsingTests {
         print("\n\n\n")
       }
       XCTAssertEqual(tree.compactStructure, expectedStructure, "Unexpected structure", file: file, line: line)
+      return tree
     } catch {
       XCTFail("Unexpected error: \(error)", file: file, line: line)
+      return nil
     }
   }
 }

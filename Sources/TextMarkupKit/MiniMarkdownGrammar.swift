@@ -32,6 +32,17 @@ public extension NodeType {
   static let text: NodeType = "text"
 }
 
+public enum ListType {
+  case ordered
+  case unordered
+}
+
+public enum ListTypeKey: NodePropertyKey {
+  public typealias Value = ListType
+
+  public static let key = "list_type"
+}
+
 public final class MiniMarkdownGrammar: PackratGrammar {
   public init(trace: Bool = false) {
     if trace {
@@ -147,7 +158,7 @@ public final class MiniMarkdownGrammar: PackratGrammar {
     whitespace.repeating(1...4)
   ).as(.delimiter).memoize()
 
-  func list(type: NodeType, openingDelimiter: ParsingRule) -> ParsingRule {
+  func list(type: ListType, openingDelimiter: ParsingRule) -> ParsingRule {
     let listItem = InOrder(
       openingDelimiter,
       paragraph
@@ -155,9 +166,9 @@ public final class MiniMarkdownGrammar: PackratGrammar {
     return InOrder(
       listItem,
       blankLine.repeating(0...)
-    ).repeating(1...).wrapping(in: type).memoize()
+    ).repeating(1...).wrapping(in: .list).property(key: ListTypeKey.self, value: type).memoize()
   }
 
-  lazy var unorderedList = list(type: .list, openingDelimiter: unorderedListOpening)
-  lazy var orderedList = list(type: .list, openingDelimiter: orderedListOpening)
+  lazy var unorderedList = list(type: .unordered, openingDelimiter: unorderedListOpening)
+  lazy var orderedList = list(type: .ordered, openingDelimiter: orderedListOpening)
 }
