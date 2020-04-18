@@ -150,8 +150,7 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   func list(type: NodeType, openingDelimiter: ParsingRule) -> ParsingRule {
     let listItem = InOrder(
       openingDelimiter,
-      styledText,
-      paragraphTermination.zeroOrOne().as(.text)
+      paragraph
     ).wrapping(in: .listItem).memoize()
     return InOrder(
       listItem,

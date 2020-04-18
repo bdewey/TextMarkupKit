@@ -83,13 +83,13 @@ final class MiniMarkdownParsingTests: XCTestCase {
     - Item one
     - Item two
     """
-    parseText(markdown, expectedStructure: "(document (list (list_item delimiter text) (list_item delimiter text)))")
+    parseText(markdown, expectedStructure: "(document (list (list_item delimiter (paragraph text)) (list_item delimiter (paragraph text))))")
   }
 
   func testListItemWithStyling() {
     parseText(
       "- This is a list item with **strong emphasis**",
-      expectedStructure: "(document (list (list_item delimiter text (strong_emphasis delimiter text delimiter))))"
+      expectedStructure: "(document (list (list_item delimiter (paragraph text (strong_emphasis delimiter text delimiter)))))"
     )
   }
 
@@ -98,7 +98,7 @@ final class MiniMarkdownParsingTests: XCTestCase {
     - Item *one
     - Item *two
     """
-    parseText(markdown, expectedStructure: "(document (list (list_item delimiter text) (list_item delimiter text)))")
+    parseText(markdown, expectedStructure: "(document (list (list_item delimiter (paragraph text)) (list_item delimiter (paragraph text))))")
   }
 
   func testAllUnorderedListMarkers() {
@@ -108,7 +108,7 @@ final class MiniMarkdownParsingTests: XCTestCase {
     * And so is this.
 
     """
-    parseText(example, expectedStructure: "(document (list (list_item delimiter text) (list_item delimiter text) (list_item delimiter text)))")
+    parseText(example, expectedStructure: "(document (list (list_item delimiter (paragraph text)) (list_item delimiter (paragraph text)) (list_item delimiter (paragraph text))))")
   }
 
   func testOrderedListMarkers() {
@@ -118,7 +118,7 @@ final class MiniMarkdownParsingTests: XCTestCase {
     3) This is also legit.
 
     """
-    parseText(example, expectedStructure: "(document (list (list_item delimiter text) (list_item delimiter text) (list_item delimiter text)))")
+    parseText(example, expectedStructure: "(document (list (list_item delimiter (paragraph text)) (list_item delimiter (paragraph text)) (list_item delimiter (paragraph text))))")
   }
 
   func testSingleLineBlockQuote() {
