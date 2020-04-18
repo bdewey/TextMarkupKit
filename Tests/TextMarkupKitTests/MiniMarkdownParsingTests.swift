@@ -153,6 +153,10 @@ final class MiniMarkdownParsingTests: XCTestCase {
     parseText(example, expectedStructure: "(document (paragraph text image))")
   }
 
+  func testUnderlineEmphasis() {
+    parseText("Underlines can do _emphasis_.", expectedStructure: "(document (paragraph text (emphasis delimiter text delimiter) text))")
+  }
+
   func testFile() {
     let pieceTable = PieceTable(TestStrings.markdownCanonical)
     let grammar = MiniMarkdownGrammar()
