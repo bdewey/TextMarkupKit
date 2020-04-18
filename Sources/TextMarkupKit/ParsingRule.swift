@@ -507,7 +507,6 @@ final class TraceRule: ParsingRuleWrapper {
   }
 }
 
-
 final class PropertyRule<K: NodePropertyKey>: ParsingRuleWrapper {
   init(key: K.Type, value: K.Value, rule: ParsingRule) {
     self.key = key

@@ -71,7 +71,7 @@ final class PerformanceTests: XCTestCase {
     let counters = parser.grammar.start.allPerformanceCounters()
     let dedup = Dictionary(counters, uniquingKeysWith: { _, x in x })
     let topTotal = dedup.sorted(by: { $0.value.total > $1.value.total }).prefix(10).map(String.init(describing:)).joined(separator: "\n")
-    let leastSuccessful = dedup.filter({ $0.value.total > 0 }).sorted(by: { $0.value.successRate < $1.value.successRate }).prefix(10).map(String.init(describing:)).joined(separator: "\n")
+    let leastSuccessful = dedup.filter { $0.value.total > 0 }.sorted(by: { $0.value.successRate < $1.value.successRate }).prefix(10).map(String.init(describing:)).joined(separator: "\n")
     print("Top rules: \n\(topTotal)\n\n")
     print("Worst rules: \n\(leastSuccessful)\n\n")
   }

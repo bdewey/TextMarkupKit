@@ -151,11 +151,12 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   let digit = Characters(.decimalDigits)
 
   // MARK: - Simple block quotes
+
   // TODO: Support single block quotes that span multiple lines, and block quotes with multiple
   //       paragraphs.
 
   lazy var blockquoteOpening = InOrder(
-    whitespace.repeating(0...3),
+    whitespace.repeating(0 ... 3),
     Characters([">"]),
     whitespace.zeroOrOne()
   ).as(.delimiter).memoize()
@@ -172,13 +173,13 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   lazy var unorderedListOpening = InOrder(
     whitespace.repeating(0...),
     Characters(["*", "-", "+"]),
-    whitespace.repeating(1...4)
+    whitespace.repeating(1 ... 4)
   ).as(.delimiter).memoize()
 
   lazy var orderedListOpening = InOrder(
     whitespace.repeating(0...),
-    InOrder(digit.repeating(1...9), Characters([".", ")"])),
-    whitespace.repeating(1...4)
+    InOrder(digit.repeating(1 ... 9), Characters([".", ")"])),
+    whitespace.repeating(1 ... 4)
   ).as(.delimiter).memoize()
 
   func list(type: ListType, openingDelimiter: ParsingRule) -> ParsingRule {
