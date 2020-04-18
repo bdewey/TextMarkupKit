@@ -24,6 +24,7 @@ public extension NodeType {
   static let delimiter: NodeType = "delimiter"
   static let document: NodeType = "document"
   static let emphasis: NodeType = "emphasis"
+  static let hashtag: NodeType = "hashtag"
   static let header: NodeType = "header"
   static let list: NodeType = "list"
   static let listItem: NodeType = "list_item"
@@ -71,7 +72,7 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   lazy var header = InOrder(
     Characters(["#"]).repeating(1 ..< 7).as(.delimiter),
     InOrder(
-      whitespace.repeating(0...),
+      whitespace.repeating(1...),
       InOrder(newline.assertInverse(), dot).repeating(0...),
       Choice(newline, dot.assertInverse())
     ).as(.text)
@@ -100,18 +101,23 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   }
 
   /// This is an optimization -- if you're not looking at one of these characters, none of the text styles apply.
-  let textStyleSentinels = Characters(["*", "`"])
+  let textStyleSentinels = Characters(["*", "`", "#"])
 
   lazy var bold = delimitedText(.strongEmphasis, delimiter: Literal("**"))
   lazy var italic = delimitedText(.emphasis, delimiter: Literal("*"))
   lazy var code = delimitedText(.code, delimiter: Literal("`"))
+  lazy var hashtag = InOrder(
+    Literal("#"),
+    nonWhitespace.repeating(1...)
+  ).as(.hashtag)
 
   lazy var textStyles = InOrder(
     textStyleSentinels.assert(),
     Choice(
       bold,
       italic,
-      code
+      code,
+      hashtag
     )
   ).memoize()
 
@@ -125,6 +131,7 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   let dot = DotRule()
   let newline = Characters(["\n"])
   let whitespace = Characters(.whitespaces)
+  let nonWhitespace = Characters(CharacterSet.whitespacesAndNewlines.inverted)
   let digit = Characters(.decimalDigits)
 
   // MARK: - Simple block quotes

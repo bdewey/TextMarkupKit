@@ -135,6 +135,10 @@ final class MiniMarkdownParsingTests: XCTestCase {
     parseText(example, expectedStructure: "(document (paragraph text))")
   }
 
+  func testParseHashtag() {
+    parseText("#hashtag\n", expectedStructure: "(document (paragraph hashtag text))")
+  }
+
   func testFile() {
     let pieceTable = PieceTable(TestStrings.markdownCanonical)
     let grammar = MiniMarkdownGrammar()
