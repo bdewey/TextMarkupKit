@@ -116,13 +116,13 @@ private extension PieceTable {
 
   struct RunCollection: Collection {
     init(originalLength: Int) {
-      runs = [Run(source: .original, range: NSRange(location: 0, length: originalLength))]
+      self.runs = [Run(source: .original, range: NSRange(location: 0, length: originalLength))]
     }
 
     private var runs: [Run]
 
     var length: Int {
-      runs.reduce(0, { $0 + $1.range.length })
+      runs.reduce(0) { $0 + $1.range.length }
     }
 
     mutating func replaceRange(_ existingRange: NSRange, with newRange: NSRange?) {
@@ -173,6 +173,7 @@ private extension PieceTable {
     func index(after i: Int) -> Int {
       return i + 1
     }
+
     subscript(position: Int) -> Run {
       runs[position]
     }
