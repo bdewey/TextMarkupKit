@@ -33,7 +33,7 @@ public final class PackratParser: CustomStringConvertible {
   public init(buffer: PieceTable, grammar: PackratGrammar) {
     self.buffer = buffer
     self.grammar = grammar
-    self.memoizedResults = Array(repeating: ResultsAtIndex(), count: buffer.endIndex + 1)
+    self.memoizedResults = Array(repeating: MemoColumn(), count: buffer.endIndex + 1)
   }
 
   /// The contents to parse.
@@ -102,8 +102,7 @@ public final class PackratParser: CustomStringConvertible {
 
   // MARK: - Memoization internals
 
-  private typealias ResultsAtIndex = [ObjectIdentifier: ParsingResult]
-  private var memoizedResults: [ResultsAtIndex]
+  private var memoizedResults: [MemoColumn]
 
   public func memoizationStatistics() -> (totalEntries: Int, successfulEntries: Int) {
     var totalEntries = 0
@@ -115,5 +114,41 @@ public final class PackratParser: CustomStringConvertible {
       }
     }
     return (totalEntries: totalEntries, successfulEntries: successfulEntries)
+  }
+}
+
+// MARK: - Memoization
+
+private extension PackratParser {
+  struct MemoColumn {
+    private(set) var maxExaminedLength = 0
+    private var storage = [ObjectIdentifier: ParsingResult]()
+
+    subscript(id: ObjectIdentifier) -> ParsingResult? {
+      get {
+        storage[id]
+      }
+      set {
+        guard let newValue = newValue else {
+          assertionFailure()
+          return
+        }
+        storage[id] = newValue
+        maxExaminedLength = Swift.max(maxExaminedLength, newValue.examinedLength)
+      }
+    }
+  }
+}
+
+extension PackratParser.MemoColumn: Collection {
+  typealias Index = Dictionary<ObjectIdentifier, ParsingResult>.Index
+  var startIndex: Index { storage.startIndex }
+  var endIndex: Index { storage.endIndex }
+  func index(after i: Index) -> Index {
+    return storage.index(after: i)
+  }
+
+  subscript(position: Index) -> (key: ObjectIdentifier, value: ParsingResult) {
+    storage[position]
   }
 }
