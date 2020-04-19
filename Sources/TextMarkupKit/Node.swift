@@ -57,13 +57,13 @@ public extension NodePropertyKey {
 
 /// A node in the markup language's syntax tree.
 public final class Node: CustomStringConvertible {
-  public init(type: NodeType, range: Range<Int>) {
+  public init(type: NodeType, length: Int = 0) {
     self.type = type
-    self.range = range
+    self.length = length
   }
 
-  public static func makeFragment(at index: Int) -> Node {
-    return Node(type: .documentFragment, range: index ..< index)
+  public static func makeFragment() -> Node {
+    return Node(type: .documentFragment, length: 0)
   }
 
   /// The type of this node.
@@ -74,8 +74,10 @@ public final class Node: CustomStringConvertible {
     return type === NodeType.documentFragment
   }
 
-  /// The range from the original `TextBuffer` that this node in the syntax tree covers.
-  public var range: Range<Int>
+  /// The length of the original text covered by this node (and all children).
+  /// We only store the length so nodes can be efficiently reused while editing text, but it does mean you need to
+  /// build up context (start position) by walking the parse tree.
+  public var length: Int
 
   /// Siblings of this node
   public var forwardLink: Node?
@@ -85,14 +87,14 @@ public final class Node: CustomStringConvertible {
   public var children = Children()
 
   public func appendChild(_ child: Node) {
-    range = range.lowerBound ..< child.range.upperBound
+    length += child.length
     if child.isFragment {
       children.merge(&child.children)
     } else {
       // Special optimization: Adding a terminal node of the same type of the last terminal node
       // can just be a range update.
       if let lastNode = children.last, lastNode.children.isEmpty, child.children.isEmpty, lastNode.type == child.type {
-        lastNode.range = lastNode.range.lowerBound ..< child.range.upperBound
+        lastNode.length += child.length
       } else {
         children.append(child)
       }
@@ -107,11 +109,11 @@ public final class Node: CustomStringConvertible {
 
   /// True if this node corresponds to no text in the input buffer.
   public var isEmpty: Bool {
-    return range.isEmpty
+    return length == 0
   }
 
   public var description: String {
-    "Node: \(range) \(compactStructure)"
+    "Node: \(length) \(compactStructure)"
   }
 
   /// Walks down the tree of nodes to find a specific node.
@@ -183,7 +185,7 @@ public extension Node {
         // Optimization: If we fused two nodes of identical types with no children, just keep
         // one node that spans the range.
         if fusePoint.children.isEmpty, otherListEnds.head.children.isEmpty, fusePoint.type == otherListEnds.head.type {
-          fusePoint.range = fusePoint.range.lowerBound ..< otherListEnds.head.range.upperBound
+          fusePoint.length += otherListEnds.head.length
           otherListEnds.head.unlink()
         }
         self.listEnds = newListEnds
@@ -257,26 +259,30 @@ extension Node {
 
   /// Returns the syntax tree and which parts of `textBuffer` the leaf nodes correspond to.
   public func debugDescription(withContentsFrom pieceTable: PieceTable) -> String {
-    var lines = [String]()
-    writeDebugDescription(to: &lines, pieceTable: pieceTable, indentLevel: 0)
-    return lines.joined(separator: "\n")
+    var lines = ""
+    writeDebugDescription(to: &lines, pieceTable: pieceTable, location: 0, indentLevel: 0)
+    return lines
   }
 
   /// Recursive helper function for `debugDescription(of:)`
-  private func writeDebugDescription(
-    to lines: inout [String],
+  private func writeDebugDescription<Target: TextOutputStream>(
+    to lines: inout Target,
     pieceTable: PieceTable,
+    location: Int,
     indentLevel: Int
   ) {
     var result = String(repeating: " ", count: 2 * indentLevel)
     result.append(type.rawValue)
     result.append(": ")
     if children.isEmpty {
-      result.append(pieceTable[range].debugDescription)
+      result.append(pieceTable[location ..< location + length].debugDescription)
     }
-    lines.append(result)
+    lines.write(result)
+    lines.write("\n")
+    var childLocation = location
     for child in children {
-      child.writeDebugDescription(to: &lines, pieceTable: pieceTable, indentLevel: indentLevel + 1)
+      child.writeDebugDescription(to: &lines, pieceTable: pieceTable, location: childLocation, indentLevel: indentLevel + 1)
+      childLocation += child.length
     }
   }
 }

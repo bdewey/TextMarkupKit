@@ -180,8 +180,8 @@ private extension MiniMarkdownParsingTests {
       let grammar = MiniMarkdownGrammar()
       let parser = PackratParser(buffer: pieceTable, grammar: grammar)
       let tree = try parser.parse()
-      if tree.range.endIndex != pieceTable.endIndex {
-        let unparsedText = pieceTable[tree.range.endIndex ..< pieceTable.endIndex]
+      if tree.length != pieceTable.length {
+        let unparsedText = pieceTable[tree.length ..< pieceTable.length]
         XCTFail("Test case \(name): Unparsed text = '\(unparsedText.debugDescription)'", file: file, line: line)
       }
       if expectedStructure != tree.compactStructure {

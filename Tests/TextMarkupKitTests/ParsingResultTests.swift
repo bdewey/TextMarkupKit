@@ -47,12 +47,12 @@ final class ParsingResultTests: XCTestCase {
       "two",
       "three",
     ]
-    for (index, type) in nodeTypes.enumerated() {
+    for type in nodeTypes {
       let childResult = ParsingResult(
         succeeded: true,
         length: 1,
         examinedLength: 1,
-        node: Node(type: type, range: index ..< index + 1)
+        node: Node(type: type, length: 1)
       )
       parent.appendChild(childResult)
     }

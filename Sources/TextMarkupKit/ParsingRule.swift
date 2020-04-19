@@ -160,16 +160,16 @@ public struct ParsingResult {
     if resultNode.isFragment, node == nil {
       node = resultNode
     } else {
-      let fragment = makeFragmentIfNeeded(at: resultNode.range.lowerBound)
+      let fragment = makeFragmentIfNeeded()
       fragment.appendChild(resultNode)
     }
   }
 
-  private mutating func makeFragmentIfNeeded(at lowerBound: Int) -> Node {
+  private mutating func makeFragmentIfNeeded() -> Node {
     if let existingNode = node {
       return existingNode
     }
-    let node = Node(type: .documentFragment, range: lowerBound ..< lowerBound)
+    let node = Node(type: .documentFragment, length: 0)
     self.node = node
     return node
   }
@@ -378,7 +378,7 @@ final class AbsorbingMatcher: ParsingRuleWrapper {
     if let existingNode = result.node, existingNode.isFragment {
       existingNode.type = nodeType
     } else {
-      let node = Node(type: nodeType, range: index ..< index + result.length)
+      let node = Node(type: nodeType, length: result.length)
       result.node = node
     }
     return performanceCounters.recordResult(result)
@@ -405,7 +405,7 @@ final class WrappingRule: ParsingRuleWrapper {
       Swift.assert(node.isFragment)
       node.type = nodeType
     } else {
-      result.node = Node(type: nodeType, range: index ..< index + result.length)
+      result.node = Node(type: nodeType, length: result.length)
     }
     return performanceCounters.recordResult(result)
   }

@@ -26,12 +26,12 @@ final class NodeTests: XCTestCase {
       "two",
       "three",
     ]
-    let root = Node(type: "root", range: 0 ..< 0)
-    for (index, type) in childTypes.enumerated() {
-      let childNode = Node(type: type, range: index ..< index + 1)
+    let root = Node(type: "root")
+    for type in childTypes {
+      let childNode = Node(type: type, length: 1)
       root.appendChild(childNode)
     }
-    XCTAssertEqual(root.range, 0 ..< 3)
+    XCTAssertEqual(root.length, 3)
     XCTAssertEqual(childTypes, root.children.map { $0.type })
   }
 
@@ -41,10 +41,10 @@ final class NodeTests: XCTestCase {
       "two",
       "three",
     ]
-    let root = Node(type: "root", range: 0 ..< 0)
-    let fragment = makeFragment(with: childTypes, startingIndex: 0)
+    let root = Node(type: "root")
+    let fragment = makeFragment(with: childTypes)
     root.appendChild(fragment)
-    XCTAssertEqual(root.range, 0 ..< 3)
+    XCTAssertEqual(root.length, 3)
     XCTAssertEqual(childTypes, root.children.map { $0.type })
   }
 
@@ -55,12 +55,12 @@ final class NodeTests: XCTestCase {
       "three",
       "three",
     ]
-    let root = Node(type: "root", range: 0 ..< 0)
-    for (index, type) in childTypes.enumerated() {
-      let childNode = Node(type: type, range: index ..< index + 1)
+    let root = Node(type: "root")
+    for type in childTypes {
+      let childNode = Node(type: type, length: 1)
       root.appendChild(childNode)
     }
-    XCTAssertEqual(root.range, 0 ..< 4)
+    XCTAssertEqual(root.length, 4)
     XCTAssertEqual(["one", "two", "three"], root.children.map { $0.type })
   }
 
@@ -70,22 +70,22 @@ final class NodeTests: XCTestCase {
       "two",
       "one",
     ]
-    let root = Node(type: "root", range: 0 ..< 0)
-    let fragment = makeFragment(with: childTypes, startingIndex: 0)
+    let root = Node(type: "root")
+    let fragment = makeFragment(with: childTypes)
     root.appendChild(fragment)
-    XCTAssertEqual(root.range, 0 ..< 3)
+    XCTAssertEqual(root.length, 3)
     XCTAssertEqual(childTypes, root.children.map { $0.type })
-    let fragment2 = makeFragment(with: childTypes, startingIndex: root.range.upperBound)
+    let fragment2 = makeFragment(with: childTypes)
     root.appendChild(fragment2)
-    XCTAssertEqual(root.range, 0 ..< 6)
+    XCTAssertEqual(root.length, 6)
     XCTAssertEqual(["one", "two", "one", "two", "one"], root.children.map { $0.type })
   }
 }
 
-private func makeFragment(with nodeTypes: [NodeType], startingIndex: Int) -> Node {
-  let fragment = Node.makeFragment(at: startingIndex)
-  for (index, type) in nodeTypes.enumerated() {
-    let childNode = Node(type: type, range: startingIndex + index ..< startingIndex + index + 1)
+private func makeFragment(with nodeTypes: [NodeType]) -> Node {
+  let fragment = Node.makeFragment()
+  for type in nodeTypes {
+    let childNode = Node(type: type, length: 1)
     fragment.appendChild(childNode)
   }
   return fragment
