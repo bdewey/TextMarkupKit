@@ -68,6 +68,7 @@ final class PieceTableTests: XCTestCase {
     pieceTable.replaceCharacters(in: NSRange(location: 4, length: 2), with: "a,")
     pieceTable.replaceCharacters(in: NSRange(location: 5, length: 2), with: "!! ")
     XCTAssertEqual("Hella!! world!", pieceTable.string)
+    XCTAssertEqual(pieceTable.utf16String, pieceTable.string)
   }
 
   func testDeleteAddedOverlappingRange() {
@@ -75,5 +76,19 @@ final class PieceTableTests: XCTestCase {
     pieceTable.replaceCharacters(in: NSRange(location: 7, length: 0), with: "nutty ")
     pieceTable.replaceCharacters(in: NSRange(location: 5, length: 13), with: "")
     XCTAssertEqual("Hello!", pieceTable.string)
+  }
+}
+
+// MARK: - Private
+
+extension PieceTable {
+  var utf16String: String {
+    var chars = [unichar]()
+    var i = 0
+    while let ch = utf16(at: i) {
+      chars.append(ch)
+      i += 1
+    }
+    return String(utf16CodeUnits: chars, count: chars.count)
   }
 }

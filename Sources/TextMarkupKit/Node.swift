@@ -275,7 +275,7 @@ extension Node {
     result.append(type.rawValue)
     result.append(": ")
     if children.isEmpty {
-      result.append(pieceTable[location ..< location + length].debugDescription)
+      result.append(pieceTable[NSRange(location: location, length: length)].debugDescription)
     }
     lines.write(result)
     lines.write("\n")

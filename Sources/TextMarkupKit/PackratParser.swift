@@ -82,10 +82,48 @@ public final class PackratParser: CustomStringConvertible {
   /// Memoizes the result of applying a rule at an index in the buffer.
   /// - Parameters:
   ///   - result: The parsing result to memoize.
-  ///   - rule: The
-  ///   - index: <#index description#>
+  ///   - rule: The rule that generated the result that we are memoizing.
+  ///   - index: The position in the input at which we applied the rule to get the result.
   public func memoizeResult(_ result: ParsingResult, rule: ObjectIdentifier, index: Int) {
+    assert(result.examinedLength > 0)
+//    assert((result.examinedLength + index) <= buffer.length + 1)
     memoizedResults[index][rule] = result
+  }
+
+  /// Adjust the memo tables for reuse after an edit to the input text where the characters in `originalRange` were replaced
+  /// with `replacementLength` characters.
+  public func applyEdit(originalRange: NSRange, replacementLength: Int) {
+    precondition(replacementLength >= 0)
+    let lengthIncrease = replacementLength - originalRange.length
+    if lengthIncrease < 0 {
+      // We need to *shrink* the memo table.
+      memoizedResults.removeSubrange(originalRange.location ..< originalRange.location + abs(lengthIncrease))
+    } else if lengthIncrease > 0 {
+      // We need to *grow* the memo table.
+      memoizedResults.insert(
+        contentsOf: Array<MemoColumn>(repeating: MemoColumn(), count: lengthIncrease),
+        at: originalRange.location
+      )
+    }
+    // Now that we've adjusted the length of the memo table, everything in these columns is invalid.
+    let invalidRange = NSRange(location: originalRange.location, length: replacementLength)
+    for column in Range(invalidRange)! {
+      memoizedResults[column].removeAll()
+    }
+    // Finally go through everything to the left of the removed range and invalidate memoization
+    // results where it overlaps the edited range.
+    var removedResults = [Int: [ParsingResult]]()
+    for column in 0 ..< invalidRange.location {
+      let invalidLength = invalidRange.location - column
+      if memoizedResults[column].maxExaminedLength >= invalidLength {
+        let priorCount = memoizedResults[column].count
+        let victims = memoizedResults[column].remove {
+          $0.examinedLength >= invalidLength
+        }
+        removedResults[column] = victims
+      }
+    }
+    print(removedResults)
   }
 
   // MARK: - Supporting types
@@ -136,6 +174,29 @@ private extension PackratParser {
         storage[id] = newValue
         maxExaminedLength = Swift.max(maxExaminedLength, newValue.examinedLength)
       }
+    }
+
+    mutating func removeAll() {
+      storage.removeAll()
+      maxExaminedLength = 0
+    }
+
+    /// Removes results that match a predicate.
+    @discardableResult
+    mutating func remove(where predicate: (ParsingResult) -> Bool) -> [ParsingResult] {
+      var maxExaminedLength = 0
+      var removedResults = [ParsingResult]()
+      let keysAndValues = storage.compactMap { key, value -> (key: ObjectIdentifier, value: ParsingResult)? in
+        guard !predicate(value) else {
+          removedResults.append(value)
+          return nil
+        }
+        maxExaminedLength = Swift.max(maxExaminedLength, value.examinedLength)
+        return (key: key, value: value)
+      }
+      self.storage = Dictionary(uniqueKeysWithValues: keysAndValues)
+      self.maxExaminedLength = maxExaminedLength
+      return removedResults
     }
   }
 }

@@ -51,12 +51,16 @@ public final class PieceTable: CustomStringConvertible {
   public var charactersRead = 0
 
   public func utf16(at index: Int) -> unichar? {
-    guard index < originalContents.length else {
+    guard index < runs.length else {
       eofRead += 1
       return nil
     }
     charactersRead += 1
-    return originalContents.character(at: index)
+    var ch: unichar?
+    runs.enumerateRuns(intersecting: NSRange(location: index, length: 1)) { run, range in
+      ch = character(for: run, location: range.location)
+    }
+    return ch
   }
 
   public func replaceCharacters(in range: NSRange, with str: String) {
@@ -76,9 +80,12 @@ public final class PieceTable: CustomStringConvertible {
     return NSRange(location: location, length: str.utf16.count)
   }
 
-  public subscript(range: Range<Int>) -> String {
-    let stringIndexRange = NSRange(location: range.lowerBound, length: range.count)
-    return originalContents.substring(with: stringIndexRange) as String
+  public subscript(range: NSRange) -> String {
+    var result = ""
+    runs.enumerateRuns(intersecting: range) { run, rangeInRun in
+      result += string(for: run, subrange: rangeInRun)
+    }
+    return result
   }
 
   public var description: String {
@@ -105,12 +112,24 @@ private extension PieceTable {
     var range: NSRange
   }
 
-  func string(for run: Run) -> String {
+  func string(for run: Run, subrange: NSRange? = nil) -> String {
+    let range = subrange ?? run.range
+    assert(run.range.union(range) == run.range)
     switch run.source {
     case .original:
-      return originalContents.substring(with: run.range)
+      return originalContents.substring(with: range)
     case .new:
-      return newContents.substring(with: run.range)
+      return newContents.substring(with: range)
+    }
+  }
+
+  func character(for run: Run, location: Int) -> unichar {
+    assert(run.range.contains(location))
+    switch run.source {
+    case .original:
+      return originalContents.character(at: location)
+    case .new:
+      return newContents.character(at: location)
     }
   }
 
@@ -123,6 +142,19 @@ private extension PieceTable {
 
     var length: Int {
       runs.reduce(0) { $0 + $1.range.length }
+    }
+
+    func enumerateRuns(intersecting contentRange: NSRange, block: (Run, NSRange) -> Void) {
+      var location = 0
+      for run in runs {
+        if location > contentRange.upperBound { break }
+        if var intersection = NSRange(location: location, length: run.range.length).intersection(contentRange) {
+          intersection.location -= location
+          intersection.location += run.range.location
+          block(run, intersection)
+        }
+        location += run.range.length
+      }
     }
 
     mutating func replaceRange(_ existingRange: NSRange, with newRange: NSRange?) {

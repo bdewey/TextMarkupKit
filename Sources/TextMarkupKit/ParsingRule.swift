@@ -290,7 +290,7 @@ public final class Literal: ParsingRule {
     if length == chars.count {
       return performanceCounters.recordResult(ParsingResult(succeeded: true, length: length, examinedLength: length))
     } else {
-      return performanceCounters.recordResult(ParsingResult(succeeded: false, length: 0, examinedLength: length))
+      return performanceCounters.recordResult(ParsingResult(succeeded: false, length: 0, examinedLength: length + 1))
     }
   }
 }
@@ -326,17 +326,23 @@ final class RangeRule: ParsingRuleWrapper {
     var result = ParsingResult(succeeded: true)
     var currentIndex = index
     var repetitionCount = 0
+    var examinedThroughIndex = index
     repeat {
       let innerResult = rule.apply(to: parser, at: currentIndex)
-      guard innerResult.succeeded, innerResult.length > 0 else { break }
-//      Swift.assert(innerResult.length > 0, "About to enter an infinite loop")
+      examinedThroughIndex = max(examinedThroughIndex, currentIndex + innerResult.examinedLength)
+      guard innerResult.succeeded, innerResult.length > 0 else {
+        result.examinedLength = examinedThroughIndex - index
+        break
+      }
       repetitionCount += 1
       if repetitionCount >= range.upperBound {
+        result.examinedLength = examinedThroughIndex - index
         return performanceCounters.recordResult(result.failed())
       }
       result.appendChild(innerResult)
       currentIndex += innerResult.length
     } while true
+    result.examinedLength = examinedThroughIndex - index
     if repetitionCount < range.lowerBound {
       return performanceCounters.recordResult(result.failed())
     }
@@ -422,8 +428,8 @@ public final class InOrder: ParsingRuleSequenceWrapper {
     var currentIndex = index
     for rule in rules {
       let innerResult = rule.apply(to: parser, at: currentIndex)
-      if !innerResult.succeeded { return performanceCounters.recordResult(result.failed()) }
       result.appendChild(innerResult)
+      if !innerResult.succeeded { return performanceCounters.recordResult(result.failed()) }
       currentIndex += innerResult.length
     }
     return performanceCounters.recordResult(result)
@@ -486,7 +492,11 @@ final class TraceRule: ParsingRuleWrapper {
   override init(_ rule: ParsingRule) {
     super.init(rule)
     rule.wrapInnerRules { (innerRule) -> ParsingRule in
-      TraceRule(innerRule)
+      if !(innerRule is TraceRule) {
+        return TraceRule(innerRule)
+      } else {
+        return innerRule
+      }
     }
   }
 

@@ -20,6 +20,10 @@ import TextMarkupKit
 import XCTest
 
 final class MiniMarkdownParsingTests: XCTestCase {
+  func testNothingButText() {
+    parseText("Just text.", expectedStructure: "(document (paragraph text))")
+  }
+
   func testHeaderAndBody() {
     let markdown = """
     # This is a header
@@ -181,7 +185,7 @@ private extension MiniMarkdownParsingTests {
       let parser = PackratParser(buffer: pieceTable, grammar: grammar)
       let tree = try parser.parse()
       if tree.length != pieceTable.length {
-        let unparsedText = pieceTable[tree.length ..< pieceTable.length]
+        let unparsedText = pieceTable[NSRange(location: tree.length, length: pieceTable.length - tree.length)]
         XCTFail("Test case \(name): Unparsed text = '\(unparsedText.debugDescription)'", file: file, line: line)
       }
       if expectedStructure != tree.compactStructure {
