@@ -93,15 +93,16 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   // MARK: - Inline styles
 
   func delimitedText(_ nodeType: NodeType, delimiter: ParsingRule) -> ParsingRule {
-    InOrder(
+    let rightFlanking = InOrder(nonWhitespace.as(.text), delimiter.as(.delimiter)).memoize()
+    return InOrder(
       delimiter.as(.delimiter),
       nonWhitespace.assert(),
       InOrder(
-        delimiter.assertInverse(),
+        rightFlanking.assertInverse(),
         paragraphTermination.assertInverse(),
         dot
       ).repeating(1...).as(.text),
-      delimiter.as(.delimiter)
+      rightFlanking
     ).wrapping(in: nodeType).memoize()
   }
 

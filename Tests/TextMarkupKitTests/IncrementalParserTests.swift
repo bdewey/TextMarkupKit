@@ -51,6 +51,19 @@ final class IncrementalParserTests: XCTestCase {
       XCTFail("Unexpected error: \(error)")
     }
   }
+
+  func testDeleteCanChangeFormattingRightFlank() {
+    do {
+      let parser = try IncrementalParser("Hello *world *", grammar: MiniMarkdownGrammar())
+      validateParser(parser, has: "(document (paragraph text))")
+      parser.parser.traceBuffer.traceEntries.removeAll()
+      try parser.replaceCharacters(in: NSRange(location: 12, length: 1), with: "")
+      XCTAssertEqual(parser.pieceTable.utf16String, parser.pieceTable.string)
+      validateParser(parser, has: "(document (paragraph text (emphasis delimiter text delimiter)))")
+    } catch {
+      XCTFail("Unexpected error: \(error)")
+    }
+  }
 }
 
 // MARK: - Private

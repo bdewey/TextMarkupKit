@@ -161,6 +161,20 @@ final class MiniMarkdownParsingTests: XCTestCase {
     parseText("Underlines can do _emphasis_.", expectedStructure: "(document (paragraph text (emphasis delimiter text delimiter) text))")
   }
 
+  func testLeftFlanking() {
+    parseText(
+      "This is * not* emphasis because the star doesn't hug",
+      expectedStructure: "(document (paragraph text))"
+    )
+  }
+
+  func testRightFlanking() {
+    parseText(
+      "This is *not * emphasis because the star doesn't hug",
+      expectedStructure: "(document (paragraph text))"
+    )
+  }
+
   func testFile() {
     let pieceTable = PieceTable(TestStrings.markdownCanonical)
     let grammar = MiniMarkdownGrammar()
