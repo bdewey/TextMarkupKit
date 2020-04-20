@@ -86,7 +86,8 @@ public final class PackratParser: CustomStringConvertible {
   ///   - index: The position in the input at which we applied the rule to get the result.
   public func memoizeResult(_ result: ParsingResult, rule: ObjectIdentifier, index: Int) {
     assert(result.examinedLength > 0)
-//    assert((result.examinedLength + index) <= buffer.length + 1)
+    assert((result.examinedLength + index) <= buffer.length + 1)
+    assert(result.examinedLength >= result.length)
     memoizedResults[index][rule] = result
   }
 
@@ -116,7 +117,6 @@ public final class PackratParser: CustomStringConvertible {
     for column in 0 ..< invalidRange.location {
       let invalidLength = invalidRange.location - column
       if memoizedResults[column].maxExaminedLength >= invalidLength {
-        let priorCount = memoizedResults[column].count
         let victims = memoizedResults[column].remove {
           $0.examinedLength >= invalidLength
         }

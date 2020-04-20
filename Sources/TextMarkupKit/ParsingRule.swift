@@ -127,7 +127,11 @@ public struct ParsingResult {
   public var length: Int
 
   /// How far into the input sequence did we look to determine if we succeeded?
-  public var examinedLength: Int
+  public var examinedLength: Int {
+    didSet {
+      assert(examinedLength >= length)
+    }
+  }
 
   /// If we succeeded, what are the parse results? Note that for efficiency some rules may consume input (length > 1) but not actually generate syntax tree nodes.
   public var node: Node?
@@ -426,12 +430,18 @@ public final class InOrder: ParsingRuleSequenceWrapper {
   public override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
     var result = ParsingResult(succeeded: true)
     var currentIndex = index
+    var maxExaminedIndex = index
     for rule in rules {
       let innerResult = rule.apply(to: parser, at: currentIndex)
+      maxExaminedIndex = max(maxExaminedIndex, currentIndex + innerResult.examinedLength)
       result.appendChild(innerResult)
-      if !innerResult.succeeded { return performanceCounters.recordResult(result.failed()) }
+      if !innerResult.succeeded {
+        result.examinedLength = maxExaminedIndex - index
+        return performanceCounters.recordResult(result.failed())
+      }
       currentIndex += innerResult.length
     }
+    result.examinedLength = maxExaminedIndex - index
     return performanceCounters.recordResult(result)
   }
 
