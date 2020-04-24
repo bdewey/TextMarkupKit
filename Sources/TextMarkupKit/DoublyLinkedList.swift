@@ -45,6 +45,14 @@ public final class DoublyLinkedList<Element>: ExpressibleByArrayLiteral {
     self.backwardLink = self
   }
 
+  public var isEmpty: Bool {
+    return forwardLink === self
+  }
+
+  public var last: Element? {
+    return backwardLink.element
+  }
+
   public func insertAtHead(_ element: Element) {
     let node = DoublyLinkedList(element)
     forwardLink.backwardLink = node
