@@ -18,14 +18,10 @@
 import Foundation
 
 public final class DoublyLinkedList<Element>: ExpressibleByArrayLiteral {
-  private var forwardLink: DoublyLinkedList<Element>!
-  private unowned var backwardLink: DoublyLinkedList<Element>!
-  private var element: Element?
+  private var listEnds: ListEnds?
 
   public init() {
-    self.element = nil
-    self.forwardLink = self
-    self.backwardLink = self
+    count = 0
   }
 
   public convenience init<S: Sequence>(_ elements: S) where S.Element == Element {
@@ -39,64 +35,95 @@ public final class DoublyLinkedList<Element>: ExpressibleByArrayLiteral {
     self.init(elements)
   }
 
-  private init(_ element: Element) {
-    self.element = element
-    self.forwardLink = self
-    self.backwardLink = self
-  }
+  public private(set) var count: Int
 
   public var isEmpty: Bool {
-    return forwardLink === self
+    return listEnds == nil
   }
 
   public var last: Element? {
-    return backwardLink.element
+    return listEnds?.tail.payload
   }
 
   public func insertAtHead(_ element: Element) {
-    let node = DoublyLinkedList(element)
-    forwardLink.backwardLink = node
-    node.forwardLink = forwardLink
-    node.backwardLink = self
-    forwardLink = node
+    count += 1
+    let node = Node(element)
+    if var listEnds = listEnds {
+      listEnds.head.backwardLink = node
+      node.forwardLink = listEnds.head
+      listEnds.head = node
+      node.backwardLink = nil
+      self.listEnds = listEnds
+    } else {
+      self.listEnds = ListEnds(head: node, tail: node)
+    }
   }
 
   public func insertAtTail(_ element: Element) {
-    let node = DoublyLinkedList(element)
-    backwardLink.forwardLink = node
-    node.backwardLink = backwardLink
-    node.forwardLink = self
-    backwardLink = node
+    count += 1
+    let node = Node(element)
+    if var listEnds = listEnds {
+      listEnds.tail.forwardLink = node
+      node.backwardLink = listEnds.tail
+      listEnds.tail = node
+      node.forwardLink = nil
+      self.listEnds = listEnds
+    } else {
+      self.listEnds = ListEnds(head: node, tail: node)
+    }
   }
 
   public func mergeAtTail(_ other: DoublyLinkedList<Element>) {
-    backwardLink.forwardLink = other.forwardLink
-    other.forwardLink.backwardLink = backwardLink
-    backwardLink = other.backwardLink
-    other.forwardLink = forwardLink
+    count += other.count
+    other.count = count
+    switch (listEnds, other.listEnds) {
+    case (.some(let listEnds), .some(let otherListEnds)):
+      listEnds.tail.forwardLink = otherListEnds.head
+      otherListEnds.head.backwardLink = listEnds.tail
+      let newListEnds = ListEnds(head: listEnds.head, tail: otherListEnds.tail)
+      self.listEnds = newListEnds
+      other.listEnds = newListEnds
+    case (.none, .some(let otherListEnds)):
+      listEnds = otherListEnds
+    case (.some(let listEnds), .none):
+      other.listEnds = listEnds
+    case (.none, .none):
+      break
+    }
   }
 }
 
 extension DoublyLinkedList: Sequence {
   public struct Iterator: IteratorProtocol {
-    let listEnd: DoublyLinkedList<Element>
-    var nextNode: DoublyLinkedList<Element>
+    fileprivate var nextNode: Node?
 
     public mutating func next() -> Element? {
-      if nextNode === listEnd {
-        return nil
-      }
-      let nextElement = nextNode.element
-      nextNode = nextNode.forwardLink
+      let nextElement = nextNode?.payload
+      nextNode = nextNode?.forwardLink
       return nextElement
     }
   }
 
   public func makeIterator() -> Iterator {
-    Iterator(listEnd: self, nextNode: forwardLink)
+    Iterator(nextNode: listEnds?.head)
   }
 }
 
 // MARK: - Private
 
-private extension DoublyLinkedList {}
+private extension DoublyLinkedList {
+  struct ListEnds {
+    var head: Node
+    var tail: Node
+  }
+
+  class Node {
+    init(_ payload: Element) {
+      self.payload = payload
+    }
+
+    let payload: Element
+    var forwardLink: Node?
+    unowned var backwardLink: Node?
+  }
+}
