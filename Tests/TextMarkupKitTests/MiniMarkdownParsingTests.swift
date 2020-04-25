@@ -20,6 +20,10 @@ import TextMarkupKit
 import XCTest
 
 final class MiniMarkdownParsingTests: XCTestCase {
+  func testNothingButText() {
+    parseText("Just text.", expectedStructure: "(document (paragraph text))")
+  }
+
   func testHeaderAndBody() {
     let markdown = """
     # This is a header
@@ -157,6 +161,20 @@ final class MiniMarkdownParsingTests: XCTestCase {
     parseText("Underlines can do _emphasis_.", expectedStructure: "(document (paragraph text (emphasis delimiter text delimiter) text))")
   }
 
+  func testLeftFlanking() {
+    parseText(
+      "This is * not* emphasis because the star doesn't hug",
+      expectedStructure: "(document (paragraph text))"
+    )
+  }
+
+  func testRightFlanking() {
+    parseText(
+      "This is *not * emphasis because the star doesn't hug",
+      expectedStructure: "(document (paragraph text))"
+    )
+  }
+
   func testFile() {
     let pieceTable = PieceTable(TestStrings.markdownCanonical)
     let grammar = MiniMarkdownGrammar()
@@ -180,8 +198,8 @@ private extension MiniMarkdownParsingTests {
       let grammar = MiniMarkdownGrammar()
       let parser = PackratParser(buffer: pieceTable, grammar: grammar)
       let tree = try parser.parse()
-      if tree.range.endIndex != pieceTable.endIndex {
-        let unparsedText = pieceTable[tree.range.endIndex ..< pieceTable.endIndex]
+      if tree.length != pieceTable.length {
+        let unparsedText = pieceTable[NSRange(location: tree.length, length: pieceTable.length - tree.length)]
         XCTFail("Test case \(name): Unparsed text = '\(unparsedText.debugDescription)'", file: file, line: line)
       }
       if expectedStructure != tree.compactStructure {

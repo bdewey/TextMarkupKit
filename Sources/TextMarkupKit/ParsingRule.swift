@@ -127,7 +127,11 @@ public struct ParsingResult {
   public var length: Int
 
   /// How far into the input sequence did we look to determine if we succeeded?
-  public var examinedLength: Int
+  public var examinedLength: Int {
+    didSet {
+      assert(examinedLength >= length)
+    }
+  }
 
   /// If we succeeded, what are the parse results? Note that for efficiency some rules may consume input (length > 1) but not actually generate syntax tree nodes.
   public var node: Node?
@@ -160,16 +164,16 @@ public struct ParsingResult {
     if resultNode.isFragment, node == nil {
       node = resultNode
     } else {
-      let fragment = makeFragmentIfNeeded(at: resultNode.range.lowerBound)
+      let fragment = makeFragmentIfNeeded()
       fragment.appendChild(resultNode)
     }
   }
 
-  private mutating func makeFragmentIfNeeded(at lowerBound: Int) -> Node {
+  private mutating func makeFragmentIfNeeded() -> Node {
     if let existingNode = node {
       return existingNode
     }
-    let node = Node(type: .documentFragment, range: lowerBound ..< lowerBound)
+    let node = Node(type: .documentFragment, length: 0)
     self.node = node
     return node
   }
@@ -290,7 +294,7 @@ public final class Literal: ParsingRule {
     if length == chars.count {
       return performanceCounters.recordResult(ParsingResult(succeeded: true, length: length, examinedLength: length))
     } else {
-      return performanceCounters.recordResult(ParsingResult(succeeded: false, length: 0, examinedLength: length))
+      return performanceCounters.recordResult(ParsingResult(succeeded: false, length: 0, examinedLength: length + 1))
     }
   }
 }
@@ -326,17 +330,23 @@ final class RangeRule: ParsingRuleWrapper {
     var result = ParsingResult(succeeded: true)
     var currentIndex = index
     var repetitionCount = 0
+    var examinedThroughIndex = index
     repeat {
       let innerResult = rule.apply(to: parser, at: currentIndex)
-      guard innerResult.succeeded, innerResult.length > 0 else { break }
-//      Swift.assert(innerResult.length > 0, "About to enter an infinite loop")
+      examinedThroughIndex = max(examinedThroughIndex, currentIndex + innerResult.examinedLength)
+      guard innerResult.succeeded, innerResult.length > 0 else {
+        result.examinedLength = examinedThroughIndex - index
+        break
+      }
       repetitionCount += 1
       if repetitionCount >= range.upperBound {
+        result.examinedLength = examinedThroughIndex - index
         return performanceCounters.recordResult(result.failed())
       }
       result.appendChild(innerResult)
       currentIndex += innerResult.length
     } while true
+    result.examinedLength = examinedThroughIndex - index
     if repetitionCount < range.lowerBound {
       return performanceCounters.recordResult(result.failed())
     }
@@ -378,7 +388,7 @@ final class AbsorbingMatcher: ParsingRuleWrapper {
     if let existingNode = result.node, existingNode.isFragment {
       existingNode.type = nodeType
     } else {
-      let node = Node(type: nodeType, range: index ..< index + result.length)
+      let node = Node(type: nodeType, length: result.length)
       result.node = node
     }
     return performanceCounters.recordResult(result)
@@ -405,7 +415,7 @@ final class WrappingRule: ParsingRuleWrapper {
       Swift.assert(node.isFragment)
       node.type = nodeType
     } else {
-      result.node = Node(type: nodeType, range: index ..< index + result.length)
+      result.node = Node(type: nodeType, length: result.length)
     }
     return performanceCounters.recordResult(result)
   }
@@ -420,12 +430,18 @@ public final class InOrder: ParsingRuleSequenceWrapper {
   public override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
     var result = ParsingResult(succeeded: true)
     var currentIndex = index
+    var maxExaminedIndex = index
     for rule in rules {
       let innerResult = rule.apply(to: parser, at: currentIndex)
-      if !innerResult.succeeded { return performanceCounters.recordResult(result.failed()) }
+      maxExaminedIndex = max(maxExaminedIndex, currentIndex + innerResult.examinedLength)
       result.appendChild(innerResult)
+      if !innerResult.succeeded {
+        result.examinedLength = maxExaminedIndex - index
+        return performanceCounters.recordResult(result.failed())
+      }
       currentIndex += innerResult.length
     }
+    result.examinedLength = maxExaminedIndex - index
     return performanceCounters.recordResult(result)
   }
 
@@ -486,7 +502,11 @@ final class TraceRule: ParsingRuleWrapper {
   override init(_ rule: ParsingRule) {
     super.init(rule)
     rule.wrapInnerRules { (innerRule) -> ParsingRule in
-      TraceRule(innerRule)
+      if !(innerRule is TraceRule) {
+        return TraceRule(innerRule)
+      } else {
+        return innerRule
+      }
     }
   }
 
