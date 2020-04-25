@@ -79,17 +79,18 @@ public final class Node: CustomStringConvertible {
   /// build up context (start position) by walking the parse tree.
   public var length: Int
 
-  /// Siblings of this node
-  public var forwardLink: Node?
-  public var backwardLink: Node?
-
   /// Children of this node.
-  public var children = Children()
+  public var children = DoublyLinkedList<Node>()
 
   public func appendChild(_ child: Node) {
     length += child.length
     if child.isFragment {
-      children.merge(&child.children)
+      var fragmentNodes = child.children
+      if let last = children.last, let first = fragmentNodes.first, last.children.isEmpty, first.children.isEmpty, last.type == first.type {
+        last.length += first.length
+        fragmentNodes.removeFirst()
+      }
+      children.append(contentsOf: fragmentNodes)
     } else {
       // Special optimization: Adding a terminal node of the same type of the last terminal node
       // can just be a range update.
@@ -99,12 +100,6 @@ public final class Node: CustomStringConvertible {
         children.append(child)
       }
     }
-  }
-
-  /// Removes this node from its sibling list.
-  private func unlink() {
-    forwardLink?.backwardLink = backwardLink
-    backwardLink?.forwardLink = forwardLink
   }
 
   /// True if this node corresponds to no text in the input buffer.
@@ -141,90 +136,6 @@ public final class Node: CustomStringConvertible {
         propertyBag?.removeValue(forKey: key.key)
       }
     }
-  }
-}
-
-// MARK: - Tree management
-
-public extension Node {
-  struct Children {
-    private var listEnds: (head: Node, tail: Node)?
-
-    public var isEmpty: Bool { listEnds == nil }
-
-    public var first: Node? {
-      guard let listEnds = listEnds else {
-        return nil
-      }
-      return listEnds.head
-    }
-
-    public var last: Node? {
-      guard let listEnds = listEnds else {
-        return nil
-      }
-      return listEnds.tail
-    }
-
-    public mutating func append(_ element: Node) {
-      if let listEnds = listEnds {
-        listEnds.tail.appendSibling(element)
-        self.listEnds = (head: listEnds.head, tail: element)
-      } else {
-        listEnds = (head: element, tail: element)
-      }
-    }
-
-    public mutating func merge(_ other: inout Children) {
-      switch (listEnds, other.listEnds) {
-      case (.some(let listEnds), .some(let otherListEnds)):
-        listEnds.tail.forwardLink = otherListEnds.head
-        otherListEnds.head.backwardLink = listEnds.tail
-        let fusePoint = listEnds.tail
-        let newListEnds = (head: listEnds.head, tail: otherListEnds.tail)
-        // Optimization: If we fused two nodes of identical types with no children, just keep
-        // one node that spans the range.
-        if fusePoint.children.isEmpty, otherListEnds.head.children.isEmpty, fusePoint.type == otherListEnds.head.type {
-          fusePoint.length += otherListEnds.head.length
-          otherListEnds.head.unlink()
-        }
-        self.listEnds = newListEnds
-        other.listEnds = newListEnds
-      case (.none, .some(let otherListEnds)):
-        listEnds = otherListEnds
-      case (.some(let listEnds), .none):
-        other.listEnds = listEnds
-      case (.none, .none):
-        break
-      }
-    }
-  }
-
-  private func appendSibling(_ sibling: Node) {
-    if let currentSibling = forwardLink {
-      currentSibling.backwardLink = sibling
-    }
-    sibling.forwardLink = forwardLink
-    forwardLink = sibling
-    sibling.backwardLink = self
-  }
-}
-
-// MARK: - Enumerating children
-
-extension Node.Children: Sequence {
-  public struct Iterator: IteratorProtocol {
-    var current: Node?
-
-    public mutating func next() -> Node? {
-      guard let current = current else { return nil }
-      self.current = current.forwardLink
-      return current
-    }
-  }
-
-  public func makeIterator() -> Iterator {
-    return Iterator(current: listEnds.map { $0.head })
   }
 }
 
