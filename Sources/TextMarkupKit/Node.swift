@@ -80,7 +80,7 @@ public final class Node: CustomStringConvertible {
   public var length: Int
 
   /// Children of this node.
-  public var children = DoublyLinkedList<Node>()
+  public var children = [Node]()
 
   public func appendChild(_ child: Node) {
     length += child.length
