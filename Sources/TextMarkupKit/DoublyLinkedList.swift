@@ -61,6 +61,44 @@ public struct DoublyLinkedList<Element>: ExpressibleByArrayLiteral {
   public var last: Element? {
     tail.previous?.payload
   }
+
+  public mutating func append(_ newElement: Element) {
+    if !isKnownUniquelyReferenced(&head) {
+      (head, tail) = head.copy()
+    }
+    count += 1
+    let node = Node(newElement)
+    tail.previous?.next = node
+    node.previous = tail.previous
+    node.next = tail
+    tail.previous = node
+    if head === tail {
+      head = node
+    }
+  }
+
+  public mutating func removeLast() -> Element {
+    if !isKnownUniquelyReferenced(&head) {
+      (head, tail) = head.copy()
+    }
+    let lastNode = tail.previous!
+    lastNode.previous?.next = lastNode.next
+    lastNode.next?.previous = lastNode.previous
+    count -= 1
+    return lastNode.payload!
+  }
+
+  @discardableResult
+  public mutating func removeFirst() -> Element {
+    if !isKnownUniquelyReferenced(&head) {
+      (head, tail) = head.copy()
+    }
+    let oldHead = head
+    head = oldHead.next!
+    head.previous = nil
+    count -= 1
+    return oldHead.payload!
+  }
 }
 
 extension DoublyLinkedList: BidirectionalCollection, RangeReplaceableCollection {
@@ -108,10 +146,7 @@ extension DoublyLinkedList: BidirectionalCollection, RangeReplaceableCollection 
     return Index(ordinal: i.ordinal - 1, node: i.node.previous!)
   }
 
-  public mutating func replaceSubrange<C, R>(
-    _ subrange: R,
-    with newElements: C
-  ) where C : Collection, R : RangeExpression, Element == C.Element, Index == R.Bound {
+  public mutating func replaceSubrange<R>(_ subrange: R, with newElements: DoublyLinkedList<Element>) where R : RangeExpression, Index == R.Bound {
     var range = subrange.relative(to: self)
     if !isKnownUniquelyReferenced(&head) {
       (head, tail) = head.copy(remapping: &range)
@@ -129,19 +164,25 @@ extension DoublyLinkedList: BidirectionalCollection, RangeReplaceableCollection 
     }
 
     if newElements.isEmpty { return } // don't need to do more work
-    let list = DoublyLinkedList(newElements)
     let index = range.upperBound
-    index.node.previous?.next = list.head
-    list.head.previous = index.node.previous
+    index.node.previous?.next = newElements.head
+    newElements.head.previous = index.node.previous
 
-    let lastPayloadNode = list.tail.previous
+    let lastPayloadNode = newElements.tail.previous
     lastPayloadNode?.next = index.node
     index.node.previous = lastPayloadNode
 
     if index.node === head {
-      head = list.head
+      head = newElements.head
     }
-    count += list.count
+    count += newElements.count
+  }
+
+  public mutating func replaceSubrange<C, R>(
+    _ subrange: R,
+    with newElements: C
+  ) where C : Collection, R : RangeExpression, Element == C.Element, Index == R.Bound {
+    replaceSubrange(subrange, with: DoublyLinkedList(newElements))
   }
 }
 
@@ -165,6 +206,20 @@ private extension DoublyLinkedList {
       while let next = current.next {
         let node = Node(next.payload)
         range = Self.replacingNode(next, with: node, in: range)
+        end.next = node
+        node.previous = end
+        current = next
+        end = node
+      }
+      return (start, end)
+    }
+
+    func copy() -> (start: Node, end: Node) {
+      let start = Node(payload)
+      var end = start
+      var current = self
+      while let next = current.next {
+        let node = Node(next.payload)
         end.next = node
         node.previous = end
         current = next
