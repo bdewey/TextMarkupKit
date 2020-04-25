@@ -20,7 +20,7 @@ import Foundation
 public struct DoublyLinkedList<Element>: ExpressibleByArrayLiteral {
   public private(set) var count: Int
   private var head: Node
-  private let tail: Node
+  private var tail: Node
 
   public init() {
     count = 0
@@ -75,6 +75,14 @@ extension DoublyLinkedList: BidirectionalCollection, RangeReplaceableCollection 
     public static func == (lhs: DoublyLinkedList.Index, rhs: DoublyLinkedList.Index) -> Bool {
       return lhs.node === rhs.node
     }
+
+    fileprivate func replacingNode(_ newNode: Node, ifMatches node: Node) -> Index {
+      if self.node === node {
+        return Index(ordinal: ordinal, node: newNode)
+      } else {
+        return self
+      }
+    }
   }
 
   public var startIndex: Index {
@@ -104,10 +112,21 @@ extension DoublyLinkedList: BidirectionalCollection, RangeReplaceableCollection 
     _ subrange: R,
     with newElements: C
   ) where C : Collection, R : RangeExpression, Element == C.Element, Index == R.Bound {
-    // TODO: Make a deep copy if needed
-    let range = subrange.relative(to: self)
+    var range = subrange.relative(to: self)
+    if !isKnownUniquelyReferenced(&head) {
+      (head, tail) = head.copy(remapping: &range)
+    }
 
     // TODO: Actually remove nodes
+    let nodesToRemove = range.upperBound.ordinal - range.lowerBound.ordinal
+    if nodesToRemove > 0 {
+      range.lowerBound.node.previous?.next = range.upperBound.node
+      range.upperBound.node.previous = range.lowerBound.node.previous
+      if head === range.lowerBound.node {
+        head = range.upperBound.node
+      }
+      count -= nodesToRemove
+    }
 
     if newElements.isEmpty { return } // don't need to do more work
     let list = DoublyLinkedList(newElements)
@@ -129,14 +148,54 @@ extension DoublyLinkedList: BidirectionalCollection, RangeReplaceableCollection 
 // MARK: - Private
 
 private extension DoublyLinkedList {
-  final class Node {
+  final class Node: CustomStringConvertible, Sequence {
     init(_ payload: Element? = nil) {
       self.payload = payload
     }
 
     let payload: Element?
-    var isSentinel: Bool { payload == nil }
     var next: Node?
     unowned var previous: Node?
+
+    func copy(remapping range: inout Range<Index>) -> (start: Node, end: Node) {
+      let start = Node(payload)
+      range = Self.replacingNode(self, with: start, in: range)
+      var end = start
+      var current = self
+      while let next = current.next {
+        let node = Node(next.payload)
+        range = Self.replacingNode(next, with: node, in: range)
+        end.next = node
+        node.previous = end
+        current = next
+        end = node
+      }
+      return (start, end)
+    }
+
+    static func replacingNode(_ node: Node, with newNode: Node, in range: Range<Index>) -> Range<Index> {
+      return range.lowerBound.replacingNode(newNode, ifMatches: node) ..< range.upperBound.replacingNode(newNode, ifMatches: node)
+    }
+
+    var description: String {
+      let pointer = unsafeBitCast(self, to: Int.self)
+      let pointerDescription = String(format: "<Node: %p>", pointer)
+      let payloadDescription = payload.map { String(describing: $0) } ?? "nil"
+      return "\(pointerDescription) \(payloadDescription)"
+    }
+
+    struct Iterator: IteratorProtocol {
+      var node: Node?
+
+      mutating func next() -> Node? {
+        let value = node
+        node = node?.next
+        return value
+      }
+    }
+
+    func makeIterator() -> Iterator {
+      Iterator(node: self)
+    }
   }
 }

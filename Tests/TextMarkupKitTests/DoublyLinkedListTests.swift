@@ -68,4 +68,22 @@ final class DoublyLinkedListTests: XCTestCase {
     list.remove(at: lastValidIndex)
     XCTAssertEqual([1], list.map { $0 })
   }
+
+  func testAppend() {
+    var list = DoublyLinkedList<Int>()
+    let values = [1, 2, 3]
+    for value in values {
+      list.append(value)
+    }
+    XCTAssertEqual(values, list.map { $0 })
+    XCTAssertEqual(values.count, list.count)
+  }
+
+  func testValueSemantics() {
+    let list: DoublyLinkedList = [1, 2, 3, 4, 5]
+    var copy = list
+    copy.append(6)
+    XCTAssertEqual([1, 2, 3, 4, 5, 6], copy.map { $0 })
+    XCTAssertEqual([1, 2, 3, 4, 5], list.map { $0 })
+  }
 }
