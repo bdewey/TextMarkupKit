@@ -17,7 +17,8 @@
 
 import Foundation
 
-public final class DoublyLinkedList<Element>: ExpressibleByArrayLiteral {
+public struct DoublyLinkedList<Element>: ExpressibleByArrayLiteral {
+  public private(set) var count: Int
   private var head: Node
   private let tail: Node
 
@@ -27,18 +28,31 @@ public final class DoublyLinkedList<Element>: ExpressibleByArrayLiteral {
     head = tail
   }
 
-  public convenience init<S: Sequence>(_ elements: S) where S.Element == Element {
-    self.init()
+  public init<S: Sequence>(_ elements: S) where S.Element == Element {
+    var head: Node?
+    var tail: Node?
+    var count = 0
     for element in elements {
-      insert(element, at: endIndex)
+      count += 1
+      let node = Node(element)
+      head = head ?? node
+      node.previous = tail
+      tail?.next = node
+      tail = node
     }
+    let sentinel = Node()
+    head = head ?? sentinel
+    sentinel.previous = tail
+    tail?.next = sentinel
+
+    self.count = count
+    self.head = head!
+    self.tail = sentinel
   }
 
-  public convenience init(arrayLiteral elements: Element...) {
+  public init(arrayLiteral elements: Element...) {
     self.init(elements)
   }
-
-  public private(set) var count: Int
 
   public var isEmpty: Bool {
     count == 0
@@ -47,59 +61,9 @@ public final class DoublyLinkedList<Element>: ExpressibleByArrayLiteral {
   public var last: Element? {
     tail.previous?.payload
   }
-
-  public func insert(_ element: Element, at index: Index) {
-    let node = Node(element)
-    index.node.previous?.next = node
-    node.previous = index.node.previous
-    node.next = index.node
-    index.node.previous = node
-    count += 1
-    if index.node === head {
-      head = node
-    }
-  }
-
-//  public func fuse(_ other: DoublyLinkedList<Element>) -> Index {
-//    let originalCount = count
-//    count += other.count
-//    other.count = count
-//    switch (listEnds, other.listEnds) {
-//    case (.some(let listEnds), .some(let otherListEnds)):
-//      let fuseIndex = Index(ordinal: originalCount - 1, node: listEnds.tail)
-//      listEnds.tail.forwardLink = otherListEnds.head
-//      otherListEnds.head.backwardLink = listEnds.tail
-//      let newListEnds = ListEnds(head: listEnds.head, tail: otherListEnds.tail)
-//      self.listEnds = newListEnds
-//      other.listEnds = newListEnds
-//      return fuseIndex
-//    case (.none, .some(let otherListEnds)):
-//      listEnds = otherListEnds
-//      return Index(ordinal: count - 1, node: otherListEnds.tail)
-//    case (.some(let listEnds), .none):
-//      other.listEnds = listEnds
-//      return Index(ordinal: count - 1, node: listEnds.tail)
-//    case (.none, .none):
-//      return endIndex
-//    }
-//  }
-
-  @discardableResult
-  public func remove(at index: Index) -> Element {
-    precondition(index != endIndex)
-    let node = index.node
-    count -= 1
-    node.previous?.next = node.next
-    node.next?.previous = node.previous
-    if node === head {
-      // Only the end index has a nil forwardLink
-      head = node.next!
-    }
-    return node.payload!
-  }
 }
 
-extension DoublyLinkedList: BidirectionalCollection {
+extension DoublyLinkedList: BidirectionalCollection, RangeReplaceableCollection {
   public struct Index: Comparable {
     fileprivate let ordinal: Int
     fileprivate let node: Node
@@ -134,6 +98,31 @@ extension DoublyLinkedList: BidirectionalCollection {
   public func index(before i: Index) -> Index {
     precondition(i.ordinal > 0)
     return Index(ordinal: i.ordinal - 1, node: i.node.previous!)
+  }
+
+  public mutating func replaceSubrange<C, R>(
+    _ subrange: R,
+    with newElements: C
+  ) where C : Collection, R : RangeExpression, Element == C.Element, Index == R.Bound {
+    // TODO: Make a deep copy if needed
+    let range = subrange.relative(to: self)
+
+    // TODO: Actually remove nodes
+
+    if newElements.isEmpty { return } // don't need to do more work
+    let list = DoublyLinkedList(newElements)
+    let index = range.upperBound
+    index.node.previous?.next = list.head
+    list.head.previous = index.node.previous
+
+    let lastPayloadNode = list.tail.previous
+    lastPayloadNode?.next = index.node
+    index.node.previous = lastPayloadNode
+
+    if index.node === head {
+      head = list.head
+    }
+    count += list.count
   }
 }
 

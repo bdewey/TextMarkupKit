@@ -22,7 +22,7 @@ import XCTest
 final class DoublyLinkedListTests: XCTestCase {
   func testInsertAtTail() {
     let values = [1, 2, 3, 4, 5]
-    let list = DoublyLinkedList<Int>()
+    var list = DoublyLinkedList<Int>()
     for value in values {
       list.insert(value, at: list.endIndex)
     }
@@ -31,7 +31,7 @@ final class DoublyLinkedListTests: XCTestCase {
 
   func testInsertAtHead() {
     let values = [1, 2, 3, 4, 5]
-    let list = DoublyLinkedList<Int>()
+    var list = DoublyLinkedList<Int>()
     for value in values {
       list.insert(value, at: list.startIndex)
     }
@@ -51,19 +51,19 @@ final class DoublyLinkedListTests: XCTestCase {
 //  }
 
   func testRemoveOnlyNode() {
-    let list: DoublyLinkedList<Int> = [312]
+    var list: DoublyLinkedList<Int> = [312]
     list.remove(at: list.startIndex)
     XCTAssertTrue(list.isEmpty)
   }
 
   func testRemoveFirstItem() {
-    let list: DoublyLinkedList<Int> = [1, 2]
+    var list: DoublyLinkedList<Int> = [1, 2]
     list.remove(at: list.startIndex)
     XCTAssertEqual([2], list.map { $0 })
   }
 
   func testRemoveLastItem() {
-    let list: DoublyLinkedList<Int> = [1, 2]
+    var list: DoublyLinkedList<Int> = [1, 2]
     let lastValidIndex = list.index(before: list.endIndex)
     list.remove(at: lastValidIndex)
     XCTAssertEqual([1], list.map { $0 })
