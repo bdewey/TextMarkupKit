@@ -454,6 +454,15 @@ final class WrappingRule: ParsingRuleWrapper {
 
 /// A rule that succeeds only if each child rule succeeds in sequence.
 public final class InOrder: ParsingRuleSequenceWrapper {
+  public override init(_ rules: [ParsingRule]) {
+    self.memoizedPossibleCharacters = Self.possibleOpeningCharacters(for: rules)
+    super.init(rules)
+  }
+
+  private let memoizedPossibleCharacters: CharacterSet?
+
+  public override var possibleOpeningCharacters: CharacterSet? { memoizedPossibleCharacters }
+
   public override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
     var result = ParsingResult(succeeded: true)
     var currentIndex = index
@@ -476,7 +485,7 @@ public final class InOrder: ParsingRuleSequenceWrapper {
     "IN ORDER: \(rules.map(String.init(describing:)).joined(separator: ", "))"
   }
 
-  public override var possibleOpeningCharacters: CharacterSet? {
+  private static func possibleOpeningCharacters(for rules: [ParsingRule]) -> CharacterSet? {
     var assertions: CharacterSet? = nil
     var possibilities: CharacterSet? = CharacterSet()
     var done = false
