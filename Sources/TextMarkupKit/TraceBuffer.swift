@@ -40,6 +40,11 @@ public final class TraceBuffer: CustomStringConvertible {
     }
   }
 
+  public func entry(at indexPath: IndexPath) -> Entry {
+    precondition(!indexPath.isEmpty)
+    return traceEntries[indexPath.first!].entry(at: indexPath.dropFirst())
+  }
+
   /// All in-progress entries
   private var entryStack: [Entry] = []
 
@@ -72,6 +77,11 @@ public final class TraceBuffer: CustomStringConvertible {
       var buffer = ""
       writeRecursiveDescription(to: &buffer, indexPath: [])
       return buffer
+    }
+
+    public func entry(at indexPath: IndexPath) -> Entry {
+      if indexPath.isEmpty { return self }
+      return subentries[indexPath.first!].entry(at: indexPath.dropFirst())
     }
 
     private func writeRecursiveDescription(to buffer: inout String, indexPath: IndexPath, maxLevel: Int = Int.max) {

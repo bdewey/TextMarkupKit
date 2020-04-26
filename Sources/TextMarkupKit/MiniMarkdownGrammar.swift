@@ -106,9 +106,6 @@ public final class MiniMarkdownGrammar: PackratGrammar {
     ).wrapping(in: nodeType).memoize()
   }
 
-  /// This is an optimization -- if you're not looking at one of these characters, none of the text styles apply.
-  let textStyleSentinels = Characters(["*", "`", " ", "!", "_"])
-
   lazy var bold = delimitedText(.strongEmphasis, delimiter: Literal("**"))
   lazy var italic = delimitedText(.emphasis, delimiter: Literal("*"))
   lazy var underlineItalic = delimitedText(.emphasis, delimiter: Literal("_"))
@@ -127,16 +124,13 @@ public final class MiniMarkdownGrammar: PackratGrammar {
     Literal(")")
   ).as(.image).memoize()
 
-  lazy var textStyles = InOrder(
-    textStyleSentinels.assert(),
-    Choice(
-      bold,
-      italic,
-      underlineItalic,
-      code,
-      hashtag,
-      image
-    )
+  lazy var textStyles = Choice(
+    bold,
+    italic,
+    underlineItalic,
+    code,
+    hashtag,
+    image
   ).memoize()
 
   lazy var styledText = InOrder(
