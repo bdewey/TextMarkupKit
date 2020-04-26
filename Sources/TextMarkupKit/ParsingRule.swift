@@ -23,7 +23,8 @@ open class ParsingRule: CustomStringConvertible {
 
   /// A simple description of this rule.
   public var description: String {
-    "<\(type(of: self)) \(ObjectIdentifier(self))>"
+    let pointer = String(format: "%p", unsafeBitCast(self, to: Int.self))
+    return "<\(type(of: self)) \(pointer)>"
   }
 
   /// Holds how many times a rule was invoked and how many times the rule succeeded.
@@ -73,6 +74,11 @@ open class ParsingRule: CustomStringConvertible {
   public func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
     preconditionFailure("Subclasses should override")
   }
+
+  /// If non-nil, a CharacterSet noting characters that are valid openings for this rule.
+  public var possibleOpeningCharacters: CharacterSet? {
+    return nil
+  }
 }
 
 open class ParsingRuleWrapper: ParsingRule {
@@ -90,13 +96,21 @@ open class ParsingRuleWrapper: ParsingRule {
     super.gatherPerformanceCounters(into: &array)
     rule.gatherPerformanceCounters(into: &array)
   }
+
+  public override var possibleOpeningCharacters: CharacterSet? {
+    return rule.possibleOpeningCharacters
+  }
 }
 
 open class ParsingRuleSequenceWrapper: ParsingRule {
   public var rules: [ParsingRule]
 
-  public init(_ rules: ParsingRule...) {
+  public init(_ rules: [ParsingRule]) {
     self.rules = rules
+  }
+
+  public convenience init(_ rules: ParsingRule...) {
+    self.init(rules)
   }
 
   public override func wrapInnerRules(_ wrapFunction: (ParsingRule) -> ParsingRule) {
@@ -108,6 +122,11 @@ open class ParsingRuleSequenceWrapper: ParsingRule {
     for rule in rules {
       rule.gatherPerformanceCounters(into: &array)
     }
+  }
+
+  public override var possibleOpeningCharacters: CharacterSet? {
+    assertionFailure("Subclasses should override")
+    return nil
   }
 }
 
@@ -272,6 +291,10 @@ final class Characters: ParsingRule {
   override var description: String {
     "\(super.description) \(characters)"
   }
+
+  override var possibleOpeningCharacters: CharacterSet {
+    return characters
+  }
 }
 
 public final class Literal: ParsingRule {
@@ -296,6 +319,10 @@ public final class Literal: ParsingRule {
     } else {
       return performanceCounters.recordResult(ParsingResult(succeeded: false, length: 0, examinedLength: length + 1))
     }
+  }
+
+  public override var possibleOpeningCharacters: CharacterSet {
+    return [Unicode.Scalar(chars[0])!]
   }
 }
 
@@ -448,6 +475,87 @@ public final class InOrder: ParsingRuleSequenceWrapper {
   public override var description: String {
     "IN ORDER: \(rules.map(String.init(describing:)).joined(separator: ", "))"
   }
+
+  public override var possibleOpeningCharacters: CharacterSet? {
+    var assertions: CharacterSet? = nil
+    var possibilities: CharacterSet? = CharacterSet()
+    var done = false
+    for rule in rules where !done {
+      var rule = rule
+      if let traceRule = rule as? TraceRule {
+        rule = traceRule.rule
+      }
+      switch rule {
+      case let rule as RangeRule:
+        possibilities.formUnion(rule.possibleOpeningCharacters)
+        if rule.range.lowerBound > 0 {
+          done = true
+        }
+      case let rule as ZeroOrOneRule:
+        possibilities.formUnion(rule.possibleOpeningCharacters)
+      case let rule as AssertionRule:
+        assertions.formIntersection(rule.possibleOpeningCharacters)
+      case let rule as NotAssertionRule:
+        assertions.formIntersection(rule.possibleOpeningCharacters)
+      default:
+        possibilities.formUnion(rule.possibleOpeningCharacters)
+        done = true
+      }
+    }
+    possibilities.formIntersection(assertions)
+    return possibilities
+  }
+}
+
+/// Apply my character set rules where "nil" means "match anything"
+private extension Optional where Wrapped == CharacterSet {
+  mutating func formUnion(_ other: CharacterSet?) {
+    switch (self, other) {
+    case (.none, _):
+      // nil union anything is nil
+      break
+    case (_, .none):
+      self = nil
+    case (.some(let characters), .some(let otherCharacters)):
+      self = characters.union(otherCharacters)
+    }
+  }
+
+  mutating func formIntersection(_ other: CharacterSet?) {
+    switch (self, other) {
+    case (.none, _):
+      self = other
+    case (_, .none):
+      break
+    case (.some(let characters), .some(let otherCharacters)):
+      self = characters.intersection(otherCharacters)
+    }
+  }
+
+  func subtracting(_ other: CharacterSet?) -> CharacterSet? {
+    switch (self, other) {
+    case (_, .none):
+      // anything minus everything is nothing
+      return CharacterSet()
+    case (.none, .some(let chars)):
+      return chars.inverted
+    case (.some(let selfChars), .some(let otherChars)):
+      return selfChars.subtracting(otherChars)
+    }
+  }
+
+  func contains(_ maybeChar: unichar?) -> Bool {
+    switch (self, maybeChar) {
+    case (.none, _):
+      // nil character set accepts everything
+      return true
+    case (.some, .none):
+      // Non-nil character set and nil character always fails
+      return false
+    case (.some(let set), .some(let char)):
+      return set.contains(char)
+    }
+  }
 }
 
 /// An *assertion* that succeeds if `rule` succeeds but consumes no input and produces no syntax tree nodes.
@@ -476,13 +584,47 @@ final class NotAssertionRule: ParsingRuleWrapper {
   override var description: String {
     "NOT \(rule.description)"
   }
+
+  override var possibleOpeningCharacters: CharacterSet? {
+    // It doesn't matter what our inner rule is. If we're asserting that the inner rule
+    // fails, a set of possible characters that scopes success tells us nothing about
+    // characters that imply failure.
+    //
+    // Example: Literal("!["), possibleChars == "!"
+    //          Literal("![").assertInverse() succeeds on "!!", so you have to evaluate
+    //          the rule even if you're looking at a "!"
+    return nil
+  }
 }
 
 /// Returns the result of the first successful match, or .fail otherwise.
 public final class Choice: ParsingRuleSequenceWrapper {
-  public override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
-    var examinedLength = 0
+  public init(_ rules: ParsingRule...) {
+    super.init(rules)
+    var characters = CharacterSet()
     for rule in rules {
+      if let subruleCharacters = rule.possibleOpeningCharacters {
+        characters.formUnion(subruleCharacters)
+      } else {
+        _possibleCharacters = nil
+        return
+      }
+    }
+    self._possibleCharacters = characters
+  }
+
+  private var _possibleCharacters: CharacterSet?
+
+  public override var possibleOpeningCharacters: CharacterSet? { _possibleCharacters }
+
+  public override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
+    var examinedLength = 1
+    let ch = parser.buffer.utf16(at: index)
+    guard _possibleCharacters.contains(ch) else {
+      return .fail
+    }
+    for rule in rules {
+      if !rule.possibleOpeningCharacters.contains(ch) { continue }
       var result = rule.apply(to: parser, at: index)
       examinedLength = max(examinedLength, result.examinedLength)
       if result.succeeded {
@@ -524,6 +666,10 @@ final class TraceRule: ParsingRuleWrapper {
     currentEntry.result = result
     parser.traceBuffer.popEntry()
     return result
+  }
+
+  override var description: String {
+    rule.description
   }
 }
 
