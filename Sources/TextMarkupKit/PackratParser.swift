@@ -102,7 +102,7 @@ public final class PackratParser: CustomStringConvertible {
     } else if lengthIncrease > 0 {
       // We need to *grow* the memo table.
       memoizedResults.insert(
-        contentsOf: Array<MemoColumn>(repeating: MemoColumn(), count: lengthIncrease),
+        contentsOf: [MemoColumn](repeating: MemoColumn(), count: lengthIncrease),
         at: originalRange.location
       )
     }
@@ -194,7 +194,7 @@ private extension PackratParser {
         maxExaminedLength = Swift.max(maxExaminedLength, value.examinedLength)
         return (key: key, value: value)
       }
-      self.storage = Dictionary(uniqueKeysWithValues: keysAndValues)
+      storage = Dictionary(uniqueKeysWithValues: keysAndValues)
       self.maxExaminedLength = maxExaminedLength
       return removedResults
     }

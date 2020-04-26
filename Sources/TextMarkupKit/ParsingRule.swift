@@ -486,7 +486,7 @@ public final class InOrder: ParsingRuleSequenceWrapper {
   }
 
   private static func possibleOpeningCharacters(for rules: [ParsingRule]) -> CharacterSet? {
-    var assertions: CharacterSet? = nil
+    var assertions: CharacterSet?
     var possibilities: CharacterSet? = CharacterSet()
     var done = false
     for rule in rules where !done {
@@ -615,7 +615,7 @@ public final class Choice: ParsingRuleSequenceWrapper {
       if let subruleCharacters = rule.possibleOpeningCharacters {
         characters.formUnion(subruleCharacters)
       } else {
-        _possibleCharacters = nil
+        self._possibleCharacters = nil
         return
       }
     }

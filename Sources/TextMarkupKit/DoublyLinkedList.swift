@@ -23,9 +23,9 @@ public struct DoublyLinkedList<Element>: ExpressibleByArrayLiteral {
   private var tail: Node
 
   public init() {
-    count = 0
-    tail = Node()
-    head = tail
+    self.count = 0
+    self.tail = Node()
+    self.head = tail
   }
 
   public init<S: Sequence>(_ elements: S) where S.Element == Element {
@@ -146,7 +146,7 @@ extension DoublyLinkedList: BidirectionalCollection, RangeReplaceableCollection 
     return Index(ordinal: i.ordinal - 1, node: i.node.previous!)
   }
 
-  public mutating func replaceSubrange<R>(_ subrange: R, with newElements: DoublyLinkedList<Element>) where R : RangeExpression, Index == R.Bound {
+  public mutating func replaceSubrange<R>(_ subrange: R, with newElements: DoublyLinkedList<Element>) where R: RangeExpression, Index == R.Bound {
     var range = subrange.relative(to: self)
     if !isKnownUniquelyReferenced(&head) {
       (head, tail) = head.copy(remapping: &range)
@@ -181,7 +181,7 @@ extension DoublyLinkedList: BidirectionalCollection, RangeReplaceableCollection 
   public mutating func replaceSubrange<C, R>(
     _ subrange: R,
     with newElements: C
-  ) where C : Collection, R : RangeExpression, Element == C.Element, Index == R.Bound {
+  ) where C: Collection, R: RangeExpression, Element == C.Element, Index == R.Bound {
     replaceSubrange(subrange, with: DoublyLinkedList(newElements))
   }
 }
