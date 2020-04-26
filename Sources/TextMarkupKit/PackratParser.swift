@@ -42,10 +42,7 @@ public final class PackratParser: CustomStringConvertible {
       memoizationRuleNames.append(memoRule.name)
     }
     self.memoizationRuleNames = memoizationRuleNames
-    self.memoizedResults = Array(
-      repeating: MemoColumn(ruleNames: memoizationRuleNames),
-      count: buffer.endIndex + 1
-    )
+    self.memoizedResults = MemoColumn.makeColumns(buffer.length + 1, ruleNames: memoizationRuleNames)
   }
 
   /// The contents to parse.
@@ -116,11 +113,9 @@ public final class PackratParser: CustomStringConvertible {
       memoizedResults.removeSubrange(originalRange.location ..< originalRange.location + abs(lengthIncrease))
     } else if lengthIncrease > 0 {
       // We need to *grow* the memo table.
+      let newEmptyColumns = MemoColumn.makeColumns(lengthIncrease, ruleNames: memoizationRuleNames)
       memoizedResults.insert(
-        contentsOf: Array<MemoColumn>(
-          repeating: MemoColumn(ruleNames: memoizationRuleNames),
-          count: lengthIncrease
-        ),
+        contentsOf: newEmptyColumns,
         at: originalRange.location
       )
     }
@@ -178,7 +173,7 @@ public final class PackratParser: CustomStringConvertible {
 private extension PackratParser {
   /// A column in the memo table. It contains a fixed number of slots for memoizing results, one slot per memo rule.
   /// It's the job of the parser to assign a unique index to each memo rule so different rules don't clobber each other.
-  struct MemoColumn {
+  final class MemoColumn: CustomStringConvertible {
     /// Designated initializer.
     /// - Parameter ruleNames: The names of the memoization rules. The expectation is each rule will use the
     /// same index as its name, allowing helpful debugging messages.
@@ -186,6 +181,21 @@ private extension PackratParser {
       self.ruleNames = ruleNames
       // Make sure we have enough storage to store a result from every rule.
       self.storage = Array(repeating: nil, count: ruleNames.count)
+    }
+
+    static func makeColumns(_ length: Int, ruleNames: [String]) -> Array<MemoColumn> {
+      var results = Array<MemoColumn>()
+      for _ in 0 ..< length {
+        results.append(MemoColumn(ruleNames: ruleNames))
+      }
+      return results
+      // TODO: Figure out why this doesn't work
+//      Array<MemoColumn>(unsafeUninitializedCapacity: length) { (buffer, initializedLength) in
+//        for i in 0 ..< length {
+//          buffer[i] = MemoColumn(ruleNames: ruleNames)
+//        }
+//        initializedLength = length
+//      }
     }
 
     private let ruleNames: [String]
@@ -206,7 +216,7 @@ private extension PackratParser {
       }
     }
 
-    mutating func removeAll() {
+    func removeAll() {
       for i in storage.indices {
         storage[i] = nil
       }
@@ -217,7 +227,7 @@ private extension PackratParser {
     /// - parameter predicate: A block that returns true for each result that should be removed from the memo column.
     /// - returns: All removed results.
     @discardableResult
-    mutating func remove(where predicate: (ParsingResult) -> Bool) -> [ParsingResult] {
+    func remove(where predicate: (ParsingResult) -> Bool) -> [ParsingResult] {
       var maxExaminedLength = 0
       var removedResults = [ParsingResult]()
       for (i, maybeResult) in storage.enumerated() {
@@ -231,6 +241,15 @@ private extension PackratParser {
       }
       self.maxExaminedLength = maxExaminedLength
       return removedResults
+    }
+
+    var description: String {
+      storage.enumerated()
+        .map { index, maybeResult -> String in
+          let resultString = maybeResult.map(String.init(describing:)) ?? "nil"
+          return "\(ruleNames[index]): \(resultString)"
+        }
+        .joined(separator: "\n")
     }
   }
 }
