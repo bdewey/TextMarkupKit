@@ -33,7 +33,19 @@ public final class PackratParser: CustomStringConvertible {
   public init(buffer: PieceTable, grammar: PackratGrammar) {
     self.buffer = buffer
     self.grammar = grammar
-    self.memoizedResults = Array(repeating: MemoColumn(), count: buffer.endIndex + 1)
+    var memoizationRuleNames = [String]()
+    grammar.start.forEachRule { rule in
+      guard let memoRule = rule as? MemoizingRule else {
+        return
+      }
+      memoRule.ruleIndex = memoizationRuleNames.count
+      memoizationRuleNames.append(memoRule.name)
+    }
+    self.memoizationRuleNames = memoizationRuleNames
+    self.memoizedResults = Array(
+      repeating: MemoColumn(ruleNames: memoizationRuleNames),
+      count: buffer.endIndex + 1
+    )
   }
 
   /// The contents to parse.
@@ -44,6 +56,9 @@ public final class PackratParser: CustomStringConvertible {
 
   /// If any rules are tracing evaluation, the trace entries are stored here.
   public let traceBuffer = TraceBuffer()
+
+  /// The names of the memoization rules in the grammar.
+  private let memoizationRuleNames: [String]
 
   public var description: String {
     let (totalEntries, successfulEntries) = memoizationStatistics()
@@ -72,8 +87,8 @@ public final class PackratParser: CustomStringConvertible {
   private var memoizationHits = 0
 
   /// Returns the memoized result of applying a rule at an index into the buffer, if it exists.
-  public func memoizedResult(rule: ObjectIdentifier, index: Int) -> ParsingResult? {
-    let result = memoizedResults[index][rule]
+  public func memoizedResult(ruleIndex: Int, index: Int) -> ParsingResult? {
+    let result = memoizedResults[index][ruleIndex]
     memoizationChecks += 1
     if result != nil { memoizationHits += 1 }
     return result
@@ -84,11 +99,11 @@ public final class PackratParser: CustomStringConvertible {
   ///   - result: The parsing result to memoize.
   ///   - rule: The rule that generated the result that we are memoizing.
   ///   - index: The position in the input at which we applied the rule to get the result.
-  public func memoizeResult(_ result: ParsingResult, rule: ObjectIdentifier, index: Int) {
+  public func memoizeResult(_ result: ParsingResult, ruleIndex: Int, index: Int) {
     assert(result.examinedLength > 0)
     assert((result.examinedLength + index) <= buffer.length + 1)
     assert(result.examinedLength >= result.length)
-    memoizedResults[index][rule] = result
+    memoizedResults[index][ruleIndex] = result
   }
 
   /// Adjust the memo tables for reuse after an edit to the input text where the characters in `originalRange` were replaced
@@ -102,7 +117,10 @@ public final class PackratParser: CustomStringConvertible {
     } else if lengthIncrease > 0 {
       // We need to *grow* the memo table.
       memoizedResults.insert(
-        contentsOf: Array<MemoColumn>(repeating: MemoColumn(), count: lengthIncrease),
+        contentsOf: Array<MemoColumn>(
+          repeating: MemoColumn(ruleNames: memoizationRuleNames),
+          count: lengthIncrease
+        ),
         at: originalRange.location
       )
     }
@@ -123,7 +141,6 @@ public final class PackratParser: CustomStringConvertible {
         removedResults[column] = victims
       }
     }
-    print(removedResults)
   }
 
   // MARK: - Supporting types
@@ -146,7 +163,8 @@ public final class PackratParser: CustomStringConvertible {
     var totalEntries = 0
     var successfulEntries = 0
     for column in memoizedResults {
-      for (_, result) in column {
+      for maybeResult in column {
+        guard let result = maybeResult else { continue }
         totalEntries += 1
         if result.succeeded { successfulEntries += 1 }
       }
@@ -158,11 +176,23 @@ public final class PackratParser: CustomStringConvertible {
 // MARK: - Memoization
 
 private extension PackratParser {
+  /// A column in the memo table. It contains a fixed number of slots for memoizing results, one slot per memo rule.
+  /// It's the job of the parser to assign a unique index to each memo rule so different rules don't clobber each other.
   struct MemoColumn {
-    private(set) var maxExaminedLength = 0
-    private var storage = [ObjectIdentifier: ParsingResult]()
+    /// Designated initializer.
+    /// - Parameter ruleNames: The names of the memoization rules. The expectation is each rule will use the
+    /// same index as its name, allowing helpful debugging messages.
+    init(ruleNames: [String]) {
+      self.ruleNames = ruleNames
+      // Make sure we have enough storage to store a result from every rule.
+      self.storage = Array(repeating: nil, count: ruleNames.count)
+    }
 
-    subscript(id: ObjectIdentifier) -> ParsingResult? {
+    private let ruleNames: [String]
+    private(set) var maxExaminedLength = 0
+    private var storage: [ParsingResult?]
+
+    subscript(id: Int) -> ParsingResult? {
       get {
         storage[id]
       }
@@ -177,24 +207,28 @@ private extension PackratParser {
     }
 
     mutating func removeAll() {
-      storage.removeAll()
+      for i in storage.indices {
+        storage[i] = nil
+      }
       maxExaminedLength = 0
     }
 
     /// Removes results that match a predicate.
+    /// - parameter predicate: A block that returns true for each result that should be removed from the memo column.
+    /// - returns: All removed results.
     @discardableResult
     mutating func remove(where predicate: (ParsingResult) -> Bool) -> [ParsingResult] {
       var maxExaminedLength = 0
       var removedResults = [ParsingResult]()
-      let keysAndValues = storage.compactMap { key, value -> (key: ObjectIdentifier, value: ParsingResult)? in
-        guard !predicate(value) else {
-          removedResults.append(value)
-          return nil
+      for (i, maybeResult) in storage.enumerated() {
+        guard let result = maybeResult else { continue }
+        if predicate(result) {
+          storage[i] = nil
+          removedResults.append(result)
+        } else {
+          maxExaminedLength = Swift.max(maxExaminedLength, result.examinedLength)
         }
-        maxExaminedLength = Swift.max(maxExaminedLength, value.examinedLength)
-        return (key: key, value: value)
       }
-      self.storage = Dictionary(uniqueKeysWithValues: keysAndValues)
       self.maxExaminedLength = maxExaminedLength
       return removedResults
     }
@@ -202,14 +236,10 @@ private extension PackratParser {
 }
 
 extension PackratParser.MemoColumn: Collection {
-  typealias Index = Dictionary<ObjectIdentifier, ParsingResult>.Index
+  typealias Index = Int
   var startIndex: Index { storage.startIndex }
   var endIndex: Index { storage.endIndex }
   func index(after i: Index) -> Index {
     return storage.index(after: i)
-  }
-
-  subscript(position: Index) -> (key: ObjectIdentifier, value: ParsingResult) {
-    storage[position]
   }
 }

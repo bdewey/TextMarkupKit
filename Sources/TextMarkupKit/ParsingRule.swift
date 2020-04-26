@@ -27,6 +27,11 @@ open class ParsingRule: CustomStringConvertible {
     return "<\(type(of: self)) \(pointer)>"
   }
 
+  open var name: String {
+    assertionFailure("Subclasses should override")
+    return description
+  }
+
   /// Holds how many times a rule was invoked and how many times the rule succeeded.
   public struct PerformanceCounters {
     public private(set) var total: Int = 0
@@ -66,6 +71,20 @@ open class ParsingRule: CustomStringConvertible {
     return results
   }
 
+  public func forEachRule(_ block: (ParsingRule) -> Void) {
+    var alreadyVisited = Set<ObjectIdentifier>()
+    forEachRule(alreadyVisited: &alreadyVisited, block: block)
+  }
+
+  @discardableResult
+  public func forEachRule(alreadyVisited: inout Set<ObjectIdentifier>, block: (ParsingRule) -> Void) -> Bool {
+    let oid = ObjectIdentifier(self)
+    guard !alreadyVisited.contains(oid) else { return false }
+    alreadyVisited.insert(oid)
+    block(self)
+    return true
+  }
+
   public func wrapInnerRules(_ wrapFunction: (ParsingRule) -> ParsingRule) {
     // NOTHING
   }
@@ -100,6 +119,17 @@ open class ParsingRuleWrapper: ParsingRule {
   public override var possibleOpeningCharacters: CharacterSet? {
     return rule.possibleOpeningCharacters
   }
+
+  open override var name: String { rule.name }
+
+  public override func forEachRule(alreadyVisited: inout Set<ObjectIdentifier>, block: (ParsingRule) -> Void) -> Bool {
+    if super.forEachRule(alreadyVisited: &alreadyVisited, block: block) {
+      rule.forEachRule(alreadyVisited: &alreadyVisited, block: block)
+      return true
+    } else {
+      return false
+    }
+  }
 }
 
 open class ParsingRuleSequenceWrapper: ParsingRule {
@@ -127,6 +157,16 @@ open class ParsingRuleSequenceWrapper: ParsingRule {
   public override var possibleOpeningCharacters: CharacterSet? {
     assertionFailure("Subclasses should override")
     return nil
+  }
+
+  public override func forEachRule(alreadyVisited: inout Set<ObjectIdentifier>, block: (ParsingRule) -> Void) -> Bool {
+    guard super.forEachRule(alreadyVisited: &alreadyVisited, block: block) else {
+      return false
+    }
+    for rule in rules {
+      rule.forEachRule(alreadyVisited: &alreadyVisited, block: block)
+    }
+    return true
   }
 }
 
@@ -329,12 +369,15 @@ public final class Literal: ParsingRule {
 /// Looks up a rule in the parser's grammar by identifier. Sees if the parser has already memoized the result of parsing this rule
 /// at this identifier; if so, returns it. Otherwise, applies the rule, memoizes the result in the parser, and returns it.
 final class MemoizingRule: ParsingRuleWrapper {
+  /// The index of this specific rule instance in the memoization table. Set by the packrat parser before parsing.
+  var ruleIndex: Int!
+
   override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
-    if let memoizedResult = parser.memoizedResult(rule: ObjectIdentifier(self), index: index) {
+    if let memoizedResult = parser.memoizedResult(ruleIndex: ruleIndex, index: index) {
       return performanceCounters.recordResult(memoizedResult)
     }
     let result = rule.apply(to: parser, at: index)
-    parser.memoizeResult(result, rule: ObjectIdentifier(self), index: index)
+    parser.memoizeResult(result, ruleIndex: ruleIndex, index: index)
     return performanceCounters.recordResult(result)
   }
 
@@ -409,6 +452,10 @@ final class AbsorbingMatcher: ParsingRuleWrapper {
     super.init(rule)
   }
 
+  override var name: String {
+    return nodeType.rawValue
+  }
+
   override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
     var result = rule.apply(to: parser, at: index)
     if !result.succeeded || result.length == 0 { return result }
@@ -433,6 +480,10 @@ final class WrappingRule: ParsingRuleWrapper {
   init(rule: ParsingRule, nodeType: NodeType) {
     self.nodeType = nodeType
     super.init(rule)
+  }
+
+  override var name: String {
+    return nodeType.rawValue
   }
 
   override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
@@ -479,6 +530,10 @@ public final class InOrder: ParsingRuleSequenceWrapper {
     }
     result.examinedLength = maxExaminedIndex - index
     return performanceCounters.recordResult(result)
+  }
+
+  public override var name: String {
+    rules.map { $0.name }.joined(separator: ", ")
   }
 
   public override var description: String {
@@ -620,6 +675,10 @@ public final class Choice: ParsingRuleSequenceWrapper {
       }
     }
     self._possibleCharacters = characters
+  }
+
+  public override var name: String {
+    rules.map { $0.name }.joined(separator: " || ")
   }
 
   private var _possibleCharacters: CharacterSet?
