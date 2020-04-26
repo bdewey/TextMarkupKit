@@ -64,7 +64,7 @@ public final class PieceTable: CustomStringConvertible {
   }
 
   public func replaceCharacters(in range: NSRange, with str: String) {
-    assert(range.upperBound <= endIndex)
+    assert(range.location <= endIndex)
     let newRange: NSRange?
     if !str.isEmpty {
       newRange = appendString(str)
@@ -165,8 +165,12 @@ private extension PieceTable {
       }
     }
 
+    /// Removes the run range corresponding to a text content range.
+    /// - returns: The index in `runs` *after* the removed range.
     private mutating func deleteRange(_ existingRange: NSRange) -> Int {
-      let findResult = findRange(existingRange)
+      guard let findResult = findRange(existingRange) else {
+        return runs.endIndex
+      }
       var endingRun = runs[findResult.end.index]
       endingRun.range.location += (existingRange.upperBound - findResult.end.contentOffset)
       endingRun.range.length -= (existingRange.upperBound - findResult.end.contentOffset)
@@ -181,7 +185,12 @@ private extension PieceTable {
       return findResult.start.index + 1
     }
 
-    private func findRange(_ range: NSRange) -> FindRangeResult {
+    /// Finds the run range for a text content range.
+    /// - returns: A FindRangeResult if there is a run range for the text content range, nil otherwise.
+    private func findRange(_ range: NSRange) -> FindRangeResult? {
+      if range.location == length {
+        return nil
+      }
       var result = FindRangeResult()
       var contentOffset = 0
       var foundStart = false

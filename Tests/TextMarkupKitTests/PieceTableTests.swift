@@ -77,6 +77,21 @@ final class PieceTableTests: XCTestCase {
     pieceTable.replaceCharacters(in: NSRange(location: 5, length: 13), with: "")
     XCTAssertEqual("Hello!", pieceTable.string)
   }
+
+  func testAppend() {
+    let pieceTable = PieceTable("")
+    pieceTable.replaceCharacters(in: NSRange(location: 0, length: 1), with: "Hello, world!")
+    XCTAssertEqual(pieceTable.string, "Hello, world!")
+  }
+
+  func testAppendPerformance() {
+    measure {
+      let pieceTable = PieceTable("")
+      for i in 0 ..< 1024 {
+        pieceTable.replaceCharacters(in: NSRange(location: i, length: 1), with: ".")
+      }
+    }
+  }
 }
 
 // MARK: - Private
