@@ -40,11 +40,13 @@ public final class PieceTable: CustomStringConvertible {
   /// Holds all new characters added to the buffer.
   private var addedContents = [unichar]()
 
+  /// Identifies which of the two arrays holds a slice of characters.
   private enum Source {
     case original
     case added
   }
 
+  /// Gets the array for a source.
   private func sourceArray(for source: Source) -> [unichar] {
     switch source {
     case .original:
@@ -54,6 +56,7 @@ public final class PieceTable: CustomStringConvertible {
     }
   }
 
+  /// A slice of one of the storage arrays.
   private struct SourceSlice {
     let source: Source
     var startIndex: Int
@@ -68,7 +71,7 @@ public final class PieceTable: CustomStringConvertible {
 
   /// Return the receiver as a String.
   public var string: String {
-    self[sliceIndex(for: startIndex) ..< sliceIndex(for: endIndex)]
+    self[startIndex ..< endIndex]
   }
 
   /// How many `unichar` elements are in the piece table.
@@ -104,18 +107,19 @@ public final class PieceTable: CustomStringConvertible {
 
   /// Gets the string from an NSRange of ContentIndexes.
   public subscript(range: NSRange) -> String {
-    let lowerBound = sliceIndex(for: range.lowerBound)
-    let upperBound = sliceIndex(for: range.upperBound)
-    return self[lowerBound ..< upperBound]
+    return self[range.lowerBound ..< range.upperBound]
   }
 
   /// Gets a substring of the PieceTable contents.
-  private subscript(bounds: Range<SliceIndex>) -> String {
+  private subscript(bounds: Range<Int>) -> String {
+    guard bounds.upperBound > 0 else { return "" }
+    let (lowerSliceIndex, lowerStartBefore) = self.sliceIndex(for: bounds.lowerBound)
+    let (upperSliceIndex, upperCountBefore) = self.sliceIndex(for: bounds.upperBound - 1)
     var results = [unichar]()
-    for sliceIndex in bounds.lowerBound.sliceIndex ... bounds.upperBound.sliceIndex {
+    for sliceIndex in lowerSliceIndex ... upperSliceIndex {
       let slice = slices[sliceIndex]
-      let lowerBound = (sliceIndex == bounds.lowerBound.sliceIndex) ? bounds.lowerBound.contentIndex : slice.startIndex
-      let upperBound = (sliceIndex == bounds.upperBound.sliceIndex) ? bounds.upperBound.contentIndex : slice.endIndex
+      let lowerBound = (sliceIndex == lowerSliceIndex) ? slice.startIndex + bounds.lowerBound - lowerStartBefore : slice.startIndex
+      let upperBound = (sliceIndex == upperSliceIndex) ? slice.startIndex + bounds.upperBound - upperCountBefore : slice.endIndex
       results.append(contentsOf: sourceArray(for: slice.source)[lowerBound ..< upperBound])
     }
     return String(utf16CodeUnits: results, count: results.count)
@@ -133,47 +137,53 @@ public final class PieceTable: CustomStringConvertible {
 
 extension PieceTable: Collection {
 
-  private struct SliceIndex: Comparable {
+  /// Identifies a location of a character as its location in the `slices` array (to find the appropriate source) and the index within
+  /// that source.
+  ///
+  /// We index into the slices array instead of just remembering the source so we can reason about what comes next...?
+  private struct SourceIndex: Comparable {
     /// The index of the slice in `slices`
     let sliceIndex: Int
 
     /// The index of a unichar within a specific slice.
     let contentIndex: Int
 
-    public static func < (lhs: SliceIndex, rhs: SliceIndex) -> Bool {
+    public static func < (lhs: SourceIndex, rhs: SourceIndex) -> Bool {
       if lhs.sliceIndex != rhs.sliceIndex { return lhs.sliceIndex < rhs.sliceIndex }
       return lhs.contentIndex < rhs.contentIndex
     }
   }
 
-  /// Given an `Index`, returns the corresponding `ContentIndex`.
-  /// - note: O(N) in the size of `slices`
-  private func contentIndex(for index: SliceIndex) -> Int {
-    var sliceOffset: Int = 0
-    for i in 0 ..< index.sliceIndex - 1 {
-      sliceOffset += slices[i].count
-    }
-    return sliceOffset + (index.contentIndex - slices[index.sliceIndex].startIndex)
-  }
-
   /// Given a `ContentIndex`, returns the corresponding `Index`
   /// - note: O(N) in the size of `slices`
-  private func sliceIndex(for contentIndex: Int) -> SliceIndex {
-    var contentLength = 0
-    for (index, slice) in slices.enumerated() {
-      if contentLength + slice.count > contentIndex {
-        return SliceIndex(sliceIndex: index, contentIndex: slice.startIndex + (contentIndex - contentLength))
-      }
-      contentLength += slice.count
+  private func sourceIndex(for contentIndex: Int) -> SourceIndex {
+    let (sliceIndex, contentLength) = self.sliceIndex(for: contentIndex)
+    if sliceIndex < slices.endIndex {
+      let slice = slices[sliceIndex]
+      return SourceIndex(sliceIndex: sliceIndex, contentIndex: slice.startIndex + (contentIndex - contentLength))
+    } else {
+      return SourceIndex(sliceIndex: sliceIndex, contentIndex: 0)
     }
-    return SliceIndex(sliceIndex: slices.count - 1, contentIndex: slices.last?.endIndex ?? 0)
+  }
+
+  /// The index into `slices` of the slice that contains `contentIndex` as well as how many characters come before that slice.
+  /// - note: O(N) in the size of `slices`
+  private func sliceIndex(for contentIndex: Int) -> (sliceIndex: Int, countBeforeSlice: Int) {
+    var countBeforeSlice = 0
+    for (index, slice) in slices.enumerated() {
+      if countBeforeSlice + slice.count > contentIndex {
+        return (index, countBeforeSlice)
+      }
+      countBeforeSlice += slice.count
+    }
+    return (slices.endIndex, countBeforeSlice)
   }
 
   public var startIndex: Int { 0 }
   public var endIndex: Int { count }
   public func index(after i: Int) -> Int { i + 1 }
 
-  private subscript(position: SliceIndex) -> unichar {
+  private subscript(position: SourceIndex) -> unichar {
     let sourceArray = self.sourceArray(for: slices[position.sliceIndex].source)
     return sourceArray[position.contentIndex]
   }
@@ -181,7 +191,7 @@ extension PieceTable: Collection {
   /// For convenience reading contents with a parser, an accessor that accepts a contentIndex and returns nil when the index is
   /// out of bounds versus crashing.
   public subscript(contentIndex: Int) -> unichar {
-    let index = self.sliceIndex(for: contentIndex)
+    let index = self.sourceIndex(for: contentIndex)
     return self[index]
   }
 }
@@ -204,19 +214,12 @@ extension PieceTable: RangeReplaceableCollection {
     if slices.isEmpty {
       slices.append(SourceSlice(source: .added, startIndex: index, endIndex: addedContents.endIndex))
     } else {
-      let insertionPoint = sliceIndex(for: range.lowerBound)
-      let existingSlice = slices[insertionPoint.sliceIndex]
-      if insertionPoint.contentIndex == existingSlice.endIndex, existingSlice.source == .added, existingSlice.endIndex == index {
-        // The insertion point is at the end of an added slice, and the end of that slice is the beginning of the content we added...
-        // Just update the end index.
-        slices[insertionPoint.sliceIndex].endIndex = addedContents.endIndex
-      } else if insertionPoint.contentIndex == existingSlice.startIndex, insertionPoint.sliceIndex > 0, slices[insertionPoint.sliceIndex - 1].endIndex == index, slices[insertionPoint.sliceIndex - 1].source == .added {
-        // Same deal but with the previous slice.
-        slices[insertionPoint.sliceIndex - 1].endIndex = addedContents.endIndex
+      let (sliceIndex, _) = self.sliceIndex(for: range.lowerBound)
+      if sliceIndex > 0, slices[sliceIndex - 1].source == .added, slices[sliceIndex - 1].endIndex == index {
+        slices[sliceIndex - 1].endIndex = addedContents.endIndex
       } else {
         let newSlice = SourceSlice(source: .added, startIndex: index, endIndex: addedContents.endIndex)
-        let sliceIndexForInsertion = insertionPoint.contentIndex == existingSlice.startIndex ? insertionPoint.sliceIndex : insertionPoint.sliceIndex + 1
-        slices.insert(newSlice, at: sliceIndexForInsertion)
+        slices.insert(newSlice, at: sliceIndex)
       }
     }
   }
@@ -226,8 +229,10 @@ extension PieceTable: RangeReplaceableCollection {
   /// range of content is part of our collection.
   /// - returns: The index of the SourceSlice where characters can be inserted if the intent was to replace this range.
   private func deleteRange(_ range: Range<Int>) {
-    let lowerBound = sliceIndex(for: range.lowerBound)
-    let upperBound = sliceIndex(for: range.upperBound)
+    let lowerBound = sourceIndex(for: range.lowerBound)
+    let upperBound = sourceIndex(for: range.upperBound)
+
+    if lowerBound.sliceIndex == slices.endIndex { return }
     if lowerBound.sliceIndex == upperBound.sliceIndex {
       // We're removing characters from *within* a slice. That means we need to *split* this
       // existing slice.
