@@ -84,6 +84,15 @@ final class PieceTableTests: XCTestCase {
     XCTAssertEqual(pieceTable.string, "Hello, world!")
   }
 
+  func testRepeatedAppend() {
+    var pieceTable = PieceTable()
+    let expected = "Hello, world!!"
+    for ch in expected.utf16 {
+      pieceTable.append(ch)
+    }
+    XCTAssertEqual(pieceTable.string, expected)
+  }
+
   func testAppendPerformance() {
     measure {
       let pieceTable = PieceTable("")
