@@ -17,19 +17,20 @@
 
 import Foundation
 
-/// A piece table in a range-replacable collection of UTF-16 values (unichar). Internally it uses two `NSStrings` to store these:
-/// A read-only *originalContents* `NSString` and an append-only *newContents* `NSMutableString` that holds all added content.
+/// A piece table in a range-replacable collection of UTF-16 values (unichar). Internally it uses two arrays to store these:
+/// A read-only *originalContents* array and an append-only *newContents* array that holds all added content.
 ///
-/// The logical view of the modified string is built from a collection of `Run` structures, where a `Run` is a slice of unichar
-/// values from one of the two storage strings.
+/// The logical view of the modified string is built from an array of slices from the two arrays.
 public final class PieceTable: CustomStringConvertible {
-  public init(_ string: String) {
-    self.originalContents = Array(string.utf16)
+  /// Initialize an empty piece table.
+  public init() {
+    self.originalContents = []
     self.slices = [originalContents[0...]]
   }
 
-  public init() {
-    self.originalContents = []
+  /// Initialize a piece table with the contents of a string.
+  public init(_ string: String) {
+    self.originalContents = Array(string.utf16)
     self.slices = [originalContents[0...]]
   }
 
@@ -57,26 +58,35 @@ public final class PieceTable: CustomStringConvertible {
     }
   }
 
+  // MARK: Performance counters
+
+  /// How many times someone read past last valid character
   public var eofRead = 0
+
+  /// How many times someone read any content at all.
   public var charactersRead = 0
 
-  public func utf16(at index: Int) -> unichar? {
+  /// Returns the unichar at a specific ContentIndex, or nil if index is past valid content.
+  public func utf16(at index: ContentIndex) -> unichar? {
     return self[index]
   }
 
-  /// Implementation of the core NSTextStorage method.
+  /// Implementation of the core NSTextStorage method: Replaces the characters in an NSRange of ContentIndexes with the
+  /// UTF-16 characters from a string.
   public func replaceCharacters(in range: NSRange, with str: String) {
     let lowerBound = index(for: range.lowerBound)
     let upperBound = index(for: range.upperBound)
     replaceSubrange(lowerBound ..< upperBound, with: str.utf16)
   }
 
+  /// Gets the string from an NSRange of ContentIndexes.
   public subscript(range: NSRange) -> String {
     let lowerBound = index(for: range.lowerBound)
     let upperBound = index(for: range.upperBound)
     return self[lowerBound ..< upperBound]
   }
 
+  /// Gets a substring of the PieceTable contents.
   public subscript(bounds: Range<Index>) -> String {
     var results = [unichar]()
     for sliceIndex in bounds.lowerBound.sliceIndex ... bounds.upperBound.sliceIndex {
@@ -90,7 +100,7 @@ public final class PieceTable: CustomStringConvertible {
 
   public var description: String {
     let properties: [String: Any] = [
-      "length": originalContents.count,
+      "count": count,
       "charactersRead": charactersRead,
       "eofRead": eofRead,
     ]
@@ -173,11 +183,14 @@ extension PieceTable: Collection {
 }
 
 extension PieceTable: RangeReplaceableCollection {
+  /// Replace a range of characters with `newElements`. Note that `subrange` can be empty (in which case it's just an insert point).
+  /// Similarly `newElements` can be empty (expressing deletion).
+  ///
+  /// Also remember that characters are never really deleted.
   public func replaceSubrange<C, R>(
     _ subrange: R,
     with newElements: C
-  ) where C : Collection, R : RangeExpression, unichar == C.Element, Index == R.Bound {
-    // TODO
+  ) where C: Collection, R: RangeExpression, unichar == C.Element, Index == R.Bound {
     let range = subrange.relative(to: self)
     deleteRange(range)
     guard !newElements.isEmpty else { return }
@@ -187,6 +200,9 @@ extension PieceTable: RangeReplaceableCollection {
     slices.insert(newContents[index ..< newContents.endIndex], at: range.lowerBound.sliceIndex + 1)
   }
 
+  /// Deletes a range of contents from the piece table.
+  /// Remember that we never actually remove the characters; all this will do is update `slices` so we no longer say the given
+  /// range of content is part of our collection.
   private func deleteRange(_ range: Range<Index>) {
     if range.lowerBound.sliceIndex == range.upperBound.sliceIndex {
       // We're removing characters from *within* a slice. That means we need to *split* this
