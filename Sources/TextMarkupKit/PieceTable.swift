@@ -141,17 +141,12 @@ extension PieceTable: Collection {
   /// that source.
   ///
   /// We index into the slices array instead of just remembering the source so we can reason about what comes next...?
-  private struct SourceIndex: Comparable {
-    /// The index of the slice in `slices`
-    let sliceIndex: Int
+  private struct SourceIndex {
+    /// Which source array to use
+    let source: Source
 
     /// The index of a unichar within a specific slice.
     let contentIndex: Int
-
-    public static func < (lhs: SourceIndex, rhs: SourceIndex) -> Bool {
-      if lhs.sliceIndex != rhs.sliceIndex { return lhs.sliceIndex < rhs.sliceIndex }
-      return lhs.contentIndex < rhs.contentIndex
-    }
   }
 
   /// Given a `ContentIndex`, returns the corresponding `Index`
@@ -160,9 +155,10 @@ extension PieceTable: Collection {
     let (sliceIndex, contentLength) = self.sliceIndex(for: contentIndex)
     if sliceIndex < slices.endIndex {
       let slice = slices[sliceIndex]
-      return SourceIndex(sliceIndex: sliceIndex, contentIndex: slice.startIndex + (contentIndex - contentLength))
+      return SourceIndex(source: slice.source, contentIndex: slice.startIndex + (contentIndex - contentLength))
     } else {
-      return SourceIndex(sliceIndex: sliceIndex, contentIndex: 0)
+      // TODO: This is wrong!
+      return SourceIndex(source: .original, contentIndex: 0)
     }
   }
 
@@ -184,7 +180,7 @@ extension PieceTable: Collection {
   public func index(after i: Int) -> Int { i + 1 }
 
   private subscript(position: SourceIndex) -> unichar {
-    let sourceArray = self.sourceArray(for: slices[position.sliceIndex].source)
+    let sourceArray = self.sourceArray(for: position.source)
     return sourceArray[position.contentIndex]
   }
 
@@ -229,42 +225,42 @@ extension PieceTable: RangeReplaceableCollection {
   /// range of content is part of our collection.
   /// - returns: The index of the SourceSlice where characters can be inserted if the intent was to replace this range.
   private func deleteRange(_ range: Range<Int>) {
-    let lowerBound = sourceIndex(for: range.lowerBound)
-    let upperBound = sourceIndex(for: range.upperBound)
+    let (lowerBound, lowerCountBefore) = self.sliceIndex(for: range.lowerBound)
+    let (upperBound, upperCountBefore) = self.sliceIndex(for: range.upperBound)
 
-    if lowerBound.sliceIndex == slices.endIndex { return }
-    if lowerBound.sliceIndex == upperBound.sliceIndex {
+    if lowerBound == slices.endIndex { return }
+    if lowerBound == upperBound {
       // We're removing characters from *within* a slice. That means we need to *split* this
       // existing slice.
 
-      let existingSlice = slices[lowerBound.sliceIndex]
+      let existingSlice = slices[lowerBound]
 
-      let lowerPart = SourceSlice(source: existingSlice.source, startIndex: existingSlice.startIndex, endIndex: lowerBound.contentIndex)
-      let upperPart = SourceSlice(source: existingSlice.source, startIndex: upperBound.contentIndex, endIndex: existingSlice.endIndex)
+      let lowerPart = SourceSlice(source: existingSlice.source, startIndex: existingSlice.startIndex, endIndex: existingSlice.startIndex + (range.lowerBound - lowerCountBefore))
+      let upperPart = SourceSlice(source: existingSlice.source, startIndex: existingSlice.startIndex + (range.upperBound - lowerCountBefore), endIndex: existingSlice.endIndex)
 
       if !lowerPart.isEmpty {
-        slices[lowerBound.sliceIndex] = lowerPart
+        slices[lowerBound] = lowerPart
         if !upperPart.isEmpty {
-          slices.insert(upperPart, at: lowerBound.sliceIndex + 1)
+          slices.insert(upperPart, at: lowerBound + 1)
         }
       } else if !upperPart.isEmpty {
         // lower empty, upper isn't
-        slices[lowerBound.sliceIndex] = upperPart
+        slices[lowerBound] = upperPart
       } else {
         // we deleted a whole slice, nothing left!
-        slices.remove(at: lowerBound.sliceIndex)
+        slices.remove(at: lowerBound)
       }
     } else {
       // We are removing things between two or more slices.
-      slices.removeSubrange(lowerBound.sliceIndex + 1 ..< upperBound.sliceIndex)
-      slices[lowerBound.sliceIndex].endIndex = lowerBound.contentIndex
-      slices[lowerBound.sliceIndex + 1].startIndex = upperBound.contentIndex
+      slices.removeSubrange(lowerBound + 1 ..< upperBound)
+      slices[lowerBound].endIndex = slices[lowerBound].startIndex + range.lowerBound - lowerCountBefore
+      slices[lowerBound + 1].startIndex = slices[lowerBound + 1].startIndex + range.upperBound - upperCountBefore
 
-      if slices[lowerBound.sliceIndex + 1].isEmpty {
-        slices.remove(at: lowerBound.sliceIndex + 1)
+      if slices[lowerBound + 1].isEmpty {
+        slices.remove(at: lowerBound + 1)
       }
-      if slices[lowerBound.sliceIndex].isEmpty {
-        slices.remove(at: lowerBound.sliceIndex)
+      if slices[lowerBound].isEmpty {
+        slices.remove(at: lowerBound)
       }
     }
   }
