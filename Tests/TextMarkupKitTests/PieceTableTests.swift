@@ -22,7 +22,7 @@ import XCTest
 final class PieceTableTests: XCTestCase {
   func testOriginalLength() {
     let pieceTable = PieceTable("Hello, world")
-    XCTAssertEqual(12, pieceTable.endIndex)
+    XCTAssertEqual(12, pieceTable.count)
     XCTAssertEqual("Hello, world", pieceTable.string)
   }
 
@@ -80,7 +80,7 @@ final class PieceTableTests: XCTestCase {
 
   func testAppend() {
     let pieceTable = PieceTable("")
-    pieceTable.replaceCharacters(in: NSRange(location: 0, length: 1), with: "Hello, world!")
+    pieceTable.replaceCharacters(in: NSRange(location: 0, length: 0), with: "Hello, world!")
     XCTAssertEqual(pieceTable.string, "Hello, world!")
   }
 
@@ -88,8 +88,25 @@ final class PieceTableTests: XCTestCase {
     measure {
       let pieceTable = PieceTable("")
       for i in 0 ..< 1024 {
-        pieceTable.replaceCharacters(in: NSRange(location: i, length: 1), with: ".")
+        pieceTable.replaceCharacters(in: NSRange(location: i, length: 0), with: ".")
       }
+    }
+  }
+
+  /// This does two large "local" edits. First it puts 512 characters sequentially into the buffer.
+  /// Then it puts another 512 characters sequentially into the middle.
+  /// Logically this can be represented in 3 runs so manipulations should stay fast.
+  func testLargeLocalEditPerformance() {
+    let expected = String(repeating: "A", count: 256) + String(repeating: "B", count: 512) + String(repeating: "A", count: 256)
+    measure {
+      let pieceTable = PieceTable("")
+      for i in 0 ..< 512 {
+        pieceTable.replaceCharacters(in: NSRange(location: i, length: 0), with: "A")
+      }
+      for i in 0 ..< 512 {
+        pieceTable.replaceCharacters(in: NSRange(location: 256 + i, length: 0), with: "B")
+      }
+      XCTAssertEqual(pieceTable.string, expected)
     }
   }
 }

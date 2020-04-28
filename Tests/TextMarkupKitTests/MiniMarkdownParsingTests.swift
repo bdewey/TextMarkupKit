@@ -198,8 +198,8 @@ private extension MiniMarkdownParsingTests {
       let grammar = MiniMarkdownGrammar()
       let parser = PackratParser(buffer: pieceTable, grammar: grammar)
       let tree = try parser.parse()
-      if tree.length != pieceTable.length {
-        let unparsedText = pieceTable[NSRange(location: tree.length, length: pieceTable.length - tree.length)]
+      if tree.length != pieceTable.count {
+        let unparsedText = pieceTable[NSRange(location: tree.length, length: pieceTable.count - tree.length)]
         XCTFail("Test case \(name): Unparsed text = '\(unparsedText.debugDescription)'", file: file, line: line)
       }
       if expectedStructure != tree.compactStructure {

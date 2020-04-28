@@ -17,80 +17,80 @@
 
 import Foundation
 
-/// Currently this is an un-editable string. But the goal is to support efficient edits with a Piece Table data structure.
+/// A piece table in a range-replacable collection of UTF-16 values (unichar). Internally it uses two `NSStrings` to store these:
+/// A read-only *originalContents* `NSString` and an append-only *newContents* `NSMutableString` that holds all added content.
+///
+/// The logical view of the modified string is built from a collection of `Run` structures, where a `Run` is a slice of unichar
+/// values from one of the two storage strings.
 public final class PieceTable: CustomStringConvertible {
   public init(_ string: String) {
-    self.originalContents = string as NSString
-    self.runs = RunCollection(originalLength: originalContents.length)
+    self.originalContents = Array(string.utf16)
+    self.slices = [originalContents[0...]]
+  }
+
+  public init() {
+    self.originalContents = []
+    self.slices = [originalContents[0...]]
   }
 
   /// Holds all of the original, unedited contents of the buffer.
-  private let originalContents: NSString
+  private let originalContents: [unichar]
 
   /// Holds all new characters added to the buffer.
-  private let newContents = NSMutableString()
+  private var newContents = [unichar]()
 
-  /// The logical contents of this buffer, expressed as a sequence of runs from either `originalContents` or `newContents`
-  private var runs: RunCollection
+  private typealias SourceSlice = ArraySlice<unichar>
 
-  public var startIndex: Int { 0 }
-  public var endIndex: Int {
-    return runs.length
-  }
-
-  public var length: Int {
-    runs.length
-  }
+  /// The logical contents of this buffer, expressed as a sequence of slices from either `originalContents` or `newContents`
+  private var slices = [SourceSlice]()
 
   /// Return the receiver as a String.
   public var string: String {
-    runs.map { string(for: $0) }.joined()
+    self[startIndex ..< endIndex]
+  }
+
+  /// How many `unichar` elements are in the piece table.
+  /// - note: O(N) in the number of slices.
+  public var count: Int {
+    slices.reduce(0) {
+      $0 + $1.count
+    }
   }
 
   public var eofRead = 0
   public var charactersRead = 0
 
   public func utf16(at index: Int) -> unichar? {
-    guard index < runs.length else {
-      eofRead += 1
-      return nil
-    }
-    charactersRead += 1
-    var ch: unichar?
-    runs.enumerateRuns(intersecting: NSRange(location: index, length: 1)) { run, range in
-      ch = character(for: run, location: range.location)
-    }
-    return ch
+    return self[index]
   }
 
+  /// Implementation of the core NSTextStorage method.
   public func replaceCharacters(in range: NSRange, with str: String) {
-    assert(range.location <= endIndex)
-    let newRange: NSRange?
-    if !str.isEmpty {
-      newRange = appendString(str)
-    } else {
-      newRange = nil
-    }
-    runs.replaceRange(range, with: newRange)
-  }
-
-  private func appendString(_ str: String) -> NSRange {
-    let location = newContents.length
-    newContents.append(str)
-    return NSRange(location: location, length: str.utf16.count)
+    let lowerBound = index(for: range.lowerBound)
+    let upperBound = index(for: range.upperBound)
+    replaceSubrange(lowerBound ..< upperBound, with: str.utf16)
   }
 
   public subscript(range: NSRange) -> String {
-    var result = ""
-    runs.enumerateRuns(intersecting: range) { run, rangeInRun in
-      result += string(for: run, subrange: rangeInRun)
+    let lowerBound = index(for: range.lowerBound)
+    let upperBound = index(for: range.upperBound)
+    return self[lowerBound ..< upperBound]
+  }
+
+  public subscript(bounds: Range<Index>) -> String {
+    var results = [unichar]()
+    for sliceIndex in bounds.lowerBound.sliceIndex ... bounds.upperBound.sliceIndex {
+      let slice = slices[sliceIndex]
+      let lowerBound = (sliceIndex == bounds.lowerBound.sliceIndex) ? bounds.lowerBound.contentIndex : slice.startIndex
+      let upperBound = (sliceIndex == bounds.upperBound.sliceIndex) ? bounds.upperBound.contentIndex : slice.endIndex
+      results.append(contentsOf: slice[lowerBound ..< upperBound])
     }
-    return result
+    return String(utf16CodeUnits: results, count: results.count)
   }
 
   public var description: String {
     let properties: [String: Any] = [
-      "length": originalContents.length,
+      "length": originalContents.count,
       "charactersRead": charactersRead,
       "eofRead": eofRead,
     ]
@@ -98,138 +98,122 @@ public final class PieceTable: CustomStringConvertible {
   }
 }
 
-// MARK: - Private
+extension PieceTable: Collection {
+  /// There are two kinds of index into the contents of a PieceTable. A `ContentIndex` treats the contents as a single array
+  /// of `unichar` elements, so the indexes range from 0 to (count - 1) and you can do simple arithmetic to manipulate indexes.
+  public typealias ContentIndex = Int
 
-private extension PieceTable {
-  enum Source {
-    case original
-    case new
-  }
+  /// Then there is the actual `Index`, which tells you specifically how to find a character within the two contents arrays.
+  public struct Index: Comparable {
+    /// The index of the slice in `slices`
+    let sliceIndex: Int
 
-  /// A contiguous range of characters from either `originalContents` or `newContents`.
-  struct Run {
-    let source: Source
-    var range: NSRange
-  }
+    /// The index of a unichar within a specific slice.
+    let contentIndex: Int
 
-  func string(for run: Run, subrange: NSRange? = nil) -> String {
-    let range = subrange ?? run.range
-    assert(run.range.union(range) == run.range)
-    switch run.source {
-    case .original:
-      return originalContents.substring(with: range)
-    case .new:
-      return newContents.substring(with: range)
+    public static func < (lhs: PieceTable.Index, rhs: PieceTable.Index) -> Bool {
+      if lhs.sliceIndex != rhs.sliceIndex { return lhs.sliceIndex < rhs.sliceIndex }
+      return lhs.contentIndex < rhs.contentIndex
     }
   }
 
-  func character(for run: Run, location: Int) -> unichar {
-    assert(run.range.contains(location))
-    switch run.source {
-    case .original:
-      return originalContents.character(at: location)
-    case .new:
-      return newContents.character(at: location)
+  /// Given an `Index`, returns the corresponding `ContentIndex`.
+  /// - note: O(N) in the size of `slices`
+  public func contentIndex(for index: Index) -> ContentIndex {
+    var sliceOffset: ContentIndex = 0
+    for i in 0 ..< index.sliceIndex - 1 {
+      sliceOffset += slices[i].count
     }
+    return sliceOffset + (index.contentIndex - slices[index.sliceIndex].startIndex)
   }
 
-  struct RunCollection: Collection {
-    init(originalLength: Int) {
-      self.runs = [Run(source: .original, range: NSRange(location: 0, length: originalLength))]
-    }
-
-    private var runs: [Run]
-
-    var length: Int {
-      runs.reduce(0) { $0 + $1.range.length }
-    }
-
-    func enumerateRuns(intersecting contentRange: NSRange, block: (Run, NSRange) -> Void) {
-      var location = 0
-      for run in runs {
-        if location > contentRange.upperBound { break }
-        if var intersection = NSRange(location: location, length: run.range.length).intersection(contentRange) {
-          intersection.location -= location
-          intersection.location += run.range.location
-          block(run, intersection)
-        }
-        location += run.range.length
+  /// Given a `ContentIndex`, returns the corresponding `Index`
+  /// - note: O(N) in the size of `slices`
+  public func index(for contentIndex: ContentIndex) -> Index {
+    var contentLength = 0
+    for (index, slice) in slices.enumerated() {
+      if contentLength + slice.count > contentIndex {
+        return Index(sliceIndex: index, contentIndex: slice.startIndex + (contentIndex - contentLength))
       }
+      contentLength += slice.count
     }
+    return endIndex
+  }
 
-    mutating func replaceRange(_ existingRange: NSRange, with newRange: NSRange?) {
-      let cutpoint = deleteRange(existingRange)
-      if let newRange = newRange {
-        let run = Run(source: .new, range: newRange)
-        runs.insert(run, at: cutpoint)
-      }
+  /// The index of the first character of content.
+  public var startIndex: Index {
+    Index(sliceIndex: 0, contentIndex: slices.first?.startIndex ?? 0)
+  }
+
+  public var endIndex: Index {
+    Index(sliceIndex: slices.count - 1, contentIndex: slices.last?.endIndex ?? 0)
+  }
+
+  public func index(after i: Index) -> Index {
+    if i.contentIndex == slices[i.sliceIndex].endIndex - 1, i.sliceIndex < slices.count {
+      return Index(sliceIndex: i.sliceIndex + 1, contentIndex: slices[i.sliceIndex + 1].startIndex)
     }
+    return Index(sliceIndex: i.sliceIndex, contentIndex: i.contentIndex + 1)
+  }
 
-    /// Removes the run range corresponding to a text content range.
-    /// - returns: The index in `runs` *after* the removed range.
-    private mutating func deleteRange(_ existingRange: NSRange) -> Int {
-      guard let findResult = findRange(existingRange) else {
-        return runs.endIndex
-      }
-      var endingRun = runs[findResult.end.index]
-      endingRun.range.location += (existingRange.upperBound - findResult.end.contentOffset)
-      endingRun.range.length -= (existingRange.upperBound - findResult.end.contentOffset)
-      runs[findResult.start.index].range.length = (existingRange.lowerBound - findResult.start.contentOffset)
-      let runsToDelete = findResult.end.index - findResult.start.index - 1
-      if runsToDelete < 0 {
-        runs.insert(endingRun, at: findResult.start.index + 1)
-      } else {
-        runs.removeSubrange(findResult.start.index + 1 ..< findResult.end.index)
-        runs[findResult.start.index + 1] = endingRun
-      }
-      return findResult.start.index + 1
+  public subscript(position: Index) -> unichar {
+    return slices[position.sliceIndex][position.contentIndex]
+  }
+
+  /// For convenience reading contents with a parser, an accessor that accepts a contentIndex and returns nil when the index is
+  /// out of bounds versus crashing.
+  public subscript(contentIndex: ContentIndex) -> unichar? {
+    let index = self.index(for: contentIndex)
+    if index < endIndex {
+      return self[index]
+    } else {
+      return nil
     }
+  }
+}
 
-    /// Finds the run range for a text content range.
-    /// - returns: A FindRangeResult if there is a run range for the text content range, nil otherwise.
-    private func findRange(_ range: NSRange) -> FindRangeResult? {
-      if range.location == length {
-        return nil
-      }
-      var result = FindRangeResult()
-      var contentOffset = 0
-      var foundStart = false
-      for (i, run) in runs.enumerated() {
-        if !foundStart, contentOffset + run.range.length > range.location {
-          result.start = RunInfo(index: i, contentOffset: contentOffset)
-          foundStart = true
-        }
-        if contentOffset + run.range.length >= range.upperBound {
-          result.end = RunInfo(index: i, contentOffset: contentOffset)
-          return result
-        }
-        contentOffset += run.range.length
-      }
-      assertionFailure()
-      return result
+extension PieceTable: RangeReplaceableCollection {
+  public func replaceSubrange<C, R>(
+    _ subrange: R,
+    with newElements: C
+  ) where C : Collection, R : RangeExpression, unichar == C.Element, Index == R.Bound {
+    // TODO
+    let range = subrange.relative(to: self)
+    deleteRange(range)
+    guard !newElements.isEmpty else { return }
+
+    let index = newContents.endIndex
+    newContents.append(contentsOf: newElements)
+    slices.insert(newContents[index ..< newContents.endIndex], at: range.lowerBound.sliceIndex + 1)
+  }
+
+  private func deleteRange(_ range: Range<Index>) {
+    if range.lowerBound.sliceIndex == range.upperBound.sliceIndex {
+      // We're removing characters from *within* a slice. That means we need to *split* this
+      // existing slice.
+
+      let existingSlice = slices[range.lowerBound.sliceIndex]
+
+      let lowerPart = existingSlice[existingSlice.startIndex ..< range.lowerBound.contentIndex]
+      let upperPart = existingSlice[range.upperBound.contentIndex ..< existingSlice.endIndex]
+
+      slices[range.lowerBound.sliceIndex] = lowerPart
+      slices.insert(upperPart, at: range.lowerBound.sliceIndex + 1)
+    } else {
+      // We are removing things between two or more slices.
+      slices.removeSubrange(range.lowerBound.sliceIndex + 1 ..< range.upperBound.sliceIndex)
+      slices[range.lowerBound.sliceIndex].settingEndIndex(range.lowerBound.contentIndex)
+      slices[range.lowerBound.sliceIndex + 1].settingStartIndex(range.upperBound.contentIndex)
     }
+  }
+}
 
-    var startIndex: Int { return 0 }
-    var endIndex: Int { return runs.count }
-    func index(after i: Int) -> Int {
-      return i + 1
-    }
+extension ArraySlice {
+  mutating func settingEndIndex(_ endIndex: Index) {
+    self = self[startIndex ..< endIndex]
+  }
 
-    subscript(position: Int) -> Run {
-      runs[position]
-    }
-
-    struct RunInfo {
-      /// The index of a run
-      var index: Int = 0
-
-      /// The starting content offset of this run.
-      var contentOffset: Int = 0
-    }
-
-    struct FindRangeResult {
-      var start = RunInfo()
-      var end = RunInfo()
-    }
+  mutating func settingStartIndex(_ startIndex: Index) {
+    self = self[startIndex ..< endIndex]
   }
 }

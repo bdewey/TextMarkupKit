@@ -33,7 +33,7 @@ public final class PackratParser: CustomStringConvertible {
   public init(buffer: PieceTable, grammar: PackratGrammar) {
     self.buffer = buffer
     self.grammar = grammar
-    self.memoizedResults = Array(repeating: MemoColumn(), count: buffer.endIndex + 1)
+    self.memoizedResults = Array(repeating: MemoColumn(), count: buffer.count + 1)
   }
 
   /// The contents to parse.
@@ -62,7 +62,7 @@ public final class PackratParser: CustomStringConvertible {
   /// - Returns: The single node at the root of the syntax tree resulting from parsing `buffer`
   public func parse() throws -> Node {
     let result = grammar.start.apply(to: self, at: 0)
-    guard let node = result.node, result.length == buffer.endIndex else {
+    guard let node = result.node, result.length == buffer.count else {
       throw Error.incompleteParsing(length: result.length)
     }
     return node
@@ -86,7 +86,7 @@ public final class PackratParser: CustomStringConvertible {
   ///   - index: The position in the input at which we applied the rule to get the result.
   public func memoizeResult(_ result: ParsingResult, rule: ObjectIdentifier, index: Int) {
     assert(result.examinedLength > 0)
-    assert((result.examinedLength + index) <= buffer.length + 1)
+    assert((result.examinedLength + index) <= buffer.count + 1)
     assert(result.examinedLength >= result.length)
     memoizedResults[index][rule] = result
   }

@@ -64,7 +64,7 @@ final class PerformanceTests: XCTestCase {
     let grammar = MiniMarkdownGrammar()
     let parser = PackratParser(buffer: localPieceTable, grammar: grammar)
     _ = try! parser.parse()
-    let overreadRatio = String(format: "%.2f%%", 100.0 * ((Double(localPieceTable.charactersRead) / Double(localPieceTable.endIndex)) - 1))
+    let overreadRatio = String(format: "%.2f%%", 100.0 * ((Double(localPieceTable.charactersRead) / Double(localPieceTable.count)) - 1))
     print("Overread ratio: \(overreadRatio)")
     print(localPieceTable)
     print(parser)

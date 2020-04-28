@@ -108,8 +108,8 @@ private extension IncrementalParserTests {
   @discardableResult
   func validateParser(_ parser: IncrementalParser, has expectedStructure: String, file: StaticString = #file, line: UInt = #line) -> Node {
     let tree = parser.tree
-    if tree.length != parser.length {
-      let unparsedText = parser[NSRange(location: tree.length, length: parser.length - tree.length)]
+    if tree.length != parser.count {
+      let unparsedText = parser[NSRange(location: tree.length, length: parser.count - tree.length)]
       XCTFail("Test case \(name): Unparsed text = '\(unparsedText.debugDescription)'", file: file, line: line)
     }
     if expectedStructure != tree.compactStructure {
