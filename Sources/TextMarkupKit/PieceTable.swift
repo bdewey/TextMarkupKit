@@ -113,8 +113,8 @@ public final class PieceTable: CustomStringConvertible {
   /// Gets a substring of the PieceTable contents.
   private subscript(bounds: Range<Int>) -> String {
     guard bounds.upperBound > 0 else { return "" }
-    let (lowerSliceIndex, lowerStartBefore) = self.sliceIndex(for: bounds.lowerBound)
-    let (upperSliceIndex, upperCountBefore) = self.sliceIndex(for: bounds.upperBound - 1)
+    let (lowerSliceIndex, lowerStartBefore) = sliceIndex(for: bounds.lowerBound)
+    let (upperSliceIndex, upperCountBefore) = sliceIndex(for: bounds.upperBound - 1)
     var results = [unichar]()
     for sliceIndex in lowerSliceIndex ... upperSliceIndex {
       let slice = slices[sliceIndex]
@@ -136,7 +136,6 @@ public final class PieceTable: CustomStringConvertible {
 }
 
 extension PieceTable: Collection {
-
   /// Identifies a location of a character as its location in the `slices` array (to find the appropriate source) and the index within
   /// that source.
   ///
@@ -187,7 +186,7 @@ extension PieceTable: Collection {
   /// For convenience reading contents with a parser, an accessor that accepts a contentIndex and returns nil when the index is
   /// out of bounds versus crashing.
   public subscript(contentIndex: Int) -> unichar {
-    let index = self.sourceIndex(for: contentIndex)
+    let index = sourceIndex(for: contentIndex)
     return self[index]
   }
 }
@@ -225,8 +224,8 @@ extension PieceTable: RangeReplaceableCollection {
   /// range of content is part of our collection.
   /// - returns: The index of the SourceSlice where characters can be inserted if the intent was to replace this range.
   private func deleteRange(_ range: Range<Int>) {
-    let (lowerBound, lowerCountBefore) = self.sliceIndex(for: range.lowerBound)
-    let (upperBound, upperCountBefore) = self.sliceIndex(for: range.upperBound)
+    let (lowerBound, lowerCountBefore) = sliceIndex(for: range.lowerBound)
+    let (upperBound, upperCountBefore) = sliceIndex(for: range.upperBound)
 
     if lowerBound == slices.endIndex { return }
     if lowerBound == upperBound {
