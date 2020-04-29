@@ -264,7 +264,7 @@ public extension ParsingRule {
 /// - note: In PEG grammars, matching a single character is represented by a ".", thus the name.
 final class DotRule: ParsingRule {
   override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
-    if index < parser.buffer.endIndex {
+    if index < parser.buffer.count {
       return performanceCounters.recordResult(.dot)
     } else {
       return performanceCounters.recordResult(.fail)

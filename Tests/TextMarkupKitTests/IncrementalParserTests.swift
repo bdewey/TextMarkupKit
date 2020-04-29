@@ -80,7 +80,7 @@ final class IncrementalParserTests: XCTestCase {
     }
   }
 
-  func __testIncrementalParsingReusesNodesWhenPossible() {
+  func testIncrementalParsingReusesNodesWhenPossible() {
     do {
       let text = """
       # Sample document
@@ -100,6 +100,24 @@ final class IncrementalParserTests: XCTestCase {
       XCTFail("Unexpected error: \(error)")
     }
   }
+
+  func testAddSentenceToLargeText() {
+    do {
+      let largeText = String(repeating: TestStrings.markdownCanonical, count: 10)
+      let parser = try IncrementalParser(largeText, grammar: MiniMarkdownGrammar())
+      let toInsert = "\n\nI'm adding some new text with *emphasis* to test incremental parsing.\n\n"
+      measure {
+        for (i, ch) in toInsert.utf16.enumerated() {
+          let buf = [ch]
+          let str = String(utf16CodeUnits: buf, count: 1)
+          try! parser.replaceCharacters(in: NSRange(location: 34 + i, length: 0), with: str)
+        }
+      }
+      print("Inserted \(toInsert.utf16.count) characters, so remember to divide for per-character costs")
+    } catch {
+      XCTFail("Unexpected error: \(error)")
+    }
+  }
 }
 
 // MARK: - Private
@@ -108,8 +126,8 @@ private extension IncrementalParserTests {
   @discardableResult
   func validateParser(_ parser: IncrementalParser, has expectedStructure: String, file: StaticString = #file, line: UInt = #line) -> Node {
     let tree = parser.tree
-    if tree.length != parser.length {
-      let unparsedText = parser[NSRange(location: tree.length, length: parser.length - tree.length)]
+    if tree.length != parser.count {
+      let unparsedText = parser[NSRange(location: tree.length, length: parser.count - tree.length)]
       XCTFail("Test case \(name): Unparsed text = '\(unparsedText.debugDescription)'", file: file, line: line)
     }
     if expectedStructure != tree.compactStructure {

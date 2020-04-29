@@ -38,7 +38,7 @@ public final class IncrementalParser {
 
   // MARK: - Accessing text
 
-  public var length: Int { pieceTable.length }
+  public var count: Int { pieceTable.count }
   public var string: String { pieceTable.string }
   public subscript(range: NSRange) -> String { pieceTable[range] }
 }
