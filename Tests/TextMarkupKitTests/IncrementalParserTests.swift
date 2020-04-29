@@ -80,7 +80,7 @@ final class IncrementalParserTests: XCTestCase {
     }
   }
 
-  func __testIncrementalParsingReusesNodesWhenPossible() {
+  func testIncrementalParsingReusesNodesWhenPossible() {
     do {
       let text = """
       # Sample document
@@ -96,6 +96,24 @@ final class IncrementalParserTests: XCTestCase {
       let editedEmphasis = editedTree.node(at: [2, 1])
       XCTAssertEqual(editedEmphasis?.type, .strongEmphasis)
       XCTAssert(emphasis === editedEmphasis)
+    } catch {
+      XCTFail("Unexpected error: \(error)")
+    }
+  }
+
+  func testAddSentenceToLargeText() {
+    do {
+      let largeText = String(repeating: TestStrings.markdownCanonical, count: 10)
+      let parser = try IncrementalParser(largeText, grammar: MiniMarkdownGrammar())
+      let toInsert = "\n\nI'm adding some new text with *emphasis* to test incremental parsing.\n\n"
+      measure {
+        for (i, ch) in toInsert.utf16.enumerated() {
+          let buf = [ch]
+          let str = String(utf16CodeUnits: buf, count: 1)
+          try! parser.replaceCharacters(in: NSRange(location: 34 + i, length: 0), with: str)
+        }
+      }
+      print("Inserted \(toInsert.utf16.count) characters, so remember to divide for per-character costs")
     } catch {
       XCTFail("Unexpected error: \(error)")
     }

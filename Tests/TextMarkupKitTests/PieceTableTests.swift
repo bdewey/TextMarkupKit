@@ -118,6 +118,38 @@ final class PieceTableTests: XCTestCase {
       XCTAssertEqual(pieceTable.string, expected)
     }
   }
+
+  let megabyteText = String(repeating: " ", count: 1024 * 1024)
+
+  func testMegabytePieceTablePerformance() {
+    measure {
+      let pieceTable = PieceTable(megabyteText)
+      for i in 0 ..< 50 * 1024 {
+        pieceTable.replaceCharacters(in: NSRange(location: 1024 + i, length: 0), with: ".")
+      }
+    }
+  }
+
+  func testMegabyteStringPerformance() {
+    measure {
+      var str = megabyteText
+      var index = str.index(str.startIndex, offsetBy: 50 * 1024)
+      for _ in 0 ..< 50 * 1024 {
+        str.insert(".", at: index)
+        index = str.index(after: index)
+      }
+    }
+  }
+
+  /// This never finishes in a reasonable amount of time :-(
+  func __testMegabyteTextStoragePerformance() {
+    measure {
+      let textStorage = NSTextStorage(attributedString: NSAttributedString(string: megabyteText))
+      for i in 0 ..< 50 * 1024 {
+        textStorage.replaceCharacters(in: NSRange(location: 1024 + i, length: 0), with: ".")
+      }
+    }
+  }
 }
 
 // MARK: - Private

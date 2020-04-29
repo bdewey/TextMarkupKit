@@ -123,7 +123,6 @@ public final class PackratParser: CustomStringConvertible {
         removedResults[column] = victims
       }
     }
-    print(removedResults)
   }
 
   // MARK: - Supporting types
