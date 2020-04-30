@@ -19,6 +19,9 @@ import Foundation
 
 /// Used for tracing the execution of rules.
 public final class TraceBuffer: CustomStringConvertible {
+  /// Singleton. This is ugly but I can get rid of it if I move to regular code generation.
+  public static let shared = TraceBuffer()
+
   /// All completed test entries.
   public var traceEntries: [Entry] = []
 

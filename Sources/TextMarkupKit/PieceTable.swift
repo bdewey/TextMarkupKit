@@ -21,7 +21,7 @@ import Foundation
 /// A read-only *originalContents* array and an append-only *newContents* array that holds all added content.
 ///
 /// The logical view of the modified string is built from an array of slices from the two arrays.
-public final class PieceTable: CustomStringConvertible {
+public final class PieceTable: CustomStringConvertible, SafeUnicodeBuffer {
   /// Initialize an empty piece table.
   public init() {
     self.originalContents = []

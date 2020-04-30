@@ -178,12 +178,12 @@ final class MiniMarkdownParsingTests: XCTestCase {
   func testFile() {
     let pieceTable = PieceTable(TestStrings.markdownCanonical)
     let grammar = MiniMarkdownGrammar()
-    let parser = PackratParser(buffer: pieceTable, grammar: grammar)
+    let memoizationTable = MemoizationTable()
     do {
-      _ = try parser.parse()
+      _ = try pieceTable.parse(grammar: grammar, memoizationTable: memoizationTable)
     } catch {
       XCTFail("Unexpected error: \(error)")
-      print(parser.traceBuffer)
+      print(TraceBuffer.shared)
     }
   }
 }
@@ -196,8 +196,8 @@ private extension MiniMarkdownParsingTests {
     do {
       let pieceTable = PieceTable(text)
       let grammar = MiniMarkdownGrammar()
-      let parser = PackratParser(buffer: pieceTable, grammar: grammar)
-      let tree = try parser.parse()
+      let memoizationTable = MemoizationTable()
+      let tree = try pieceTable.parse(grammar: grammar, memoizationTable: memoizationTable)
       if tree.length != pieceTable.count {
         let unparsedText = pieceTable[NSRange(location: tree.length, length: pieceTable.count - tree.length)]
         XCTFail("Test case \(name): Unparsed text = '\(unparsedText.debugDescription)'", file: file, line: line)

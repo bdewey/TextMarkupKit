@@ -25,10 +25,10 @@ final class PerformanceTests: XCTestCase {
   )
 
   func testPackratParser() {
-    let parser = PackratParser(buffer: pieceTable, grammar: JustTextGrammar.shared)
+    let memoizationTable = MemoizationTable()
     measure {
       do {
-        _ = try parser.parse()
+        _ = try pieceTable.parse(grammar: JustTextGrammar.shared, memoizationTable: memoizationTable)
       } catch {
         XCTFail("Unexpected error: \(error)")
       }
@@ -39,8 +39,8 @@ final class PerformanceTests: XCTestCase {
     measure {
       do {
         let grammar = MiniMarkdownGrammar()
-        let parser = PackratParser(buffer: pieceTable, grammar: grammar)
-        _ = try parser.parse()
+        let memoTable = MemoizationTable()
+        _ = try pieceTable.parse(grammar: grammar, memoizationTable: memoTable)
       } catch {
         XCTFail("Unexpected error: \(error)")
       }
@@ -62,13 +62,13 @@ final class PerformanceTests: XCTestCase {
       String(repeating: "x", count: 277930)
     )
     let grammar = MiniMarkdownGrammar()
-    let parser = PackratParser(buffer: localPieceTable, grammar: grammar)
-    _ = try! parser.parse()
+    let memoTable = MemoizationTable()
+    _ = try! localPieceTable.parse(grammar: grammar, memoizationTable: memoTable)
     let overreadRatio = String(format: "%.2f%%", 100.0 * ((Double(localPieceTable.charactersRead) / Double(localPieceTable.count)) - 1))
     print("Overread ratio: \(overreadRatio)")
     print(localPieceTable)
-    print(parser)
-    let counters = parser.grammar.start.allPerformanceCounters()
+    print(memoTable)
+    let counters = grammar.start.allPerformanceCounters()
     let dedup = Dictionary(counters, uniquingKeysWith: { _, x in x })
     let topTotal = dedup.sorted(by: { $0.value.total > $1.value.total }).prefix(10).map(String.init(describing:)).joined(separator: "\n")
     let leastSuccessful = dedup.filter { $0.value.total > 0 }.sorted(by: { $0.value.successRate < $1.value.successRate }).prefix(10).map(String.init(describing:)).joined(separator: "\n")

@@ -45,7 +45,7 @@ final class IncrementalParserTests: XCTestCase {
     do {
       let parser = try IncrementalParser("Hello **world*", grammar: MiniMarkdownGrammar())
       validateParser(parser, has: "(document (paragraph text (emphasis delimiter text delimiter)))")
-      parser.parser.traceBuffer.traceEntries.removeAll()
+      TraceBuffer.shared.traceEntries.removeAll()
       try parser.replaceCharacters(in: NSRange(location: 14, length: 0), with: "*")
       print(parser.pieceTable.utf16String)
       validateParser(parser, has: "(document (paragraph text (strong_emphasis delimiter text delimiter)))")
@@ -58,7 +58,7 @@ final class IncrementalParserTests: XCTestCase {
     do {
       let parser = try IncrementalParser("Hello * world*", grammar: MiniMarkdownGrammar())
       validateParser(parser, has: "(document (paragraph text))")
-      parser.parser.traceBuffer.traceEntries.removeAll()
+      TraceBuffer.shared.traceEntries.removeAll()
       try parser.replaceCharacters(in: NSRange(location: 7, length: 1), with: "")
       XCTAssertEqual(parser.pieceTable.utf16String, parser.pieceTable.string)
       validateParser(parser, has: "(document (paragraph text (emphasis delimiter text delimiter)))")
@@ -71,7 +71,7 @@ final class IncrementalParserTests: XCTestCase {
     do {
       let parser = try IncrementalParser("Hello *world *", grammar: MiniMarkdownGrammar())
       validateParser(parser, has: "(document (paragraph text))")
-      parser.parser.traceBuffer.traceEntries.removeAll()
+      TraceBuffer.shared.traceEntries.removeAll()
       try parser.replaceCharacters(in: NSRange(location: 12, length: 1), with: "")
       XCTAssertEqual(parser.pieceTable.utf16String, parser.pieceTable.string)
       validateParser(parser, has: "(document (paragraph text (emphasis delimiter text delimiter)))")

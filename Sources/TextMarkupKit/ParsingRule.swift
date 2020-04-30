@@ -17,6 +17,36 @@
 
 import Foundation
 
+/// A type that provides safe access to Int-indexed UTF-16 values.
+public protocol SafeUnicodeBuffer {
+  /// How many UTF-16 characters are in the buffer
+  var count: Int { get }
+
+  /// Gets the UTF-16 value at an index. If the index is out of bounds, returns nil.
+  func utf16(at index: Int) -> unichar?
+}
+
+public enum ParsingError: Swift.Error {
+  /// The supplied grammar did not parse the entire contents of the buffer.
+  /// - parameter length: How much of the buffer was consumed by the grammar.
+  case incompleteParsing(length: Int)
+}
+
+
+public extension SafeUnicodeBuffer {
+  /// Parses the contents of the buffer.
+  /// - Throws: If the grammar could not parse the entire contents, throws `Error.incompleteParsing`. If the grammar resulted in more than one resulting node, throws `Error.ambiguousParsing`.
+  /// - Returns: The single node at the root of the syntax tree resulting from parsing `buffer`
+  func parse(grammar: PackratGrammar, memoizationTable: MemoizationTable) throws -> Node {
+    memoizationTable.reserveCapacity(count + 1)
+    let result = grammar.start.parsingResult(from: self, at: 0, memoizationTable: memoizationTable)
+    guard let node = result.node, result.length == count else {
+      throw ParsingError.incompleteParsing(length: result.length)
+    }
+    return node
+  }
+}
+
 /// A rule recognizes a specific bit of structure inside of text content.
 open class ParsingRule: CustomStringConvertible {
   public init() {}
@@ -70,8 +100,12 @@ open class ParsingRule: CustomStringConvertible {
     // NOTHING
   }
 
-  /// Computes the result of applying this rule to a specific parser at a specific index.
-  public func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
+  /// Computes the result of applying this rule to specific text at a specific index.
+  public func parsingResult(
+    from buffer: SafeUnicodeBuffer,
+    at index: Int,
+    memoizationTable: MemoizationTable
+  ) -> ParsingResult {
     preconditionFailure("Subclasses should override")
   }
 
@@ -263,8 +297,8 @@ public extension ParsingRule {
 /// A rule that always succeeds after looking at one character.
 /// - note: In PEG grammars, matching a single character is represented by a ".", thus the name.
 final class DotRule: ParsingRule {
-  override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
-    if index < parser.buffer.count {
+  override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
+    if index < buffer.count {
       return performanceCounters.recordResult(.dot)
     } else {
       return performanceCounters.recordResult(.fail)
@@ -281,8 +315,8 @@ final class Characters: ParsingRule {
 
   let characters: CharacterSet
 
-  override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
-    guard let char = parser.buffer.utf16(at: index), characters.contains(char) else {
+  override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
+    guard let char = buffer.utf16(at: index), characters.contains(char) else {
       return performanceCounters.recordResult(.fail)
     }
     return performanceCounters.recordResult(.dot)
@@ -309,9 +343,9 @@ public final class Literal: ParsingRule {
     return "\(super.description) \(str)"
   }
 
-  public override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
+  public override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
     var length = 0
-    while length < chars.count, let char = parser.buffer.utf16(at: index + length), char == chars[length] {
+    while length < chars.count, let char = buffer.utf16(at: index + length), char == chars[length] {
       length += 1
     }
     if length == chars.count {
@@ -329,12 +363,12 @@ public final class Literal: ParsingRule {
 /// Looks up a rule in the parser's grammar by identifier. Sees if the parser has already memoized the result of parsing this rule
 /// at this identifier; if so, returns it. Otherwise, applies the rule, memoizes the result in the parser, and returns it.
 final class MemoizingRule: ParsingRuleWrapper {
-  override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
-    if let memoizedResult = parser.memoizedResult(rule: ObjectIdentifier(self), index: index) {
+  override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
+    if let memoizedResult = memoizationTable.memoizedResult(rule: ObjectIdentifier(self), index: index) {
       return performanceCounters.recordResult(memoizedResult)
     }
-    let result = rule.apply(to: parser, at: index)
-    parser.memoizeResult(result, rule: ObjectIdentifier(self), index: index)
+    let result = rule.parsingResult(from: buffer, at: index, memoizationTable: memoizationTable)
+    memoizationTable.memoizeResult(result, rule: ObjectIdentifier(self), index: index)
     return performanceCounters.recordResult(result)
   }
 
@@ -353,13 +387,13 @@ final class RangeRule: ParsingRuleWrapper {
 
   let range: Range<Int>
 
-  override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
+  override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
     var result = ParsingResult(succeeded: true)
     var currentIndex = index
     var repetitionCount = 0
     var examinedThroughIndex = index
     repeat {
-      let innerResult = rule.apply(to: parser, at: currentIndex)
+      let innerResult = rule.parsingResult(from: buffer, at: currentIndex, memoizationTable: memoizationTable)
       examinedThroughIndex = max(examinedThroughIndex, currentIndex + innerResult.examinedLength)
       guard innerResult.succeeded, innerResult.length > 0 else {
         result.examinedLength = examinedThroughIndex - index
@@ -387,8 +421,8 @@ final class RangeRule: ParsingRuleWrapper {
 
 /// Matches an inner rule 0 or 1 times.
 final class ZeroOrOneRule: ParsingRuleWrapper {
-  override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
-    var result = rule.apply(to: parser, at: index)
+  override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
+    var result = rule.parsingResult(from: buffer, at: index, memoizationTable: memoizationTable)
     if result.succeeded {
       return performanceCounters.recordResult(result)
     }
@@ -409,8 +443,8 @@ final class AbsorbingMatcher: ParsingRuleWrapper {
     super.init(rule)
   }
 
-  override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
-    var result = rule.apply(to: parser, at: index)
+  override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
+    var result = rule.parsingResult(from: buffer, at: index, memoizationTable: memoizationTable)
     if !result.succeeded || result.length == 0 { return result }
     if let existingNode = result.node, existingNode.isFragment {
       existingNode.type = nodeType
@@ -435,8 +469,8 @@ final class WrappingRule: ParsingRuleWrapper {
     super.init(rule)
   }
 
-  override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
-    var result = rule.apply(to: parser, at: index)
+  override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
+    var result = rule.parsingResult(from: buffer, at: index, memoizationTable: memoizationTable)
     if !result.succeeded || result.length == 0 { return result }
     if let node = result.node {
       Swift.assert(node.isFragment)
@@ -463,12 +497,12 @@ public final class InOrder: ParsingRuleSequenceWrapper {
 
   public override var possibleOpeningCharacters: CharacterSet? { memoizedPossibleCharacters }
 
-  public override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
+  public override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
     var result = ParsingResult(succeeded: true)
     var currentIndex = index
     var maxExaminedIndex = index
     for rule in rules {
-      let innerResult = rule.apply(to: parser, at: currentIndex)
+      let innerResult = rule.parsingResult(from: buffer, at: currentIndex, memoizationTable: memoizationTable)
       maxExaminedIndex = max(maxExaminedIndex, currentIndex + innerResult.examinedLength)
       result.appendChild(innerResult)
       if !innerResult.succeeded {
@@ -569,8 +603,8 @@ private extension Optional where Wrapped == CharacterSet {
 
 /// An *assertion* that succeeds if `rule` succeeds but consumes no input and produces no syntax tree nodes.
 final class AssertionRule: ParsingRuleWrapper {
-  override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
-    var result = rule.apply(to: parser, at: index)
+  override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
+    var result = rule.parsingResult(from: buffer, at: index, memoizationTable: memoizationTable)
     result.length = 0
     result.node = nil
     return performanceCounters.recordResult(result)
@@ -583,8 +617,8 @@ final class AssertionRule: ParsingRuleWrapper {
 
 /// An *assertion* that succeeds if `rule` fails and vice versa, and never consumes input.
 final class NotAssertionRule: ParsingRuleWrapper {
-  override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
-    var result = rule.apply(to: parser, at: index)
+  override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
+    var result = rule.parsingResult(from: buffer, at: index, memoizationTable: memoizationTable)
     result.length = 0 // never consume input
     result.succeeded.toggle()
     return performanceCounters.recordResult(result)
@@ -626,15 +660,15 @@ public final class Choice: ParsingRuleSequenceWrapper {
 
   public override var possibleOpeningCharacters: CharacterSet? { _possibleCharacters }
 
-  public override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
+  public override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
     var examinedLength = 1
-    let ch = parser.buffer.utf16(at: index)
+    let ch = buffer.utf16(at: index)
     guard _possibleCharacters.contains(ch) else {
       return .fail
     }
     for rule in rules {
       if !rule.possibleOpeningCharacters.contains(ch) { continue }
-      var result = rule.apply(to: parser, at: index)
+      var result = rule.parsingResult(from: buffer, at: index, memoizationTable: memoizationTable)
       examinedLength = max(examinedLength, result.examinedLength)
       if result.succeeded {
         result.examinedLength = examinedLength
@@ -661,8 +695,8 @@ final class TraceRule: ParsingRuleWrapper {
     }
   }
 
-  override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
-    let locationHint = parser.buffer.utf16(at: index).map { char -> String in
+  override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
+    let locationHint = buffer.utf16(at: index).map { char -> String in
       guard let scalar = Unicode.Scalar(char) else {
         assertionFailure()
         return "invalid"
@@ -670,10 +704,10 @@ final class TraceRule: ParsingRuleWrapper {
       return scalar.debugDescription
     } ?? "(eof)"
     let currentEntry = TraceBuffer.Entry(rule: rule, index: index, locationHint: locationHint)
-    parser.traceBuffer.pushEntry(currentEntry)
-    let result = rule.apply(to: parser, at: index)
+    TraceBuffer.shared.pushEntry(currentEntry)
+    let result = rule.parsingResult(from: buffer, at: index, memoizationTable: memoizationTable)
     currentEntry.result = result
-    parser.traceBuffer.popEntry()
+    TraceBuffer.shared.popEntry()
     return result
   }
 
@@ -692,8 +726,8 @@ final class PropertyRule<K: NodePropertyKey>: ParsingRuleWrapper {
   let key: K.Type
   let value: K.Value
 
-  override func apply(to parser: PackratParser, at index: Int) -> ParsingResult {
-    let result = rule.apply(to: parser, at: index)
+  override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
+    let result = rule.parsingResult(from: buffer, at: index, memoizationTable: memoizationTable)
     result.node?[key] = value
     return result
   }
