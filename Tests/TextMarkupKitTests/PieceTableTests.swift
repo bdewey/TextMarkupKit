@@ -154,7 +154,7 @@ final class PieceTableTests: XCTestCase {
 
 // MARK: - Private
 
-extension PieceTable {
+extension SafeUnicodeBuffer {
   var utf16String: String {
     var chars = [unichar]()
     var i = 0

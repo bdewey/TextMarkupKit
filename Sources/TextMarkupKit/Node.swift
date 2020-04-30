@@ -169,7 +169,7 @@ extension Node {
   }
 
   /// Returns the syntax tree and which parts of `textBuffer` the leaf nodes correspond to.
-  public func debugDescription(withContentsFrom pieceTable: PieceTable) -> String {
+  public func debugDescription(withContentsFrom pieceTable: SafeUnicodeBuffer) -> String {
     var lines = ""
     writeDebugDescription(to: &lines, pieceTable: pieceTable, location: 0, indentLevel: 0)
     return lines
@@ -178,7 +178,7 @@ extension Node {
   /// Recursive helper function for `debugDescription(of:)`
   private func writeDebugDescription<Target: TextOutputStream>(
     to lines: inout Target,
-    pieceTable: PieceTable,
+    pieceTable: SafeUnicodeBuffer,
     location: Int,
     indentLevel: Int
   ) {

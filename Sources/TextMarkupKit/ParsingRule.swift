@@ -17,36 +17,6 @@
 
 import Foundation
 
-/// A type that provides safe access to Int-indexed UTF-16 values.
-public protocol SafeUnicodeBuffer {
-  /// How many UTF-16 characters are in the buffer
-  var count: Int { get }
-
-  /// Gets the UTF-16 value at an index. If the index is out of bounds, returns nil.
-  func utf16(at index: Int) -> unichar?
-}
-
-public enum ParsingError: Swift.Error {
-  /// The supplied grammar did not parse the entire contents of the buffer.
-  /// - parameter length: How much of the buffer was consumed by the grammar.
-  case incompleteParsing(length: Int)
-}
-
-
-public extension SafeUnicodeBuffer {
-  /// Parses the contents of the buffer.
-  /// - Throws: If the grammar could not parse the entire contents, throws `Error.incompleteParsing`. If the grammar resulted in more than one resulting node, throws `Error.ambiguousParsing`.
-  /// - Returns: The single node at the root of the syntax tree resulting from parsing `buffer`
-  func parse(grammar: PackratGrammar, memoizationTable: MemoizationTable) throws -> Node {
-    memoizationTable.reserveCapacity(count + 1)
-    let result = grammar.start.parsingResult(from: self, at: 0, memoizationTable: memoizationTable)
-    guard let node = result.node, result.length == count else {
-      throw ParsingError.incompleteParsing(length: result.length)
-    }
-    return node
-  }
-}
-
 /// A rule recognizes a specific bit of structure inside of text content.
 open class ParsingRule: CustomStringConvertible {
   public init() {}
