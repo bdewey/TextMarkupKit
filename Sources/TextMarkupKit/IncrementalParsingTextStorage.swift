@@ -61,7 +61,19 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
   /// Replaces the characters in the given range with the characters of the given string.
   public override func replaceCharacters(in range: NSRange, with str: String) {
     buffer.replaceCharacters(in: range, with: str)
-    edited([.editedCharacters, .editedAttributes], range: range, changeInLength: str.utf16.count - range.length)
+    edited([.editedCharacters], range: range, changeInLength: str.utf16.count - range.length)
+    if case let .success(node) = buffer.result {
+      var changedAttributesRange: Range<Int>?
+      node.applyAttributes(
+        attributes: defaultAttributes,
+        formattingFunctions: formattingFunctions,
+        startingIndex: 0,
+        leafNodeRange: &changedAttributesRange
+      )
+      if let range = changedAttributesRange {
+        edited([.editedAttributes], range: NSRange(location: range.lowerBound, length: range.count), changeInLength: 0)
+      }
+    }
   }
 
   /// Returns the attributes for the character at a given index.

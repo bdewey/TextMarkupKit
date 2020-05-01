@@ -17,9 +17,13 @@
 
 import Foundation
 
+/// Just a handy alias for NSAttributedString attributes
 public typealias AttributedStringAttributes = [NSAttributedString.Key: Any]
+
+/// A function that modifies NSAttributedString attributes based the syntax tree.
 public typealias FormattingFunction = (Node, inout AttributedStringAttributes) -> Void
 
+/// Key for storing the string attributes associated with a node.
 private struct NodeAttributesKey: NodePropertyKey {
   typealias Value = AttributedStringAttributes
 
@@ -27,17 +31,35 @@ private struct NodeAttributesKey: NodePropertyKey {
 }
 
 public extension Node {
+  /// Associates AttributedStringAttributes with this part of the syntax tree.
   func applyAttributes(
-    defaultAttributes: AttributedStringAttributes,
-    formattingFunctions: [NodeType: FormattingFunction]
+    attributes: AttributedStringAttributes,
+    formattingFunctions: [NodeType: FormattingFunction],
+    startingIndex: Int,
+    leafNodeRange: inout Range<Int>?
   ) {
-    // TODO: Actually apply formatting
+    // If we already have attributes we don't need to do anything else.
     guard self[NodeAttributesKey.self] == nil else {
       return
     }
-    self[NodeAttributesKey.self] = defaultAttributes
+    var attributes = attributes
+    formattingFunctions[type]?(self, &attributes)
+    self[NodeAttributesKey.self] = attributes
+    var childLength = 0
+    if children.isEmpty {
+      // We are a leaf. Adjust leafNodeRange.
+      let lowerBound = min(startingIndex, leafNodeRange?.lowerBound ?? Int.max)
+      let upperBound = max(startingIndex + length, leafNodeRange?.upperBound ?? Int.min)
+      leafNodeRange = lowerBound ..< upperBound
+    }
     for child in children {
-      child.applyAttributes(defaultAttributes: defaultAttributes, formattingFunctions: formattingFunctions)
+      child.applyAttributes(
+        attributes: attributes,
+        formattingFunctions: formattingFunctions,
+        startingIndex: startingIndex + childLength,
+        leafNodeRange: &leafNodeRange
+      )
+      childLength += child.length
     }
   }
 }

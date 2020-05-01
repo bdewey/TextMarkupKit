@@ -42,6 +42,20 @@ final class IncrementalParsingTextStorageTests: XCTestCase {
       are: DelegateMessage.messagePair(editedMask: [.editedCharacters, .editedAttributes], editedRange: NSRange(location: 0, length: 12), changeInLength: 12)
     )
   }
+
+  func testEditMakesMinimumAttributeChange() {
+    assertDelegateMessages(
+      for: [
+        .append(text: "# Header\n\nParagraph with almost **bold*\n\nUnrelated"),
+        .replace(range: NSRange(location: 39, length: 0), replacement: "*"),
+      ],
+      are: Array([
+        DelegateMessage.messagePair(editedMask: [.editedCharacters, .editedAttributes], editedRange: NSRange(location: 0, length: 50), changeInLength: 50),
+        DelegateMessage.messagePair(editedMask: [.editedCharacters], editedRange: NSRange(location: 39, length: 1), changeInLength: 1),
+        DelegateMessage.messagePair(editedMask: [.editedAttributes], editedRange: NSRange(location: 10, length: 31), changeInLength: 0),
+        ].joined())
+    )
+  }
 }
 
 // MARK: - Private
@@ -54,7 +68,6 @@ private extension IncrementalParsingTextStorageTests {
     line: UInt = #line
   ) {
     let textStorage = IncrementalParsingTextStorage(grammar: MiniMarkdownGrammar(), defaultAttributes: [:], formattingFunctions: [:])
-//    let textStorage = NSTextStorage()
     let miniMarkdownRecorder = TextStorageMessageRecorder()
     textStorage.delegate = miniMarkdownRecorder
     let plainTextStorage = NSTextStorage()
