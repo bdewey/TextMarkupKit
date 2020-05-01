@@ -50,6 +50,13 @@ final class PieceTableTests: XCTestCase {
     XCTAssertEqual("Hello, world", pieceTable.string)
   }
 
+  func testDeleteAtEnd() {
+    var pieceTable = PieceTable()
+    pieceTable.append(contentsOf: "Hello, world!?".utf16)
+    pieceTable.remove(at: pieceTable.count - 1)
+    XCTAssertEqual("Hello, world!", pieceTable.string)
+  }
+
   func testInsertAtBeginning() {
     let pieceTable = PieceTable("Hello, world!")
     pieceTable.replaceCharacters(in: NSRange(location: 0, length: 0), with: "¡")
