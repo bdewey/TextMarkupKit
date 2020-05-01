@@ -61,6 +61,7 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
   /// Replaces the characters in the given range with the characters of the given string.
   public override func replaceCharacters(in range: NSRange, with str: String) {
     buffer.replaceCharacters(in: range, with: str)
+    edited([.editedCharacters, .editedAttributes], range: range, changeInLength: str.utf16.count - range.length)
   }
 
   /// Returns the attributes for the character at a given index.
@@ -73,7 +74,8 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
     effectiveRange range: NSRangePointer?
   ) -> [NSAttributedString.Key: Any] {
     // TODO:
-    defaultAttributes
+    range?.pointee = NSRange(location: 0, length: buffer.count)
+    return defaultAttributes
   }
 
   /// Sets the attributes for the characters in the specified range to the specified attributes.
