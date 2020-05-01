@@ -24,10 +24,19 @@ final class IncrementalParsingTextStorageTests: XCTestCase {
 
   override func setUp() {
     super.setUp()
+    #if !os(macOS)
+      let formattingFunctions: [NodeType: FormattingFunction] = [
+        .header: { $1.fontSize = 24 },
+        .strongEmphasis: { $1.bold = true },
+        .emphasis: { $1.italic = true },
+      ]
+    #else
+      let formattingFunctions: [NodeType: FormattingFunction] = [:]
+    #endif
     textStorage = IncrementalParsingTextStorage(
       grammar: MiniMarkdownGrammar(),
       defaultAttributes: [:],
-      formattingFunctions: [:]
+      formattingFunctions: formattingFunctions
     )
   }
 
@@ -53,9 +62,22 @@ final class IncrementalParsingTextStorageTests: XCTestCase {
         DelegateMessage.messagePair(editedMask: [.editedCharacters, .editedAttributes], editedRange: NSRange(location: 0, length: 50), changeInLength: 50),
         DelegateMessage.messagePair(editedMask: [.editedCharacters], editedRange: NSRange(location: 39, length: 1), changeInLength: 1),
         DelegateMessage.messagePair(editedMask: [.editedAttributes], editedRange: NSRange(location: 10, length: 31), changeInLength: 0),
-        ].joined())
+      ].joined())
     )
   }
+
+  #if !os(macOS)
+    /// Use the iOS convenience methods for manipulated AttributedStringAttributes to test that attributes are properly
+    /// applied to ranges of the string.
+    func testFormatting() {
+      textStorage.append(NSAttributedString(string: "# Header\n\nParagraph with almost **bold*\n\nUnrelated"))
+      var range = NSRange(location: NSNotFound, length: 0)
+      let attributes = textStorage.attributes(at: 0, effectiveRange: &range)
+      var expectedAttributes: AttributedStringAttributes = [:]
+      expectedAttributes.fontSize = 24
+      XCTAssertEqual(expectedAttributes.font, attributes.font)
+    }
+  #endif
 }
 
 // MARK: - Private
@@ -102,9 +124,9 @@ private enum TextOperation {
 }
 
 #if !os(macOS)
-typealias EditActions = NSTextStorage.EditActions
+  typealias EditActions = NSTextStorage.EditActions
 #else
-typealias EditActions = NSTextStorageEditActions
+  typealias EditActions = NSTextStorageEditActions
 #endif
 
 struct DelegateMessage: Equatable {

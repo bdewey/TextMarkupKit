@@ -62,4 +62,14 @@ public extension Node {
       childLength += child.length
     }
   }
+
+  /// The attributes associated with this node, if set.
+  var attributedStringAttributes: AttributedStringAttributes? {
+    get {
+      self[NodeAttributesKey.self]
+    }
+    set {
+      self[NodeAttributesKey.self] = newValue
+    }
+  }
 }

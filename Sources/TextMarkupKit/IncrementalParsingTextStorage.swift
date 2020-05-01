@@ -60,19 +60,20 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
 
   /// Replaces the characters in the given range with the characters of the given string.
   public override func replaceCharacters(in range: NSRange, with str: String) {
+    var changedAttributesRange: Range<Int>?
     buffer.replaceCharacters(in: range, with: str)
-    edited([.editedCharacters], range: range, changeInLength: str.utf16.count - range.length)
-    if case let .success(node) = buffer.result {
-      var changedAttributesRange: Range<Int>?
+    if case .success(let node) = buffer.result {
       node.applyAttributes(
         attributes: defaultAttributes,
         formattingFunctions: formattingFunctions,
         startingIndex: 0,
         leafNodeRange: &changedAttributesRange
       )
-      if let range = changedAttributesRange {
-        edited([.editedAttributes], range: NSRange(location: range.lowerBound, length: range.count), changeInLength: 0)
-      }
+    }
+    // Deliver delegate messages
+    edited([.editedCharacters], range: range, changeInLength: str.utf16.count - range.length)
+    if let range = changedAttributesRange {
+      edited([.editedAttributes], range: NSRange(location: range.lowerBound, length: range.count), changeInLength: 0)
     }
   }
 
@@ -85,9 +86,14 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
     at location: Int,
     effectiveRange range: NSRangePointer?
   ) -> [NSAttributedString.Key: Any] {
-    // TODO:
-    range?.pointee = NSRange(location: 0, length: buffer.count)
-    return defaultAttributes
+    guard let tree = try? buffer.result.get() else {
+      range?.pointee = NSRange(location: 0, length: buffer.count)
+      return defaultAttributes
+    }
+    // Crash on invalid location or if I didn't set attributes (shouldn't happen?)
+    let (leaf, startIndex) = try! tree.leafNode(containing: location)
+    range?.pointee = NSRange(location: startIndex, length: leaf.length)
+    return leaf.attributedStringAttributes!
   }
 
   /// Sets the attributes for the characters in the specified range to the specified attributes.
