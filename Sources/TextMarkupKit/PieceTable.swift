@@ -21,7 +21,7 @@ import Foundation
 /// A read-only *originalContents* array and an append-only *newContents* array that holds all added content.
 ///
 /// The logical view of the modified string is built from an array of slices from the two arrays.
-public final class PieceTable: CustomStringConvertible {
+public final class PieceTable: CustomStringConvertible, RangeReplaceableSafeUnicodeBuffer {
   /// Initialize an empty piece table.
   public init() {
     self.originalContents = []
@@ -111,7 +111,8 @@ public final class PieceTable: CustomStringConvertible {
   }
 
   /// Gets a substring of the PieceTable contents.
-  private subscript(bounds: Range<Int>) -> String {
+  public subscript<R: RangeExpression>(boundsExpression: R) -> String where R.Bound == Int {
+    let bounds = boundsExpression.relative(to: self)
     guard bounds.upperBound > 0 else { return "" }
     let (lowerSliceIndex, lowerStartBefore) = sliceIndex(for: bounds.lowerBound)
     let (upperSliceIndex, upperCountBefore) = sliceIndex(for: bounds.upperBound - 1)
@@ -253,11 +254,15 @@ extension PieceTable: RangeReplaceableCollection {
       // We are removing things between two or more slices.
       slices.removeSubrange(lowerBound + 1 ..< upperBound)
       slices[lowerBound].endIndex = slices[lowerBound].startIndex + range.lowerBound - lowerCountBefore
-      slices[lowerBound + 1].startIndex = slices[lowerBound + 1].startIndex + range.upperBound - upperCountBefore
 
-      if slices[lowerBound + 1].isEmpty {
-        slices.remove(at: lowerBound + 1)
+      // lowerBound might be the end of the array.
+      if lowerBound + 1 < slices.endIndex {
+        slices[lowerBound + 1].startIndex = slices[lowerBound + 1].startIndex + range.upperBound - upperCountBefore
+        if slices[lowerBound + 1].isEmpty {
+          slices.remove(at: lowerBound + 1)
+        }
       }
+
       if slices[lowerBound].isEmpty {
         slices.remove(at: lowerBound)
       }

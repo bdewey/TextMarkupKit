@@ -119,6 +119,35 @@ public final class Node: CustomStringConvertible {
     return nextChild?.node(at: indexPath.dropFirst())
   }
 
+  public enum NodeSearchError: Error {
+    case indexOutOfRange
+  }
+
+  /// Walks down the tree and returns the leaf node that contains a specific index.
+  /// - returns: The leaf node containing the index.
+  /// - throws: NodeSearchError.indexOutOfRange if the index is not valid.
+  public func leafNode(containing index: Int) throws -> (node: Node, startIndex: Int) {
+    return try leafNode(containing: index, startIndex: 0)
+  }
+
+  private func leafNode(
+    containing index: Int,
+    startIndex: Int
+  ) throws -> (node: Node, startIndex: Int) {
+    guard index < startIndex + length else {
+      throw NodeSearchError.indexOutOfRange
+    }
+    if children.isEmpty { return (self, startIndex) }
+    var childIndex = startIndex
+    for child in children {
+      if index < childIndex + child.length {
+        return try child.leafNode(containing: index, startIndex: childIndex)
+      }
+      childIndex += child.length
+    }
+    throw NodeSearchError.indexOutOfRange
+  }
+
   // MARK: - Properties
 
   /// Lazily-allocated property bag.
@@ -169,7 +198,7 @@ extension Node {
   }
 
   /// Returns the syntax tree and which parts of `textBuffer` the leaf nodes correspond to.
-  public func debugDescription(withContentsFrom pieceTable: PieceTable) -> String {
+  public func debugDescription(withContentsFrom pieceTable: SafeUnicodeBuffer) -> String {
     var lines = ""
     writeDebugDescription(to: &lines, pieceTable: pieceTable, location: 0, indentLevel: 0)
     return lines
@@ -178,7 +207,7 @@ extension Node {
   /// Recursive helper function for `debugDescription(of:)`
   private func writeDebugDescription<Target: TextOutputStream>(
     to lines: inout Target,
-    pieceTable: PieceTable,
+    pieceTable: SafeUnicodeBuffer,
     location: Int,
     indentLevel: Int
   ) {
