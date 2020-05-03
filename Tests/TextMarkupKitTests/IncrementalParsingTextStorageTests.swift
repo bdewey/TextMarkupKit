@@ -26,16 +26,23 @@ final class IncrementalParsingTextStorageTests: XCTestCase {
     super.setUp()
     #if !os(macOS)
       let formattingFunctions: [NodeType: FormattingFunction] = [
-        .header: { $1.fontSize = 24 },
-        .strongEmphasis: { $1.bold = true },
         .emphasis: { $1.italic = true },
+        .header: { $1.fontSize = 24 },
+        .list: { $1.listLevel += 1 },
+        .strongEmphasis: { $1.bold = true },
       ]
+      var defaultAttributes: AttributedStringAttributes = [:]
+      defaultAttributes.font = UIFont.preferredFont(forTextStyle: .body)
+      defaultAttributes.color = .label
+      defaultAttributes.headIndent = 28
+      defaultAttributes.firstLineHeadIndent = 28
     #else
       let formattingFunctions: [NodeType: FormattingFunction] = [:]
+      let defaultAttributes: AttributedStringAttributes = [:]
     #endif
     textStorage = IncrementalParsingTextStorage(
       grammar: MiniMarkdownGrammar(),
-      defaultAttributes: [:],
+      defaultAttributes: defaultAttributes,
       formattingFunctions: formattingFunctions
     )
   }
@@ -60,8 +67,7 @@ final class IncrementalParsingTextStorageTests: XCTestCase {
       ],
       are: Array([
         DelegateMessage.messagePair(editedMask: [.editedCharacters, .editedAttributes], editedRange: NSRange(location: 0, length: 50), changeInLength: 50),
-        DelegateMessage.messagePair(editedMask: [.editedCharacters], editedRange: NSRange(location: 39, length: 1), changeInLength: 1),
-        DelegateMessage.messagePair(editedMask: [.editedAttributes], editedRange: NSRange(location: 10, length: 31), changeInLength: 0),
+        DelegateMessage.messagePair(editedMask: [.editedAttributes, .editedCharacters], editedRange: NSRange(location: 10, length: 31), changeInLength: 1),
       ].joined())
     )
   }

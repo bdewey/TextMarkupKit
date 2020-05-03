@@ -49,6 +49,7 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
   private let buffer: IncrementalParsingBuffer
   private let defaultAttributes: AttributedStringAttributes
   private let formattingFunctions: [NodeType: FormattingFunction]
+  private let replacementTable = ReplacementTable()
 
   // MARK: - Public
 
@@ -60,11 +61,15 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
 
   /// Replaces the characters in the given range with the characters of the given string.
   public override func replaceCharacters(in range: NSRange, with str: String) {
+    let range = replacementTable.physicalRange(for: range)
     var changedAttributesRange: Range<Int>?
+    beginEditing()
+    replacementTable.wipeCharacters(in: range, replacementLength: str.utf16.count)
     buffer.replaceCharacters(in: range, with: str)
     if case .success(let node) = buffer.result {
       node.applyAttributes(
         attributes: defaultAttributes,
+        replacementTable: replacementTable,
         formattingFunctions: formattingFunctions,
         startingIndex: 0,
         leafNodeRange: &changedAttributesRange
@@ -74,7 +79,14 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
     edited([.editedCharacters], range: range, changeInLength: str.utf16.count - range.length)
     if let range = changedAttributesRange {
       edited([.editedAttributes], range: NSRange(location: range.lowerBound, length: range.count), changeInLength: 0)
+      for replacement in replacementTable.replacements(in: NSRange(location: range.lowerBound, length: range.upperBound - range.lowerBound)) {
+        edited(
+          [.editedCharacters],
+          range: replacement.range, changeInLength: replacement.changeInLength
+        )
+      }
     }
+    endEditing()
   }
 
   /// Returns the attributes for the character at a given index.
@@ -90,6 +102,7 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
       range?.pointee = NSRange(location: 0, length: buffer.count)
       return defaultAttributes
     }
+    let location = replacementTable.physicalIndex(for: location)
     // Crash on invalid location or if I didn't set attributes (shouldn't happen?)
     let (leaf, startIndex) = try! tree.leafNode(containing: location)
     range?.pointee = NSRange(location: startIndex, length: leaf.length)

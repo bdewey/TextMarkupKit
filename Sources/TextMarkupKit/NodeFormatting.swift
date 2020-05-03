@@ -30,10 +30,11 @@ private struct NodeAttributesKey: NodePropertyKey {
   static let key = "attributes"
 }
 
-public extension Node {
+extension Node {
   /// Associates AttributedStringAttributes with this part of the syntax tree.
   func applyAttributes(
     attributes: AttributedStringAttributes,
+    replacementTable: ReplacementTable,
     formattingFunctions: [NodeType: FormattingFunction],
     startingIndex: Int,
     leafNodeRange: inout Range<Int>?
@@ -55,6 +56,7 @@ public extension Node {
     for child in children {
       child.applyAttributes(
         attributes: attributes,
+        replacementTable: replacementTable,
         formattingFunctions: formattingFunctions,
         startingIndex: startingIndex + childLength,
         leafNodeRange: &leafNodeRange
