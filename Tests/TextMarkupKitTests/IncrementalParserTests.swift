@@ -47,7 +47,7 @@ final class IncrementalParserTests: XCTestCase {
     validateParser(parser, has: "(document (paragraph text))")
     TraceBuffer.shared.traceEntries.removeAll()
     parser.replaceCharacters(in: NSRange(location: 7, length: 1), with: "")
-    XCTAssertEqual(parser.utf16String, parser[0...])
+    XCTAssertEqual(parser.utf16String, parser.string)
     validateParser(parser, has: "(document (paragraph text (emphasis delimiter text delimiter)))")
   }
 
@@ -56,7 +56,7 @@ final class IncrementalParserTests: XCTestCase {
     validateParser(parser, has: "(document (paragraph text))")
     TraceBuffer.shared.traceEntries.removeAll()
     parser.replaceCharacters(in: NSRange(location: 12, length: 1), with: "")
-    XCTAssertEqual(parser.utf16String, parser[0...])
+    XCTAssertEqual(parser.utf16String, parser.string)
     validateParser(parser, has: "(document (paragraph text (emphasis delimiter text delimiter)))")
   }
 

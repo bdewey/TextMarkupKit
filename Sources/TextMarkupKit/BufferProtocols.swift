@@ -26,10 +26,13 @@ public protocol SafeUnicodeBuffer {
   func utf16(at index: Int) -> unichar?
 
   /// Gets a substring from the buffer, objc-style
-  subscript(range: NSRange) -> String { get }
+  subscript(range: NSRange) -> [unichar] { get }
 
   /// Gets a substring from the buffer, Swift-style
-  subscript<R: RangeExpression>(range: R) -> String where R.Bound == Int { get }
+  subscript<R: RangeExpression>(range: R) -> [unichar] where R.Bound == Int { get }
+
+  /// The contents of the receiver as a string.
+  var string: String { get }
 }
 
 public protocol RangeReplaceableSafeUnicodeBuffer: SafeUnicodeBuffer {

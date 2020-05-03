@@ -41,9 +41,9 @@ public final class IncrementalParsingBuffer {
 extension IncrementalParsingBuffer: RangeReplaceableSafeUnicodeBuffer {
   public var count: Int { pieceTable.count }
 
-  public subscript(range: NSRange) -> String { pieceTable[range] }
+  public subscript(range: NSRange) -> [unichar] { pieceTable[range] }
 
-  public subscript<R>(range: R) -> String where R: RangeExpression, R.Bound == Int {
+  public subscript<R>(range: R) -> [unichar] where R: RangeExpression, R.Bound == Int {
     return pieceTable[range]
   }
 
@@ -58,4 +58,6 @@ extension IncrementalParsingBuffer: RangeReplaceableSafeUnicodeBuffer {
       try pieceTable.parse(grammar: grammar, memoizationTable: memoizationTable)
     }
   }
+
+  public var string: String { pieceTable.string }
 }

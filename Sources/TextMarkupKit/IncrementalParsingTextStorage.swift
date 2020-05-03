@@ -56,7 +56,8 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
   /// The character contents as a single String value.
   // TODO: Memoize
   public override var string: String {
-    buffer[0...]
+    let chars = buffer[0...]
+    return String(utf16CodeUnits: chars, count: chars.count)
   }
 
   /// Replaces the characters in the given range with the characters of the given string.
