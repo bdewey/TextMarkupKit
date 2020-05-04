@@ -28,7 +28,7 @@ public typealias AttributedStringAttributes = [NSAttributedString.Key: Any]
 public typealias FormattingFunction = (Node, inout AttributedStringAttributes) -> Void
 
 /// A function that overlays replacements...
-public typealias ReplacementFunction = (Node, Int, ArrayReplacementCollection<unichar>) -> Void
+public typealias ReplacementFunction = (Node, Int, ArrayReplacementCollection<unichar>) -> Int
 
 /// Uses an `IncrementalParsingBuffer` to implement `NSTextStorage`.
 public final class IncrementalParsingTextStorage: NSTextStorage {
@@ -82,18 +82,16 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
     beginEditing()
     replacementTable.wipeCharacters(in: range.lowerBound ..< range.upperBound, replacementLength: str.utf16.count)
     buffer.replaceCharacters(in: range, with: str)
+    edited([.editedCharacters], range: range, changeInLength: str.utf16.count - range.length)
     if case .success(let node) = buffer.result {
-      node.applyAttributes(
+      applyAttributes(
+        to: node,
         attributes: defaultAttributes,
-        replacementTable: replacementTable,
-        formattingFunctions: formattingFunctions,
-        replacementFunctions: replacementFunctions,
         startingIndex: 0,
         leafNodeRange: &changedAttributesRange
       )
     }
     // Deliver delegate messages
-    edited([.editedCharacters], range: range, changeInLength: str.utf16.count - range.length)
     if let range = changedAttributesRange {
       edited([.editedAttributes], range: NSRange(location: range.lowerBound, length: range.count), changeInLength: 0)
       for replacement in replacementTable.replacements(in: range) {
@@ -136,5 +134,62 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
   ) {
     // TODO. Maybe just ignore? But this is how emojis and misspellings get formatted
     // by the system.
+  }
+
+  // MARK: - Private
+
+  /// Associates AttributedStringAttributes with this part of the syntax tree.
+  func applyAttributes(
+    to node: Node,
+    attributes: AttributedStringAttributes,
+    startingIndex: Int,
+    leafNodeRange: inout Range<Int>?
+  ) {
+    // If we already have attributes we don't need to do anything else.
+    guard node[NodeAttributesKey.self] == nil else {
+      return
+    }
+    var attributes = attributes
+    formattingFunctions[node.type]?(node, &attributes)
+    if let replacementFunction = replacementFunctions[node.type] {
+      let replacedLength = replacementFunction(node, startingIndex, replacementTable)
+      edited([.editedCharacters], range: NSRange(location: startingIndex, length: node.length), changeInLength: replacedLength - node.length)
+    }
+    node[NodeAttributesKey.self] = attributes
+    var childLength = 0
+    if node.children.isEmpty {
+      // We are a leaf. Adjust leafNodeRange.
+      let lowerBound = min(startingIndex, leafNodeRange?.lowerBound ?? Int.max)
+      let upperBound = max(startingIndex + node.length, leafNodeRange?.upperBound ?? Int.min)
+      leafNodeRange = lowerBound ..< upperBound
+    }
+    for child in node.children {
+      applyAttributes(
+        to: child,
+        attributes: attributes,
+        startingIndex: startingIndex + childLength,
+        leafNodeRange: &leafNodeRange
+      )
+      childLength += child.length
+    }
+  }
+}
+
+/// Key for storing the string attributes associated with a node.
+private struct NodeAttributesKey: NodePropertyKey {
+  typealias Value = AttributedStringAttributes
+
+  static let key = "attributes"
+}
+
+private extension Node {
+  /// The attributes associated with this node, if set.
+  var attributedStringAttributes: AttributedStringAttributes? {
+    get {
+      self[NodeAttributesKey.self]
+    }
+    set {
+      self[NodeAttributesKey.self] = newValue
+    }
   }
 }
