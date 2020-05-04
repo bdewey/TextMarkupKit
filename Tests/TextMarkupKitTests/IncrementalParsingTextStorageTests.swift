@@ -19,6 +19,15 @@ import Foundation
 import TextMarkupKit
 import XCTest
 
+private func formatTab(
+  node: Node,
+  startIndex: Int,
+  replacements: ArrayReplacementCollection<unichar>
+) {
+  let tab: UnicodeScalar = "\t"
+  replacements.insert([tab.utf16.first!], at: startIndex ..< startIndex + node.length)
+}
+
 final class IncrementalParsingTextStorageTests: XCTestCase {
   var textStorage: IncrementalParsingTextStorage!
 
@@ -43,7 +52,8 @@ final class IncrementalParsingTextStorageTests: XCTestCase {
     textStorage = IncrementalParsingTextStorage(
       grammar: MiniMarkdownGrammar(),
       defaultAttributes: defaultAttributes,
-      formattingFunctions: formattingFunctions
+      formattingFunctions: formattingFunctions,
+      replacementFunctions: [.softTab: formatTab]
     )
   }
 
@@ -72,6 +82,11 @@ final class IncrementalParsingTextStorageTests: XCTestCase {
     )
   }
 
+  func testTabSubstitutionHappens() {
+    textStorage.append(NSAttributedString(string: "# This is a heading\n\nAnd this is a paragraph"))
+    XCTAssertEqual(textStorage.string, "#\tThis is a heading\n\nAnd this is a paragraph")
+  }
+
   #if !os(macOS)
     /// Use the iOS convenience methods for manipulated AttributedStringAttributes to test that attributes are properly
     /// applied to ranges of the string.
@@ -95,7 +110,7 @@ private extension IncrementalParsingTextStorageTests {
     file: StaticString = #file,
     line: UInt = #line
   ) {
-    let textStorage = IncrementalParsingTextStorage(grammar: MiniMarkdownGrammar(), defaultAttributes: [:], formattingFunctions: [:])
+    let textStorage = IncrementalParsingTextStorage(grammar: MiniMarkdownGrammar(), defaultAttributes: [:], formattingFunctions: [:], replacementFunctions: [:])
     let miniMarkdownRecorder = TextStorageMessageRecorder()
     textStorage.delegate = miniMarkdownRecorder
     let plainTextStorage = NSTextStorage()

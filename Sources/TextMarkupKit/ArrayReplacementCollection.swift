@@ -18,8 +18,8 @@
 import Foundation
 
 /// Stores a collection of non-overlapping replacement operations to apply to an array to generate a new array.
-final class ArrayReplacementCollection<Element> {
-  struct Replacement {
+public final class ArrayReplacementCollection<Element> {
+  public struct Replacement {
     let range: Range<Int>
     let elements: [Element]
 
@@ -27,7 +27,7 @@ final class ArrayReplacementCollection<Element> {
   }
 
   /// Inserts a replacement in the table.
-  func insert(_ replacement: [Element], at range: Range<Int>) {
+  public func insert(_ replacement: [Element], at range: Range<Int>) {
     var previousLocation = 0
 
     for insertionPoint in 0 ..< nodes.endIndex {
@@ -52,7 +52,7 @@ final class ArrayReplacementCollection<Element> {
   }
 
   /// Wow I can't really describe this so I should probably refactor it!
-  func wipeCharacters<R: RangeExpression>(in range: R, replacementLength: Int) where R.Bound == Int {
+  public func wipeCharacters<R: RangeExpression>(in range: R, replacementLength: Int) where R.Bound == Int {
     let range = range.relative(to: 0 ..< Int.max)
     deleteNodes(overlapping: range)
     let changeInLength = replacementLength - range.count
@@ -68,7 +68,7 @@ final class ArrayReplacementCollection<Element> {
   }
 
   /// Returns all replacements that apply to the range of the original NSAttributedString.
-  func replacements<R: RangeExpression>(in filterRange: R) -> [Replacement] where R.Bound == Int {
+  public func replacements<R: RangeExpression>(in filterRange: R) -> [Replacement] where R.Bound == Int {
     let filterRange = filterRange.relative(to: 0 ..< Int.max)
     var results: [Replacement] = []
     var location = 0
@@ -83,7 +83,7 @@ final class ArrayReplacementCollection<Element> {
   }
 
   /// Computes the index in the original NSAttributedString for an index in the NSAttributedString with all modifications performed.
-  func physicalIndex(for visibleIndex: Int) -> Int {
+  public func physicalIndex(for visibleIndex: Int) -> Int {
     var location = 0
     var visibleIndex = visibleIndex
     for node in nodes {
@@ -97,7 +97,7 @@ final class ArrayReplacementCollection<Element> {
     return visibleIndex
   }
 
-  func physicalRange(for visibleRange: NSRange) -> NSRange {
+  public func physicalRange(for visibleRange: NSRange) -> NSRange {
     let lowerBound = physicalIndex(for: visibleRange.lowerBound)
     let upperBound = physicalIndex(for: visibleRange.upperBound)
     return NSRange(location: lowerBound, length: upperBound - lowerBound)

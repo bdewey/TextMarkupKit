@@ -21,15 +21,26 @@
   import AppKit
 #endif
 
+/// Just a handy alias for NSAttributedString attributes
+public typealias AttributedStringAttributes = [NSAttributedString.Key: Any]
+
+/// A function that modifies NSAttributedString attributes based the syntax tree.
+public typealias FormattingFunction = (Node, inout AttributedStringAttributes) -> Void
+
+/// A function that overlays replacements...
+public typealias ReplacementFunction = (Node, Int, ArrayReplacementCollection<unichar>) -> Void
+
 /// Uses an `IncrementalParsingBuffer` to implement `NSTextStorage`.
 public final class IncrementalParsingTextStorage: NSTextStorage {
   public init(
     grammar: PackratGrammar,
     defaultAttributes: AttributedStringAttributes,
-    formattingFunctions: [NodeType: FormattingFunction]
+    formattingFunctions: [NodeType: FormattingFunction],
+    replacementFunctions: [NodeType: ReplacementFunction]
   ) {
     self.defaultAttributes = defaultAttributes
     self.formattingFunctions = formattingFunctions
+    self.replacementFunctions = replacementFunctions
     self.buffer = IncrementalParsingBuffer("", grammar: grammar)
     super.init()
   }
@@ -49,6 +60,7 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
   private let buffer: IncrementalParsingBuffer
   private let defaultAttributes: AttributedStringAttributes
   private let formattingFunctions: [NodeType: FormattingFunction]
+  private let replacementFunctions: [NodeType: ReplacementFunction]
   private let replacementTable = ArrayReplacementCollection<unichar>()
 
   // MARK: - Public
@@ -56,7 +68,10 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
   /// The character contents as a single String value.
   // TODO: Memoize
   public override var string: String {
-    let chars = buffer[0...]
+    var chars = buffer[0...]
+    for replacement in replacementTable.replacements(in: 0...).reversed() {
+      chars.replaceSubrange(replacement.range, with: replacement.elements)
+    }
     return String(utf16CodeUnits: chars, count: chars.count)
   }
 
@@ -72,6 +87,7 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
         attributes: defaultAttributes,
         replacementTable: replacementTable,
         formattingFunctions: formattingFunctions,
+        replacementFunctions: replacementFunctions,
         startingIndex: 0,
         leafNodeRange: &changedAttributesRange
       )

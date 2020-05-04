@@ -17,12 +17,6 @@
 
 import Foundation
 
-/// Just a handy alias for NSAttributedString attributes
-public typealias AttributedStringAttributes = [NSAttributedString.Key: Any]
-
-/// A function that modifies NSAttributedString attributes based the syntax tree.
-public typealias FormattingFunction = (Node, inout AttributedStringAttributes) -> Void
-
 /// Key for storing the string attributes associated with a node.
 private struct NodeAttributesKey: NodePropertyKey {
   typealias Value = AttributedStringAttributes
@@ -36,6 +30,7 @@ extension Node {
     attributes: AttributedStringAttributes,
     replacementTable: ArrayReplacementCollection<unichar>,
     formattingFunctions: [NodeType: FormattingFunction],
+    replacementFunctions: [NodeType: ReplacementFunction],
     startingIndex: Int,
     leafNodeRange: inout Range<Int>?
   ) {
@@ -45,6 +40,7 @@ extension Node {
     }
     var attributes = attributes
     formattingFunctions[type]?(self, &attributes)
+    replacementFunctions[type]?(self, startingIndex, replacementTable)
     self[NodeAttributesKey.self] = attributes
     var childLength = 0
     if children.isEmpty {
@@ -58,6 +54,7 @@ extension Node {
         attributes: attributes,
         replacementTable: replacementTable,
         formattingFunctions: formattingFunctions,
+        replacementFunctions: replacementFunctions,
         startingIndex: startingIndex + childLength,
         leafNodeRange: &leafNodeRange
       )
