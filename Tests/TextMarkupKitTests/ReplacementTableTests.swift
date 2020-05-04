@@ -20,238 +20,80 @@ import Foundation
 import XCTest
 
 final class ReplacementTableTests: XCTestCase {
-  private let sampleString = NSAttributedString(string: "yo")
+  private let sampleString = Array("yo".utf16)
 
   func testSingleRange() {
-    let replacementTable = ReplacementTable()
-    replacementTable.insert(ReplacementTable.Replacement(range: NSRange(location: 2, length: 2), replacement: sampleString))
-    let replacements = replacementTable.replacements(in: NSRange(location: 0, length: 4))
+    let replacementTable = ArrayReplacementCollection<unichar>()
+    replacementTable.insert(sampleString, at: 2 ..< 4)
+    let replacements = replacementTable.replacements(in: 0...)
     XCTAssertEqual(replacements.count, 1)
-    XCTAssertEqual(replacements, [ReplacementTable.Replacement(range: NSRange(location: 2, length: 2), replacement: sampleString)])
+    XCTAssertEqual(replacements.map { $0.range }, [2 ..< 4])
   }
 
   func testMultipleRanges() {
-    let replacementTable = ReplacementTable()
-    replacementTable.insert(
-      ReplacementTable.Replacement(
-        range: NSRange(location: 2, length: 2),
-        replacement: sampleString
-      )
-    )
-    replacementTable.insert(
-      ReplacementTable.Replacement(
-        range: NSRange(location: 4, length: 2),
-        replacement: sampleString
-      )
-    )
-    let replacements = replacementTable.replacements(in: NSRange(location: 0, length: 100))
-    XCTAssertEqual(
-      replacements,
-      [
-        ReplacementTable.Replacement(
-          range: NSRange(location: 2, length: 2),
-          replacement: sampleString
-        ),
-        ReplacementTable.Replacement(
-          range: NSRange(location: 4, length: 2),
-          replacement: sampleString
-        ),
-      ]
-    )
+    let replacementTable = ArrayReplacementCollection<unichar>()
+    replacementTable.insert(sampleString, at: 2 ..< 4)
+    replacementTable.insert(sampleString, at: 4 ..< 6)
+    let replacements = replacementTable.replacements(in: 0...)
+    XCTAssertEqual(replacements.map { $0.range }, [2 ..< 4, 4 ..< 6])
   }
 
   func testFilterRanges() {
-    let replacementTable = ReplacementTable()
-    replacementTable.insert(
-      ReplacementTable.Replacement(
-        range: NSRange(location: 2, length: 2),
-        replacement: sampleString
-      )
-    )
-    replacementTable.insert(
-      ReplacementTable.Replacement(
-        range: NSRange(location: 4, length: 2),
-        replacement: sampleString
-      )
-    )
-    let replacements = replacementTable.replacements(in: NSRange(location: 4, length: 2))
-    XCTAssertEqual(
-      replacements,
-      [
-        ReplacementTable.Replacement(
-          range: NSRange(location: 4, length: 2),
-          replacement: sampleString
-        ),
-      ]
-    )
+    let replacementTable = ArrayReplacementCollection<unichar>()
+    replacementTable.insert(sampleString, at: 2 ..< 4)
+    replacementTable.insert(sampleString, at: 4 ..< 6)
+    let replacements = replacementTable.replacements(in: 4 ..< 6)
+    XCTAssertEqual(replacements.map { $0.range }, [4 ..< 6])
   }
 
   func testRangesRespondToInserts() {
-    let replacementTable = ReplacementTable()
-    replacementTable.insert(
-      ReplacementTable.Replacement(
-        range: NSRange(location: 2, length: 2),
-        replacement: sampleString
-      )
-    )
-    replacementTable.insert(
-      ReplacementTable.Replacement(
-        range: NSRange(location: 10, length: 2),
-        replacement: sampleString
-      )
-    )
-    replacementTable.insert(
-      ReplacementTable.Replacement(
-        range: NSRange(location: 20, length: 2),
-        replacement: sampleString
-      )
-    )
-    replacementTable.wipeCharacters(in: NSRange(location: 6, length: 0), replacementLength: 3)
-    let replacements = replacementTable.replacements(in: NSRange(location: 0, length: 100))
-    XCTAssertEqual(
-      replacements,
-      [
-        ReplacementTable.Replacement(
-          range: NSRange(location: 2, length: 2),
-          replacement: sampleString
-        ),
-        ReplacementTable.Replacement(
-          range: NSRange(location: 13, length: 2),
-          replacement: sampleString
-        ),
-        ReplacementTable.Replacement(
-          range: NSRange(location: 23, length: 2),
-          replacement: sampleString
-        ),
-      ]
-    )
+    let replacementTable = ArrayReplacementCollection<unichar>()
+    replacementTable.insert(sampleString, at: 2 ..< 4)
+    replacementTable.insert(sampleString, at: 10 ..< 12)
+    replacementTable.insert(sampleString, at: 20 ..< 22)
+
+    replacementTable.wipeCharacters(in: 6 ..< 6, replacementLength: 3)
+    let replacements = replacementTable.replacements(in: 0...)
+    XCTAssertEqual(replacements.map { $0.range }, [2 ..< 4, 13 ..< 15, 23 ..< 25])
   }
 
   func testRangesRespondToDeletions() {
-    let replacementTable = ReplacementTable()
-    replacementTable.insert(
-      ReplacementTable.Replacement(
-        range: NSRange(location: 2, length: 2),
-        replacement: sampleString
-      )
-    )
-    replacementTable.insert(
-      ReplacementTable.Replacement(
-        range: NSRange(location: 10, length: 2),
-        replacement: sampleString
-      )
-    )
-    replacementTable.insert(
-      ReplacementTable.Replacement(
-        range: NSRange(location: 20, length: 2),
-        replacement: sampleString
-      )
-    )
-    replacementTable.wipeCharacters(in: NSRange(location: 9, length: 3), replacementLength: 0)
-    let replacements = replacementTable.replacements(in: NSRange(location: 0, length: 100))
-    XCTAssertEqual(
-      replacements,
-      [
-        ReplacementTable.Replacement(
-          range: NSRange(location: 2, length: 2),
-          replacement: sampleString
-        ),
-        ReplacementTable.Replacement(
-          range: NSRange(location: 17, length: 2),
-          replacement: sampleString
-        ),
-      ]
-    )
+    let replacementTable = ArrayReplacementCollection<unichar>()
+    replacementTable.insert(sampleString, at: 2 ..< 4)
+    replacementTable.insert(sampleString, at: 10 ..< 12)
+    replacementTable.insert(sampleString, at: 20 ..< 22)
+
+    replacementTable.wipeCharacters(in: 9 ..< 12, replacementLength: 0)
+    let replacements = replacementTable.replacements(in: 0...)
+    XCTAssertEqual(replacements.map { $0.range }, [2 ..< 4, 17 ..< 19])
   }
 
   func testCanDeleteFirstRange() {
-    let replacementTable = ReplacementTable()
-    replacementTable.insert(
-      ReplacementTable.Replacement(
-        range: NSRange(location: 2, length: 2),
-        replacement: sampleString
-      )
-    )
-    replacementTable.insert(
-      ReplacementTable.Replacement(
-        range: NSRange(location: 10, length: 2),
-        replacement: sampleString
-      )
-    )
-    replacementTable.insert(
-      ReplacementTable.Replacement(
-        range: NSRange(location: 20, length: 2),
-        replacement: sampleString
-      )
-    )
-    replacementTable.wipeCharacters(in: NSRange(location: 0, length: 4), replacementLength: 0)
-    let replacements = replacementTable.replacements(in: NSRange(location: 0, length: 100))
-    XCTAssertEqual(
-      replacements,
-      [
-        ReplacementTable.Replacement(
-          range: NSRange(location: 6, length: 2),
-          replacement: sampleString
-        ),
-        ReplacementTable.Replacement(
-          range: NSRange(location: 16, length: 2),
-          replacement: sampleString
-        ),
-      ]
-    )
+    let replacementTable = ArrayReplacementCollection<unichar>()
+    replacementTable.insert(sampleString, at: 2 ..< 4)
+    replacementTable.insert(sampleString, at: 10 ..< 12)
+    replacementTable.insert(sampleString, at: 20 ..< 22)
+
+    replacementTable.wipeCharacters(in: 0 ..< 4, replacementLength: 0)
+    let replacements = replacementTable.replacements(in: 0...)
+    XCTAssertEqual(replacements.map { $0.range }, [6 ..< 8, 16 ..< 18])
   }
 
   func testCanDeleteLastRange() {
-    let replacementTable = ReplacementTable()
-    replacementTable.insert(
-      ReplacementTable.Replacement(
-        range: NSRange(location: 2, length: 2),
-        replacement: sampleString
-      )
-    )
-    replacementTable.insert(
-      ReplacementTable.Replacement(
-        range: NSRange(location: 10, length: 2),
-        replacement: sampleString
-      )
-    )
-    replacementTable.insert(
-      ReplacementTable.Replacement(
-        range: NSRange(location: 20, length: 2),
-        replacement: sampleString
-      )
-    )
-    replacementTable.wipeCharacters(in: NSRange(location: 20, length: 4), replacementLength: 0)
-    let replacements = replacementTable.replacements(in: NSRange(location: 0, length: 100))
-    XCTAssertEqual(
-      replacements,
-      [
-        ReplacementTable.Replacement(
-          range: NSRange(location: 2, length: 2),
-          replacement: sampleString
-        ),
-        ReplacementTable.Replacement(
-          range: NSRange(location: 10, length: 2),
-          replacement: sampleString
-        ),
-      ]
-    )
+    let replacementTable = ArrayReplacementCollection<unichar>()
+    replacementTable.insert(sampleString, at: 2 ..< 4)
+    replacementTable.insert(sampleString, at: 10 ..< 12)
+    replacementTable.insert(sampleString, at: 20 ..< 22)
+
+    replacementTable.wipeCharacters(in: 20 ..< 24, replacementLength: 0)
+    let replacements = replacementTable.replacements(in: 0...)
+    XCTAssertEqual(replacements.map { $0.range }, [2 ..< 4, 10 ..< 12])
   }
 
   func testAddressTranslation() {
-    let replacementTable = ReplacementTable()
-    replacementTable.insert(
-      ReplacementTable.Replacement(
-        range: NSRange(location: 2, length: 4),
-        replacement: sampleString
-      )
-    )
-    replacementTable.insert(
-      ReplacementTable.Replacement(
-        range: NSRange(location: 10, length: 4),
-        replacement: sampleString
-      )
-    )
+    let replacementTable = ArrayReplacementCollection<unichar>()
+    replacementTable.insert(sampleString, at: 2 ..< 6)
+    replacementTable.insert(sampleString, at: 10 ..< 14)
 
     XCTAssertEqual(1, replacementTable.physicalIndex(for: 1))
     XCTAssertEqual(3, replacementTable.physicalIndex(for: 3))

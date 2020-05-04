@@ -17,56 +17,49 @@
 
 import Foundation
 
-/// Stores replacements: NSAttributedString values to substitute for ranges of another NSAttributedString.
-final class ReplacementTable {
-  /// A single replacement.
-  struct Replacement: Equatable {
-    /// The range of the original NSAttributedString to replace.
-    /// Note that even if you intend to perform multiple replacements in a single NSAttributedString, all of the `range` values
-    /// are in terms of the original unaltered NSAttributedString. (e.g., if an "earlier" NSAttributedString would change the length
-    /// of the result, "later" replacements don't use the modified indexes.)
-    let range: NSRange
+/// Stores a collection of non-overlapping replacement operations to apply to an array to generate a new array.
+final class ArrayReplacementCollection<Element> {
+  struct Replacement {
+    let range: Range<Int>
+    let elements: [Element]
 
-    /// The replacement NSAttributedString.
-    let replacement: NSAttributedString
-
-    /// Computed value: How much
-    var changeInLength: Int { replacement.length - range.length }
+    var changeInLength: Int { elements.count - range.count }
   }
 
   /// Inserts a replacement in the table.
-  func insert(_ replacement: Replacement) {
+  func insert(_ replacement: [Element], at range: Range<Int>) {
     var previousLocation = 0
 
     for insertionPoint in 0 ..< nodes.endIndex {
       let nextLocation = previousLocation + nodes[insertionPoint].locationOffsetFromPreviousLocation
-      if nextLocation > replacement.range.location {
+      if nextLocation > range.lowerBound {
         let node = Node(
-          locationOffsetFromPreviousLocation: replacement.range.location - previousLocation,
-          length: replacement.range.length,
-          replacement: replacement.replacement
+          locationOffsetFromPreviousLocation: range.lowerBound - previousLocation,
+          length: range.count,
+          replacement: replacement
         )
-        nodes[insertionPoint].locationOffsetFromPreviousLocation = nextLocation - replacement.range.location
+        nodes[insertionPoint].locationOffsetFromPreviousLocation = nextLocation - range.lowerBound
         nodes.insert(node, at: insertionPoint)
       }
       previousLocation = nextLocation
     }
     let node = Node(
-      locationOffsetFromPreviousLocation: replacement.range.location - previousLocation,
-      length: replacement.range.length,
-      replacement: replacement.replacement
+      locationOffsetFromPreviousLocation: range.lowerBound - previousLocation,
+      length: range.count,
+      replacement: replacement
     )
     nodes.append(node)
   }
 
   /// Wow I can't really describe this so I should probably refactor it!
-  func wipeCharacters(in range: NSRange, replacementLength: Int) {
+  func wipeCharacters<R: RangeExpression>(in range: R, replacementLength: Int) where R.Bound == Int {
+    let range = range.relative(to: 0 ..< Int.max)
     deleteNodes(overlapping: range)
-    let changeInLength = replacementLength - range.length
+    let changeInLength = replacementLength - range.count
     var previousLocation = 0
     for (i, node) in nodes.enumerated() {
       let nextLocation = previousLocation + node.locationOffsetFromPreviousLocation
-      if nextLocation > range.location {
+      if nextLocation > range.lowerBound {
         nodes[i].locationOffsetFromPreviousLocation += changeInLength
         return
       }
@@ -75,14 +68,15 @@ final class ReplacementTable {
   }
 
   /// Returns all replacements that apply to the range of the original NSAttributedString.
-  func replacements(in filterRange: NSRange) -> [Replacement] {
+  func replacements<R: RangeExpression>(in filterRange: R) -> [Replacement] where R.Bound == Int {
+    let filterRange = filterRange.relative(to: 0 ..< Int.max)
     var results: [Replacement] = []
     var location = 0
     for node in nodes {
       location += node.locationOffsetFromPreviousLocation
-      let range = NSRange(location: location, length: node.length)
-      if range.intersection(filterRange) == nil { continue }
-      let result = Replacement(range: range, replacement: node.replacement)
+      let range = location ..< location + node.length
+      if !range.overlaps(filterRange) { continue }
+      let result = Replacement(range: range, elements: node.replacement)
       results.append(result)
     }
     return results
@@ -94,8 +88,8 @@ final class ReplacementTable {
     var visibleIndex = visibleIndex
     for node in nodes {
       location += node.locationOffsetFromPreviousLocation
-      if visibleIndex >= location + node.replacement.length {
-        visibleIndex += node.length - node.replacement.length
+      if visibleIndex >= location + node.replacement.count {
+        visibleIndex += node.length - node.replacement.count
       } else {
         break
       }
@@ -114,13 +108,13 @@ final class ReplacementTable {
   private struct Node {
     var locationOffsetFromPreviousLocation: Int
     let length: Int
-    let replacement: NSAttributedString
+    let replacement: [Element]
   }
 
   // TODO: Replace this with a tree
   private var nodes: [Node] = []
 
-  private func deleteNodes(overlapping contentRange: NSRange) {
+  private func deleteNodes<R: RangeExpression>(overlapping contentRange: R) where R.Bound == Int {
     guard let nodeRange = rangeOfNodes(overlapping: contentRange) else { return }
     if nodeRange.upperBound.index + 1 < nodes.endIndex {
       let targetOffset = nodeRange.upperBound.location + nodes[nodeRange.upperBound.index + 1].locationOffsetFromPreviousLocation
@@ -134,18 +128,19 @@ final class ReplacementTable {
     let index: Int
     let location: Int
 
-    static func < (lhs: ReplacementTable.NodeIndexWithLocation, rhs: ReplacementTable.NodeIndexWithLocation) -> Bool {
+    static func < (lhs: ArrayReplacementCollection.NodeIndexWithLocation, rhs: ArrayReplacementCollection.NodeIndexWithLocation) -> Bool {
       return lhs.index < rhs.index
     }
   }
 
-  private func rangeOfNodes(overlapping filterRange: NSRange) -> ClosedRange<NodeIndexWithLocation>? {
+  private func rangeOfNodes<R: RangeExpression>(overlapping filterRange: R) -> ClosedRange<NodeIndexWithLocation>? where R.Bound == Int {
+    let filterRange = filterRange.relative(to: 0 ..< Int.max)
     var result: ClosedRange<NodeIndexWithLocation>?
     var location = 0
     for (i, node) in nodes.enumerated() {
       location += node.locationOffsetFromPreviousLocation
-      let range = NSRange(location: location, length: node.length)
-      if range.intersection(filterRange) != nil {
+      let range = location ..< location + node.length
+      if range.overlaps(filterRange) {
         let augmentedNode = NodeIndexWithLocation(index: i, location: location)
         result = result.flatMap { $0.lowerBound ... augmentedNode } ?? augmentedNode ... augmentedNode
       }

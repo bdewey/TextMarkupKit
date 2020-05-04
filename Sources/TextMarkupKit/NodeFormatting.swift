@@ -34,7 +34,7 @@ extension Node {
   /// Associates AttributedStringAttributes with this part of the syntax tree.
   func applyAttributes(
     attributes: AttributedStringAttributes,
-    replacementTable: ReplacementTable,
+    replacementTable: ArrayReplacementCollection<unichar>,
     formattingFunctions: [NodeType: FormattingFunction],
     startingIndex: Int,
     leafNodeRange: inout Range<Int>?

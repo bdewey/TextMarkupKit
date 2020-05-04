@@ -49,7 +49,7 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
   private let buffer: IncrementalParsingBuffer
   private let defaultAttributes: AttributedStringAttributes
   private let formattingFunctions: [NodeType: FormattingFunction]
-  private let replacementTable = ReplacementTable()
+  private let replacementTable = ArrayReplacementCollection<unichar>()
 
   // MARK: - Public
 
@@ -65,7 +65,7 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
     let range = replacementTable.physicalRange(for: range)
     var changedAttributesRange: Range<Int>?
     beginEditing()
-    replacementTable.wipeCharacters(in: range, replacementLength: str.utf16.count)
+    replacementTable.wipeCharacters(in: range.lowerBound ..< range.upperBound, replacementLength: str.utf16.count)
     buffer.replaceCharacters(in: range, with: str)
     if case .success(let node) = buffer.result {
       node.applyAttributes(
@@ -80,10 +80,10 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
     edited([.editedCharacters], range: range, changeInLength: str.utf16.count - range.length)
     if let range = changedAttributesRange {
       edited([.editedAttributes], range: NSRange(location: range.lowerBound, length: range.count), changeInLength: 0)
-      for replacement in replacementTable.replacements(in: NSRange(location: range.lowerBound, length: range.upperBound - range.lowerBound)) {
+      for replacement in replacementTable.replacements(in: range) {
         edited(
           [.editedCharacters],
-          range: replacement.range, changeInLength: replacement.changeInLength
+          range: NSRange(location: replacement.range.lowerBound, length: replacement.range.count), changeInLength: replacement.changeInLength
         )
       }
     }
