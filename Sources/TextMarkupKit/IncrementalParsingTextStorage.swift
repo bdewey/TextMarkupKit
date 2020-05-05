@@ -80,7 +80,8 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
     let range = replacementTable.physicalRange(for: range)
     var changedAttributesRange: Range<Int>?
     beginEditing()
-    replacementTable.wipeCharacters(in: range.lowerBound ..< range.upperBound, replacementLength: str.utf16.count)
+    replacementTable.removeReplacements(overlapping: range.lowerBound ..< range.upperBound)
+    replacementTable.offsetReplacements(after: range.lowerBound, by: str.utf16.count - range.length)
     buffer.replaceCharacters(in: range, with: str)
     edited([.editedCharacters], range: range, changeInLength: str.utf16.count - range.length)
     if case .success(let node) = buffer.result {
@@ -151,6 +152,7 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
     }
     var attributes = attributes
     formattingFunctions[node.type]?(node, &attributes)
+    replacementTable.removeReplacements(overlapping: startingIndex ..< startingIndex + node.length)
     if let replacementFunction = replacementFunctions[node.type] {
       let replacedLength = replacementFunction(node, startingIndex, replacementTable)
       edited([.editedCharacters], range: NSRange(location: startingIndex, length: node.length), changeInLength: replacedLength - node.length)

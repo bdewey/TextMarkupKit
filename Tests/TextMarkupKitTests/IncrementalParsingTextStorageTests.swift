@@ -21,9 +21,12 @@ import XCTest
 
 private func formatTab(
   node: Node,
-  startIndex: Int
-) -> [unichar] {
-  return Array("\t".utf16)
+  startIndex: Int,
+  replacements: ArrayReplacementCollection<unichar>
+) -> Int {
+  let tab: UnicodeScalar = "\t"
+  try! replacements.insert([tab.utf16.first!], at: startIndex ..< startIndex + node.length)
+  return 1
 }
 
 final class IncrementalParsingTextStorageTests: XCTestCase {
