@@ -87,13 +87,13 @@ final class MiniMarkdownParsingTests: XCTestCase {
     - Item one
     - Item two
     """
-    parseText(markdown, expectedStructure: "(document (list (list_item delimiter (paragraph text)) (list_item delimiter (paragraph text))))")
+    parseText(markdown, expectedStructure: "(document (list (list_item (delimiter unordered_list_opening tab) (paragraph text)) (list_item (delimiter unordered_list_opening tab) (paragraph text))))")
   }
 
   func testListItemWithStyling() {
     parseText(
       "- This is a list item with **strong emphasis**",
-      expectedStructure: "(document (list (list_item delimiter (paragraph text (strong_emphasis delimiter text delimiter)))))"
+      expectedStructure: "(document (list (list_item (delimiter unordered_list_opening tab) (paragraph text (strong_emphasis delimiter text delimiter)))))"
     )
   }
 
@@ -102,7 +102,7 @@ final class MiniMarkdownParsingTests: XCTestCase {
     - Item *one
     - Item *two
     """
-    parseText(markdown, expectedStructure: "(document (list (list_item delimiter (paragraph text)) (list_item delimiter (paragraph text))))")
+    parseText(markdown, expectedStructure: "(document (list (list_item (delimiter unordered_list_opening tab) (paragraph text)) (list_item (delimiter unordered_list_opening tab) (paragraph text))))")
   }
 
   func testAllUnorderedListMarkers() {
@@ -112,7 +112,7 @@ final class MiniMarkdownParsingTests: XCTestCase {
     * And so is this.
 
     """
-    let tree = parseText(example, expectedStructure: "(document (list (list_item delimiter (paragraph text)) (list_item delimiter (paragraph text)) (list_item delimiter (paragraph text))))")
+    let tree = parseText(example, expectedStructure: "(document (list (list_item (delimiter unordered_list_opening tab) (paragraph text)) (list_item (delimiter unordered_list_opening tab) (paragraph text)) (list_item (delimiter unordered_list_opening tab) (paragraph text))))")
     XCTAssertEqual(tree?.node(at: [0])?[ListTypeKey.self], .unordered)
   }
 

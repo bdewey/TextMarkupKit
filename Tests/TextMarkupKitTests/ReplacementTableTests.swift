@@ -23,85 +23,130 @@ final class ReplacementTableTests: XCTestCase {
   private let sampleString = Array("yo".utf16)
 
   func testSingleRange() {
-    let replacementTable = ArrayReplacementCollection<unichar>()
-    replacementTable.insert(sampleString, at: 2 ..< 4)
-    let replacements = replacementTable.replacements(in: 0...)
-    XCTAssertEqual(replacements.count, 1)
-    XCTAssertEqual(replacements.map { $0.range }, [2 ..< 4])
+    do {
+      let replacementTable = ArrayReplacementCollection<unichar>()
+      try replacementTable.insert(sampleString, at: 2 ..< 4)
+      let replacements = replacementTable.replacements(in: 0...)
+      XCTAssertEqual(replacements.count, 1)
+      XCTAssertEqual(replacements.map { $0.range }, [2 ..< 4])
+    } catch {
+      XCTFail("Unexpected error: \(error)")
+    }
   }
 
   func testMultipleRanges() {
-    let replacementTable = ArrayReplacementCollection<unichar>()
-    replacementTable.insert(sampleString, at: 2 ..< 4)
-    replacementTable.insert(sampleString, at: 4 ..< 6)
-    let replacements = replacementTable.replacements(in: 0...)
-    XCTAssertEqual(replacements.map { $0.range }, [2 ..< 4, 4 ..< 6])
+    do {
+      let replacementTable = ArrayReplacementCollection<unichar>()
+      try replacementTable.insert(sampleString, at: 2 ..< 4)
+      try replacementTable.insert(sampleString, at: 4 ..< 6)
+      let replacements = replacementTable.replacements(in: 0...)
+      XCTAssertEqual(replacements.map { $0.range }, [2 ..< 4, 4 ..< 6])
+    } catch {
+      XCTFail("Unexpected error: \(error)")
+    }
   }
 
   func testFilterRanges() {
-    let replacementTable = ArrayReplacementCollection<unichar>()
-    replacementTable.insert(sampleString, at: 2 ..< 4)
-    replacementTable.insert(sampleString, at: 4 ..< 6)
-    let replacements = replacementTable.replacements(in: 4 ..< 6)
-    XCTAssertEqual(replacements.map { $0.range }, [4 ..< 6])
+    do {
+      let replacementTable = ArrayReplacementCollection<unichar>()
+      try replacementTable.insert(sampleString, at: 2 ..< 4)
+      try replacementTable.insert(sampleString, at: 4 ..< 6)
+      let replacements = replacementTable.replacements(in: 4 ..< 6)
+      XCTAssertEqual(replacements.map { $0.range }, [4 ..< 6])
+    } catch {
+      XCTFail("Unexpected error: \(error)")
+    }
   }
 
   func testRangesRespondToInserts() {
-    let replacementTable = ArrayReplacementCollection<unichar>()
-    replacementTable.insert(sampleString, at: 2 ..< 4)
-    replacementTable.insert(sampleString, at: 10 ..< 12)
-    replacementTable.insert(sampleString, at: 20 ..< 22)
+    do {
+      let replacementTable = ArrayReplacementCollection<unichar>()
+      try replacementTable.insert(sampleString, at: 2 ..< 4)
+      try replacementTable.insert(sampleString, at: 10 ..< 12)
+      try replacementTable.insert(sampleString, at: 20 ..< 22)
 
-    replacementTable.wipeCharacters(in: 6 ..< 6, replacementLength: 3)
-    let replacements = replacementTable.replacements(in: 0...)
-    XCTAssertEqual(replacements.map { $0.range }, [2 ..< 4, 13 ..< 15, 23 ..< 25])
+      replacementTable.offsetReplacements(after: 6, by: 3)
+      let replacements = replacementTable.replacements(in: 0...)
+      XCTAssertEqual(replacements.map { $0.range }, [2 ..< 4, 13 ..< 15, 23 ..< 25])
+    } catch {
+      XCTFail("Unexpected error: \(error)")
+    }
   }
 
   func testRangesRespondToDeletions() {
-    let replacementTable = ArrayReplacementCollection<unichar>()
-    replacementTable.insert(sampleString, at: 2 ..< 4)
-    replacementTable.insert(sampleString, at: 10 ..< 12)
-    replacementTable.insert(sampleString, at: 20 ..< 22)
+    do {
+      let replacementTable = ArrayReplacementCollection<unichar>()
+      try replacementTable.insert(sampleString, at: 2 ..< 4)
+      try replacementTable.insert(sampleString, at: 10 ..< 12)
+      try replacementTable.insert(sampleString, at: 20 ..< 22)
 
-    replacementTable.wipeCharacters(in: 9 ..< 12, replacementLength: 0)
-    let replacements = replacementTable.replacements(in: 0...)
-    XCTAssertEqual(replacements.map { $0.range }, [2 ..< 4, 17 ..< 19])
+      replacementTable.removeReplacements(overlapping: 9 ..< 12)
+      replacementTable.offsetReplacements(after: 9, by: -3)
+      let replacements = replacementTable.replacements(in: 0...)
+      XCTAssertEqual(replacements.map { $0.range }, [2 ..< 4, 17 ..< 19])
+    } catch {
+      XCTFail("Unexpected error: \(error)")
+    }
   }
 
   func testCanDeleteFirstRange() {
-    let replacementTable = ArrayReplacementCollection<unichar>()
-    replacementTable.insert(sampleString, at: 2 ..< 4)
-    replacementTable.insert(sampleString, at: 10 ..< 12)
-    replacementTable.insert(sampleString, at: 20 ..< 22)
+    do {
+      let replacementTable = ArrayReplacementCollection<unichar>()
+      try replacementTable.insert(sampleString, at: 2 ..< 4)
+      try replacementTable.insert(sampleString, at: 10 ..< 12)
+      try replacementTable.insert(sampleString, at: 20 ..< 22)
 
-    replacementTable.wipeCharacters(in: 0 ..< 4, replacementLength: 0)
-    let replacements = replacementTable.replacements(in: 0...)
-    XCTAssertEqual(replacements.map { $0.range }, [6 ..< 8, 16 ..< 18])
+      replacementTable.removeReplacements(overlapping: 0 ..< 4)
+      replacementTable.offsetReplacements(after: 0, by: -4)
+      let replacements = replacementTable.replacements(in: 0...)
+      XCTAssertEqual(replacements.map { $0.range }, [6 ..< 8, 16 ..< 18])
+    } catch {
+      XCTFail("Unexpected error: \(error)")
+    }
   }
 
   func testCanDeleteLastRange() {
-    let replacementTable = ArrayReplacementCollection<unichar>()
-    replacementTable.insert(sampleString, at: 2 ..< 4)
-    replacementTable.insert(sampleString, at: 10 ..< 12)
-    replacementTable.insert(sampleString, at: 20 ..< 22)
+    do {
+      let replacementTable = ArrayReplacementCollection<unichar>()
+      try replacementTable.insert(sampleString, at: 2 ..< 4)
+      try replacementTable.insert(sampleString, at: 10 ..< 12)
+      try replacementTable.insert(sampleString, at: 20 ..< 22)
 
-    replacementTable.wipeCharacters(in: 20 ..< 24, replacementLength: 0)
-    let replacements = replacementTable.replacements(in: 0...)
-    XCTAssertEqual(replacements.map { $0.range }, [2 ..< 4, 10 ..< 12])
+      replacementTable.removeReplacements(overlapping: 20 ..< 24)
+      replacementTable.offsetReplacements(after: 20, by: -4)
+      let replacements = replacementTable.replacements(in: 0...)
+      XCTAssertEqual(replacements.map { $0.range }, [2 ..< 4, 10 ..< 12])
+    } catch {
+      XCTFail("Unexpected error: \(error)")
+    }
+  }
+
+  func testOverlappingInsertsRaiseError() {
+    do {
+      let replacementTable = ArrayReplacementCollection<unichar>()
+      try replacementTable.insert(sampleString, at: 2 ..< 4)
+      XCTAssertThrowsError(try replacementTable.insert(sampleString, at: 3 ..< 4))
+    } catch {
+      XCTFail("Unexpected error: \(error)")
+    }
   }
 
   func testAddressTranslation() {
-    let replacementTable = ArrayReplacementCollection<unichar>()
-    replacementTable.insert(sampleString, at: 2 ..< 6)
-    replacementTable.insert(sampleString, at: 10 ..< 14)
+    do {
+      let replacementTable = ArrayReplacementCollection<unichar>()
+      try replacementTable.insert(sampleString, at: 2 ..< 6)
+      try replacementTable.insert(sampleString, at: 10 ..< 14)
 
-    XCTAssertEqual(1, replacementTable.physicalIndex(for: 1))
-    XCTAssertEqual(3, replacementTable.physicalIndex(for: 3))
-    XCTAssertEqual(6, replacementTable.physicalIndex(for: 4))
-    XCTAssertEqual(9, replacementTable.physicalIndex(for: 7))
-    XCTAssertEqual(10, replacementTable.physicalIndex(for: 8))
-    XCTAssertEqual(11, replacementTable.physicalIndex(for: 9))
-    XCTAssertEqual(14, replacementTable.physicalIndex(for: 10))
-    XCTAssertEqual(104, replacementTable.physicalIndex(for: 100))
+      XCTAssertEqual(1, replacementTable.physicalIndex(for: 1))
+      XCTAssertEqual(3, replacementTable.physicalIndex(for: 3))
+      XCTAssertEqual(6, replacementTable.physicalIndex(for: 4))
+      XCTAssertEqual(9, replacementTable.physicalIndex(for: 7))
+      XCTAssertEqual(10, replacementTable.physicalIndex(for: 8))
+      XCTAssertEqual(11, replacementTable.physicalIndex(for: 9))
+      XCTAssertEqual(14, replacementTable.physicalIndex(for: 10))
+      XCTAssertEqual(104, replacementTable.physicalIndex(for: 100))
+    } catch {
+      XCTFail("Unexpected error: \(error)")
+    }
   }
 }

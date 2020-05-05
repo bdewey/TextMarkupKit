@@ -19,6 +19,10 @@ import Foundation
 
 /// Stores a collection of non-overlapping replacement operations to apply to an array to generate a new array.
 public final class ArrayReplacementCollection<Element> {
+  enum Error: Swift.Error {
+    case cannotInsertOverlappingRange
+  }
+
   public struct Replacement {
     let range: Range<Int>
     let elements: [Element]
@@ -27,11 +31,14 @@ public final class ArrayReplacementCollection<Element> {
   }
 
   /// Inserts a replacement in the table.
-  public func insert(_ replacement: [Element], at range: Range<Int>) {
+  public func insert(_ replacement: [Element], at range: Range<Int>) throws {
     var previousLocation = 0
 
     for insertionPoint in 0 ..< nodes.endIndex {
       let nextLocation = previousLocation + nodes[insertionPoint].locationOffsetFromPreviousLocation
+      if range.overlaps(nextLocation ..< nextLocation + nodes[insertionPoint].length) {
+        throw Error.cannotInsertOverlappingRange
+      }
       if nextLocation > range.lowerBound {
         let node = Node(
           locationOffsetFromPreviousLocation: range.lowerBound - previousLocation,
@@ -51,20 +58,34 @@ public final class ArrayReplacementCollection<Element> {
     nodes.append(node)
   }
 
-  /// Wow I can't really describe this so I should probably refactor it!
-  public func wipeCharacters<R: RangeExpression>(in range: R, replacementLength: Int) where R.Bound == Int {
-    let range = range.relative(to: 0 ..< Int.max)
-    deleteNodes(overlapping: range)
-    let changeInLength = replacementLength - range.count
+  /// Moves the ranges of all replacements that come after `contentLocation` by a fixed amount.
+  public func offsetReplacements(
+    after contentLocation: Int,
+    by offsetAmount: Int
+  ) {
+    guard offsetAmount != 0 else { return }
     var previousLocation = 0
     for (i, node) in nodes.enumerated() {
       let nextLocation = previousLocation + node.locationOffsetFromPreviousLocation
-      if nextLocation > range.lowerBound {
-        nodes[i].locationOffsetFromPreviousLocation += changeInLength
+      if nextLocation > contentLocation {
+        nodes[i].locationOffsetFromPreviousLocation += offsetAmount
         return
       }
       previousLocation = nextLocation
     }
+  }
+
+  /// Removes all replacements that overlap a content range.
+  public func removeReplacements<R: RangeExpression>(
+    overlapping contentRange: R
+  ) where R.Bound == Int {
+    guard let nodeRange = rangeOfNodes(overlapping: contentRange) else { return }
+    if nodeRange.upperBound.index + 1 < nodes.endIndex {
+      let targetOffset = nodeRange.upperBound.location + nodes[nodeRange.upperBound.index + 1].locationOffsetFromPreviousLocation
+      let priorOffset = nodeRange.lowerBound.location - nodes[nodeRange.lowerBound.index].locationOffsetFromPreviousLocation
+      nodes[nodeRange.upperBound.index + 1].locationOffsetFromPreviousLocation = targetOffset - priorOffset
+    }
+    nodes.removeSubrange(nodeRange.lowerBound.index ..< nodeRange.upperBound.index + 1)
   }
 
   /// Returns all replacements that apply to the range of the original NSAttributedString.
@@ -113,16 +134,6 @@ public final class ArrayReplacementCollection<Element> {
 
   // TODO: Replace this with a tree
   private var nodes: [Node] = []
-
-  private func deleteNodes<R: RangeExpression>(overlapping contentRange: R) where R.Bound == Int {
-    guard let nodeRange = rangeOfNodes(overlapping: contentRange) else { return }
-    if nodeRange.upperBound.index + 1 < nodes.endIndex {
-      let targetOffset = nodeRange.upperBound.location + nodes[nodeRange.upperBound.index + 1].locationOffsetFromPreviousLocation
-      let priorOffset = nodeRange.lowerBound.location - nodes[nodeRange.lowerBound.index].locationOffsetFromPreviousLocation
-      nodes[nodeRange.upperBound.index + 1].locationOffsetFromPreviousLocation = targetOffset - priorOffset
-    }
-    nodes.removeSubrange(nodeRange.lowerBound.index ..< nodeRange.upperBound.index + 1)
-  }
 
   private struct NodeIndexWithLocation: Comparable {
     let index: Int

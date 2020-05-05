@@ -33,6 +33,7 @@ public extension NodeType {
   static let softTab: NodeType = "tab"
   static let strongEmphasis: NodeType = "strong_emphasis"
   static let text: NodeType = "text"
+  static let unorderedListOpening: NodeType = "unordered_list_opening"
 }
 
 public enum ListType {
@@ -170,10 +171,10 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   // https://spec.commonmark.org/0.28/#list-items
 
   lazy var unorderedListOpening = InOrder(
-    whitespace.repeating(0...),
-    Characters(["*", "-", "+"]),
-    whitespace.repeating(1 ... 4)
-  ).as(.delimiter).memoize()
+    whitespace.repeating(0...).as(.text).zeroOrOne(),
+    Characters(["*", "-", "+"]).as(.unorderedListOpening),
+    whitespace.repeating(1 ... 4).as(.softTab)
+  ).wrapping(in: .delimiter).memoize()
 
   lazy var orderedListOpening = InOrder(
     whitespace.repeating(0...),
