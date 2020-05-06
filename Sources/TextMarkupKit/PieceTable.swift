@@ -71,7 +71,8 @@ public final class PieceTable: CustomStringConvertible, RangeReplaceableSafeUnic
 
   /// Return the receiver as a String.
   public var string: String {
-    self[startIndex ..< endIndex]
+    let chars = self[startIndex...]
+    return String(utf16CodeUnits: chars, count: chars.count)
   }
 
   /// How many `unichar` elements are in the piece table.
@@ -106,14 +107,14 @@ public final class PieceTable: CustomStringConvertible, RangeReplaceableSafeUnic
   }
 
   /// Gets the string from an NSRange of ContentIndexes.
-  public subscript(range: NSRange) -> String {
+  public subscript(range: NSRange) -> [unichar] {
     return self[range.lowerBound ..< range.upperBound]
   }
 
   /// Gets a substring of the PieceTable contents.
-  public subscript<R: RangeExpression>(boundsExpression: R) -> String where R.Bound == Int {
+  public subscript<R: RangeExpression>(boundsExpression: R) -> [unichar] where R.Bound == Int {
     let bounds = boundsExpression.relative(to: self)
-    guard bounds.upperBound > 0 else { return "" }
+    guard bounds.upperBound > 0 else { return [] }
     let (lowerSliceIndex, lowerStartBefore) = sliceIndex(for: bounds.lowerBound)
     let (upperSliceIndex, upperCountBefore) = sliceIndex(for: bounds.upperBound - 1)
     var results = [unichar]()
@@ -123,7 +124,7 @@ public final class PieceTable: CustomStringConvertible, RangeReplaceableSafeUnic
       let upperBound = (sliceIndex == upperSliceIndex) ? slice.startIndex + bounds.upperBound - upperCountBefore : slice.endIndex
       results.append(contentsOf: sourceArray(for: slice.source)[lowerBound ..< upperBound])
     }
-    return String(utf16CodeUnits: results, count: results.count)
+    return results
   }
 
   public var description: String {

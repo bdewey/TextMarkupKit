@@ -30,8 +30,10 @@ public extension NodeType {
   static let list: NodeType = "list"
   static let listItem: NodeType = "list_item"
   static let paragraph: NodeType = "paragraph"
+  static let softTab: NodeType = "tab"
   static let strongEmphasis: NodeType = "strong_emphasis"
   static let text: NodeType = "text"
+  static let unorderedListOpening: NodeType = "unordered_list_opening"
 }
 
 public enum ListType {
@@ -72,8 +74,8 @@ public final class MiniMarkdownGrammar: PackratGrammar {
 
   lazy var header = InOrder(
     Characters(["#"]).repeating(1 ..< 7).as(.delimiter),
+    softTab,
     InOrder(
-      whitespace.repeating(1...),
       InOrder(newline.assertInverse(), dot).repeating(0...),
       Choice(newline, dot.assertInverse())
     ).as(.text)
@@ -145,6 +147,8 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   let whitespace = Characters(.whitespaces)
   let nonWhitespace = Characters(CharacterSet.whitespacesAndNewlines.inverted)
   let digit = Characters(.decimalDigits)
+  /// One or more whitespace characters that should be interpreted as a single delimiater.
+  let softTab = Characters(.whitespaces).repeating(1...).as(.softTab)
 
   // MARK: - Simple block quotes
 
@@ -167,10 +171,10 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   // https://spec.commonmark.org/0.28/#list-items
 
   lazy var unorderedListOpening = InOrder(
-    whitespace.repeating(0...),
-    Characters(["*", "-", "+"]),
-    whitespace.repeating(1 ... 4)
-  ).as(.delimiter).memoize()
+    whitespace.repeating(0...).as(.text).zeroOrOne(),
+    Characters(["*", "-", "+"]).as(.unorderedListOpening),
+    whitespace.repeating(1 ... 4).as(.softTab)
+  ).wrapping(in: .delimiter).memoize()
 
   lazy var orderedListOpening = InOrder(
     whitespace.repeating(0...),

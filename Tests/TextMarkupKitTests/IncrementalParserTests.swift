@@ -47,7 +47,7 @@ final class IncrementalParserTests: XCTestCase {
     validateParser(parser, has: "(document (paragraph text))")
     TraceBuffer.shared.traceEntries.removeAll()
     parser.replaceCharacters(in: NSRange(location: 7, length: 1), with: "")
-    XCTAssertEqual(parser.utf16String, parser[0...])
+    XCTAssertEqual(parser.utf16String, parser.string)
     validateParser(parser, has: "(document (paragraph text (emphasis delimiter text delimiter)))")
   }
 
@@ -56,7 +56,7 @@ final class IncrementalParserTests: XCTestCase {
     validateParser(parser, has: "(document (paragraph text))")
     TraceBuffer.shared.traceEntries.removeAll()
     parser.replaceCharacters(in: NSRange(location: 12, length: 1), with: "")
-    XCTAssertEqual(parser.utf16String, parser[0...])
+    XCTAssertEqual(parser.utf16String, parser.string)
     validateParser(parser, has: "(document (paragraph text (emphasis delimiter text delimiter)))")
   }
 
@@ -67,14 +67,14 @@ final class IncrementalParserTests: XCTestCase {
     I will be editing this **awesome** text and expect most nodes to be reused.
     """
     let parser = IncrementalParsingBuffer(text, grammar: MiniMarkdownGrammar())
-    guard let tree = validateParser(parser, has: "(document (header delimiter text) blank_line (paragraph text (strong_emphasis delimiter text delimiter) text))") else {
+    guard let tree = validateParser(parser, has: "(document (header delimiter tab text) blank_line (paragraph text (strong_emphasis delimiter text delimiter) text))") else {
       XCTFail("Expected a tree")
       return
     }
     let emphasis = tree.node(at: [2, 1])
     XCTAssertEqual(emphasis?.type, .strongEmphasis)
     parser.replaceCharacters(in: NSRange(location: text.utf16.count, length: 0), with: "Change paragraph!\n\nAnd add a new one.")
-    guard let editedTree = validateParser(parser, has: "(document (header delimiter text) blank_line (paragraph text (strong_emphasis delimiter text delimiter) text) blank_line (paragraph text))") else {
+    guard let editedTree = validateParser(parser, has: "(document (header delimiter tab text) blank_line (paragraph text (strong_emphasis delimiter text delimiter) text) blank_line (paragraph text))") else {
       XCTFail("Expected a tree")
       return
     }

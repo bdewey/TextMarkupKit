@@ -21,15 +21,26 @@
   import AppKit
 #endif
 
+/// Just a handy alias for NSAttributedString attributes
+public typealias AttributedStringAttributes = [NSAttributedString.Key: Any]
+
+/// A function that modifies NSAttributedString attributes based the syntax tree.
+public typealias FormattingFunction = (Node, inout AttributedStringAttributes) -> Void
+
+/// A function that overlays replacements...
+public typealias ReplacementFunction = (Node, Int) -> [unichar]?
+
 /// Uses an `IncrementalParsingBuffer` to implement `NSTextStorage`.
 public final class IncrementalParsingTextStorage: NSTextStorage {
   public init(
     grammar: PackratGrammar,
     defaultAttributes: AttributedStringAttributes,
-    formattingFunctions: [NodeType: FormattingFunction]
+    formattingFunctions: [NodeType: FormattingFunction],
+    replacementFunctions: [NodeType: ReplacementFunction]
   ) {
     self.defaultAttributes = defaultAttributes
     self.formattingFunctions = formattingFunctions
+    self.replacementFunctions = replacementFunctions
     self.buffer = IncrementalParsingBuffer("", grammar: grammar)
     super.init()
   }
@@ -49,32 +60,49 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
   private let buffer: IncrementalParsingBuffer
   private let defaultAttributes: AttributedStringAttributes
   private let formattingFunctions: [NodeType: FormattingFunction]
+  private let replacementFunctions: [NodeType: ReplacementFunction]
 
   // MARK: - Public
 
   /// The character contents as a single String value.
   // TODO: Memoize
   public override var string: String {
-    buffer[0...]
+    var chars = buffer[0...]
+    if case .success(let node) = buffer.result {
+      applyReplacements(in: node, startingIndex: 0, to: &chars)
+    }
+    return String(utf16CodeUnits: chars, count: chars.count)
+  }
+
+  private func applyReplacements(in node: Node, startingIndex: Int, to array: inout [unichar]) {
+    guard node.hasTextReplacement else { return }
+    if let replacement = node.textReplacement {
+      array.replaceSubrange(startingIndex ..< startingIndex + node.length, with: replacement)
+    }
+    for (child, index) in node.childrenAndOffsets(startingAt: startingIndex).reversed() {
+      applyReplacements(in: child, startingIndex: index, to: &array)
+    }
   }
 
   /// Replaces the characters in the given range with the characters of the given string.
   public override func replaceCharacters(in range: NSRange, with str: String) {
     var changedAttributesRange: Range<Int>?
+    beginEditing()
     buffer.replaceCharacters(in: range, with: str)
+    edited([.editedCharacters], range: range, changeInLength: str.utf16.count - range.length)
     if case .success(let node) = buffer.result {
-      node.applyAttributes(
+      applyAttributes(
+        to: node,
         attributes: defaultAttributes,
-        formattingFunctions: formattingFunctions,
         startingIndex: 0,
         leafNodeRange: &changedAttributesRange
       )
     }
     // Deliver delegate messages
-    edited([.editedCharacters], range: range, changeInLength: str.utf16.count - range.length)
     if let range = changedAttributesRange {
       edited([.editedAttributes], range: NSRange(location: range.lowerBound, length: range.count), changeInLength: 0)
     }
+    endEditing()
   }
 
   /// Returns the attributes for the character at a given index.
@@ -106,5 +134,104 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
   ) {
     // TODO. Maybe just ignore? But this is how emojis and misspellings get formatted
     // by the system.
+  }
+
+  // MARK: - Private
+
+  /// Associates AttributedStringAttributes with this part of the syntax tree.
+  func applyAttributes(
+    to node: Node,
+    attributes: AttributedStringAttributes,
+    startingIndex: Int,
+    leafNodeRange: inout Range<Int>?
+  ) {
+    // If we already have attributes we don't need to do anything else.
+    guard node[NodeAttributesKey.self] == nil else {
+      return
+    }
+    var attributes = attributes
+    formattingFunctions[node.type]?(node, &attributes)
+    if let replacementFunction = replacementFunctions[node.type], let textReplacement = replacementFunction(node, startingIndex) {
+      node.textReplacement = textReplacement
+      node.hasTextReplacement = true
+      edited([.editedCharacters], range: NSRange(location: startingIndex, length: textReplacement.count), changeInLength: textReplacement.count - node.length)
+    } else {
+      node.hasTextReplacement = false
+    }
+    node.attributedStringAttributes = attributes
+    var childLength = 0
+    if node.children.isEmpty {
+      // We are a leaf. Adjust leafNodeRange.
+      let lowerBound = min(startingIndex, leafNodeRange?.lowerBound ?? Int.max)
+      let upperBound = max(startingIndex + node.length, leafNodeRange?.upperBound ?? Int.min)
+      leafNodeRange = lowerBound ..< upperBound
+    }
+    for child in node.children {
+      applyAttributes(
+        to: child,
+        attributes: attributes,
+        startingIndex: startingIndex + childLength,
+        leafNodeRange: &leafNodeRange
+      )
+      childLength += child.length
+      node.hasTextReplacement = node.hasTextReplacement || child.hasTextReplacement
+    }
+  }
+}
+
+/// Key for storing the string attributes associated with a node.
+private struct NodeAttributesKey: NodePropertyKey {
+  typealias Value = AttributedStringAttributes
+
+  static let key = "attributes"
+}
+
+private struct NodeTextReplacementKey: NodePropertyKey {
+  typealias Value = [unichar]
+  static let key = "textReplacement"
+}
+
+private struct NodeHasTextReplacementKey: NodePropertyKey {
+  typealias Value = Bool
+  static let key = "hasTextReplacement"
+}
+
+private extension Node {
+  /// The attributes associated with this node, if set.
+  var attributedStringAttributes: AttributedStringAttributes? {
+    get {
+      self[NodeAttributesKey.self]
+    }
+    set {
+      self[NodeAttributesKey.self] = newValue
+    }
+  }
+
+  var textReplacement: [unichar]? {
+    get {
+      self[NodeTextReplacementKey.self]
+    }
+    set {
+      self[NodeTextReplacementKey.self] = newValue
+    }
+  }
+
+  var hasTextReplacement: Bool {
+    get {
+      self[NodeHasTextReplacementKey.self] ?? false
+    }
+    set {
+      self[NodeHasTextReplacementKey.self] = newValue
+    }
+  }
+
+  func childrenAndOffsets(startingAt offset: Int) -> [(child: Node, offset: Int)] {
+    var offset = offset
+    var results = [(child: Node, offset: Int)]()
+    for child in children {
+      results.append((child: child, offset: offset))
+      offset += child.length
+    }
+    return results
   }
 }
