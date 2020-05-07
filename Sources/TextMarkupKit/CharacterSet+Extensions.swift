@@ -15,12 +15,20 @@
 //  specific language governing permissions and limitations
 //  under the License.
 
-import XCTest
+import Foundation
 
-#if !canImport(ObjectiveC)
-  public func allTests() -> [XCTestCaseEntry] {
-    return [
-      testCase(TextMarkupKitTests.allTests),
-    ]
+public extension NSCharacterSet {
+  func contains(_ utf16: unichar?, includesNil: Bool) -> Bool {
+    utf16.map(characterIsMember) ?? includesNil
   }
-#endif
+}
+
+public extension CharacterSet {
+  func contains(_ char: unichar) -> Bool {
+    guard let scalar = UnicodeScalar(char) else {
+      assertionFailure()
+      return false
+    }
+    return contains(scalar)
+  }
+}
