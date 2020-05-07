@@ -30,11 +30,9 @@ public final class IncrementalParsingBuffer {
     self.result = result
   }
 
-  // TODO: Make this private; I can do this when PieceTable and IncrementalParser conform
-  // to a common interface.
   private let pieceTable: PieceTable
-  public let memoizationTable: MemoizationTable
-  public let grammar: PackratGrammar
+  private let memoizationTable: MemoizationTable
+  private let grammar: PackratGrammar
   public private(set) var result: Result<Node, Error>
 }
 
