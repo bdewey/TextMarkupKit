@@ -15,12 +15,12 @@
 //  specific language governing permissions and limitations
 //  under the License.
 
-import XCTest
+import Foundation
 
-#if !canImport(ObjectiveC)
-  public func allTests() -> [XCTestCaseEntry] {
-    return [
-      testCase(TextMarkupKitTests.allTests),
-    ]
-  }
-#endif
+/// This is the simplest possible grammar: All content of the buffer gets parsed into a single node typed `text` with no
+/// children. This represents the very best parsing performance you could get.
+public final class JustTextGrammar: PackratGrammar {
+  public static let shared = JustTextGrammar()
+
+  public var start: ParsingRule = DotRule().repeating(0...).as(.text)
+}

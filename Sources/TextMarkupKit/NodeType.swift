@@ -15,12 +15,19 @@
 //  specific language governing permissions and limitations
 //  under the License.
 
-import XCTest
+import Foundation
 
-#if !canImport(ObjectiveC)
-  public func allTests() -> [XCTestCaseEntry] {
-    return [
-      testCase(TextMarkupKitTests.allTests),
-    ]
+/// Opaque class representing the type of a markup node.
+public final class NodeType: RawRepresentable, ExpressibleByStringLiteral, Hashable, CustomStringConvertible {
+  public init(rawValue: String) {
+    self.rawValue = rawValue
   }
-#endif
+
+  public init(stringLiteral value: String) {
+    self.rawValue = value
+  }
+
+  public let rawValue: String
+
+  public var description: String { rawValue }
+}
