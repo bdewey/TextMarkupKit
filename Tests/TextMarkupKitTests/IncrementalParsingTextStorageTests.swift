@@ -95,6 +95,12 @@ final class IncrementalParsingTextStorageTests: XCTestCase {
     )
   }
 
+  func testReplacementsAffectStringsButNotRawText() {
+    textStorage.append(NSAttributedString(string: "# This is a heading\n\nAnd this is a paragraph"))
+    XCTAssertEqual(textStorage.string, "#\tThis is a heading\n\nAnd this is a paragraph")
+    XCTAssertEqual(textStorage.rawText, "# This is a heading\n\nAnd this is a paragraph")
+  }
+
   #if !os(macOS)
     /// Use the iOS convenience methods for manipulated AttributedStringAttributes to test that attributes are properly
     /// applied to ranges of the string.

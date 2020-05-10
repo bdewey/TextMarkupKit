@@ -74,6 +74,12 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
     return String(utf16CodeUnits: chars, count: chars.count)
   }
 
+  /// The character contents as a single String value without any text replacements applied.
+  public var rawText: String {
+    let chars = buffer[0...]
+    return String(utf16CodeUnits: chars, count: chars.count)
+  }
+
   private func applyReplacements(in node: Node, startingIndex: Int, to array: inout [unichar]) {
     guard node.hasTextReplacement else { return }
     if let replacement = node.textReplacement {
