@@ -101,6 +101,21 @@ final class IncrementalParsingTextStorageTests: XCTestCase {
     XCTAssertEqual(textStorage.rawText, "# This is a heading\n\nAnd this is a paragraph")
   }
 
+  /// This used to crash because I was inproperly managing the blank_line nodes when coalescing them. It showed up when
+  /// re-using memoized results.
+  func testReproduceTypingBug() {
+    let initialString = "# Welcome to Scrap Paper.\n\n\n\n##\n\n"
+    textStorage.append(NSAttributedString(string: initialString))
+    let stringToInsert = " A second heading"
+    var insertionPoint = initialString.utf16.count - 2
+    for charToInsert in stringToInsert {
+      let str = String(charToInsert)
+      textStorage.replaceCharacters(in: NSRange(location: insertionPoint, length: 0), with: str)
+      insertionPoint += 1
+    }
+    XCTAssertEqual(textStorage.string, "#\tWelcome to Scrap Paper.\n\n\n\n##\tA second heading\n\n")
+  }
+
   #if !os(macOS)
     /// Use the iOS convenience methods for manipulated AttributedStringAttributes to test that attributes are properly
     /// applied to ranges of the string.

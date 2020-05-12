@@ -79,6 +79,9 @@ public final class Node: CustomStringConvertible {
   /// build up context (start position) by walking the parse tree.
   public var length: Int
 
+  /// We do a couple of tree-construction optimizations that mutate existing nodes that don't "belong" to us
+  private var disconnectedFromResult = false
+
   /// Children of this node.
   public var children = [Node]()
 
@@ -87,7 +90,7 @@ public final class Node: CustomStringConvertible {
     if child.isFragment {
       var fragmentNodes = child.children
       if let last = children.last, let first = fragmentNodes.first, last.children.isEmpty, first.children.isEmpty, last.type == first.type {
-        last.length += first.length
+        incrementLastChildNodeLength(by: first.length)
         fragmentNodes.removeFirst()
       }
       children.append(contentsOf: fragmentNodes)
@@ -95,10 +98,22 @@ public final class Node: CustomStringConvertible {
       // Special optimization: Adding a terminal node of the same type of the last terminal node
       // can just be a range update.
       if let lastNode = children.last, lastNode.children.isEmpty, child.children.isEmpty, lastNode.type == child.type {
-        lastNode.length += child.length
+        incrementLastChildNodeLength(by: child.length)
       } else {
         children.append(child)
       }
+    }
+  }
+
+  private func incrementLastChildNodeLength(by length: Int) {
+    guard let last = children.last else { return }
+    precondition(last.children.isEmpty)
+    if last.disconnectedFromResult {
+      last.length += length
+    } else {
+      let copy = Node(type: last.type, length: last.length + length)
+      copy.disconnectedFromResult = true
+      children[children.count - 1] = copy
     }
   }
 
@@ -215,7 +230,9 @@ extension Node {
     result.append(type.rawValue)
     result.append(": ")
     if children.isEmpty {
-      result.append(pieceTable[NSRange(location: location, length: length)].debugDescription)
+      let chars = pieceTable[NSRange(location: location, length: length)]
+      let str = String(utf16CodeUnits: chars, count: chars.count)
+      result.append(str.debugDescription)
     }
     lines.write(result)
     lines.write("\n")

@@ -53,8 +53,8 @@ public extension SafeUnicodeBuffer {
   func parse(grammar: PackratGrammar, memoizationTable: MemoizationTable) throws -> Node {
     memoizationTable.reserveCapacity(count + 1)
     let result = grammar.start.parsingResult(from: self, at: 0, memoizationTable: memoizationTable)
-    guard let node = result.node, result.length == count else {
-      throw ParsingError.incompleteParsing(length: result.length)
+    guard let node = result.node, node.length == count else {
+      throw ParsingError.incompleteParsing(length: result.node?.length ?? result.length)
     }
     return node
   }

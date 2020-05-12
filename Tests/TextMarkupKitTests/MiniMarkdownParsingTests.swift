@@ -175,6 +175,16 @@ final class MiniMarkdownParsingTests: XCTestCase {
     )
   }
 
+  func testTypingBugText() {
+    // Note that we currently coalesce consecutive blank_line nodes into a single blank_line node,
+    // the same as with consecutive text nodes. This isn't obvious and I'm not sure I like it
+    // but I'm going to let it be for now.
+    parseText(
+      "# Welcome to Scrap Paper.\n\n\n\n## Second heading\n\n",
+      expectedStructure: "(document (header delimiter tab text) blank_line (header delimiter tab text) blank_line)"
+    )
+  }
+
   func testFile() {
     let pieceTable = PieceTable(TestStrings.markdownCanonical)
     let grammar = MiniMarkdownGrammar()

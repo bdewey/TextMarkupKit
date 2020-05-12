@@ -137,6 +137,7 @@ open class ParsingRuleSequenceWrapper: ParsingRule {
 /// The output of trying to match a rule at an offset into a PieceTable.
 public struct ParsingResult {
   public init(succeeded: Bool, length: Int = 0, examinedLength: Int = 0, node: Node? = nil) {
+    assert(node == nil || (length == node!.length))
     self.succeeded = succeeded
     self.length = length
     self.examinedLength = examinedLength
@@ -147,7 +148,13 @@ public struct ParsingResult {
   public var succeeded: Bool
 
   /// How much of the input is consumed by the rule if it succeeded
-  public var length: Int
+  public private(set) var length: Int
+
+  /// Mutate this result to denote that it consumes no input.
+  public mutating func setZeroLength() {
+    length = 0
+    node = nil
+  }
 
   /// How far into the input sequence did we look to determine if we succeeded?
   public var examinedLength: Int {
@@ -157,7 +164,13 @@ public struct ParsingResult {
   }
 
   /// If we succeeded, what are the parse results? Note that for efficiency some rules may consume input (length > 1) but not actually generate syntax tree nodes.
-  public var node: Node?
+  public private(set) var node: Node?
+
+  /// Turns the spanned by an "anonymous" result into a typed node.
+  fileprivate mutating func makeNode(type: NodeType) {
+    assert(node == nil)
+    node = Node(type: type, length: length)
+  }
 
   /// Marks this result as a failure; useful for truncating in-process results. Notes it leaves `examinedLength` unchanged
   /// so incremental parsing can work.
@@ -171,6 +184,7 @@ public struct ParsingResult {
 
   /// Used to accumulate child results into a parent result.
   public mutating func appendChild(_ result: ParsingResult) {
+    assert(result.node == nil || result.node!.length == result.length)
     succeeded = succeeded && result.succeeded
     examinedLength += result.examinedLength
     guard succeeded else {
@@ -180,16 +194,21 @@ public struct ParsingResult {
     }
     if result.length == 0 { return }
     length += result.length
+    if node?.type == .blankLine {
+      print("Extended blank line length to \(length)")
+    }
     guard let resultNode = result.node else {
       return
     }
     // Optimization: if resultNode is fragment an we haven't allocated one, steal it.
     if resultNode.isFragment, node == nil {
       node = resultNode
+      assert(node == nil || node?.length == length)
     } else {
       let fragment = makeFragmentIfNeeded()
       fragment.appendChild(resultNode)
     }
+    assert(node == nil || node?.length == length)
   }
 
   private mutating func makeFragmentIfNeeded() -> Node {
@@ -397,8 +416,7 @@ final class ZeroOrOneRule: ParsingRuleWrapper {
       return performanceCounters.recordResult(result)
     }
     result.succeeded = true
-    result.length = 0
-    result.node = nil
+    result.setZeroLength()
     return performanceCounters.recordResult(result)
   }
 }
@@ -419,8 +437,7 @@ final class AbsorbingMatcher: ParsingRuleWrapper {
     if let existingNode = result.node, existingNode.isFragment {
       existingNode.type = nodeType
     } else {
-      let node = Node(type: nodeType, length: result.length)
-      result.node = node
+      result.makeNode(type: nodeType)
     }
     return performanceCounters.recordResult(result)
   }
@@ -446,7 +463,7 @@ final class WrappingRule: ParsingRuleWrapper {
       Swift.assert(node.isFragment)
       node.type = nodeType
     } else {
-      result.node = Node(type: nodeType, length: result.length)
+      result.makeNode(type: nodeType)
     }
     return performanceCounters.recordResult(result)
   }
@@ -575,8 +592,7 @@ private extension Optional where Wrapped == CharacterSet {
 final class AssertionRule: ParsingRuleWrapper {
   override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
     var result = rule.parsingResult(from: buffer, at: index, memoizationTable: memoizationTable)
-    result.length = 0
-    result.node = nil
+    result.setZeroLength()
     return performanceCounters.recordResult(result)
   }
 
@@ -589,7 +605,7 @@ final class AssertionRule: ParsingRuleWrapper {
 final class NotAssertionRule: ParsingRuleWrapper {
   override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
     var result = rule.parsingResult(from: buffer, at: index, memoizationTable: memoizationTable)
-    result.length = 0 // never consume input
+    result.setZeroLength()
     result.succeeded.toggle()
     return performanceCounters.recordResult(result)
   }
