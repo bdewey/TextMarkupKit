@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.0] - 2020-05-12
+
+### Fixed
+
+* Performance! Memoizing the string in the text storage is a big boost.
+
 ## [0.2.0] - 2020-05-12
 
 ### Fixed

@@ -64,14 +64,21 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
 
   // MARK: - Public
 
+  private var memoizedString: String?
+
   /// The character contents as a single String value.
   // TODO: Memoize
   public override var string: String {
+    if let memoizedString = memoizedString {
+      return memoizedString
+    }
     var chars = buffer[0...]
     if case .success(let node) = buffer.result {
       applyReplacements(in: node, startingIndex: 0, to: &chars)
     }
-    return String(utf16CodeUnits: chars, count: chars.count)
+    let result = String(utf16CodeUnits: chars, count: chars.count)
+    memoizedString = result
+    return result
   }
 
   /// The character contents as a single String value without any text replacements applied.
@@ -92,6 +99,7 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
 
   /// Replaces the characters in the given range with the characters of the given string.
   public override func replaceCharacters(in range: NSRange, with str: String) {
+    memoizedString = nil
     var changedAttributesRange: Range<Int>?
     beginEditing()
     buffer.replaceCharacters(in: range, with: str)
