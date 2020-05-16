@@ -27,9 +27,6 @@ public typealias AttributedStringAttributes = [NSAttributedString.Key: Any]
 /// A function that modifies NSAttributedString attributes based the syntax tree.
 public typealias FormattingFunction = (Node, inout AttributedStringAttributes) -> Void
 
-/// A function that overlays replacements...
-public typealias ReplacementFunction = (Node, Int) -> [unichar]?
-
 /// Uses an `IncrementalParsingBuffer` to implement `NSTextStorage`.
 public final class IncrementalParsingTextStorage: NSTextStorage {
   public init(
@@ -74,7 +71,7 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
     }
     var chars = buffer[0...]
     if case .success(let node) = buffer.result {
-      applyReplacements(in: node, startingIndex: 0, to: &chars)
+      node.applyTextReplacements(startingIndex: 0, to: &chars)
     }
     let result = String(utf16CodeUnits: chars, count: chars.count)
     memoizedString = result
@@ -85,16 +82,6 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
   public var rawText: String {
     let chars = buffer[0...]
     return String(utf16CodeUnits: chars, count: chars.count)
-  }
-
-  private func applyReplacements(in node: Node, startingIndex: Int, to array: inout [unichar]) {
-    guard node.hasTextReplacement else { return }
-    if let replacement = node.textReplacement {
-      array.replaceSubrange(startingIndex ..< startingIndex + node.length, with: replacement)
-    }
-    for (child, index) in node.childrenAndOffsets(startingAt: startingIndex).reversed() {
-      applyReplacements(in: child, startingIndex: index, to: &array)
-    }
   }
 
   /// Replaces the characters in the given range with the characters of the given string.
@@ -165,21 +152,14 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
     }
     var attributes = attributes
     formattingFunctions[node.type]?(node, &attributes)
-    if let replacementFunction = replacementFunctions[node.type], let textReplacement = replacementFunction(node, startingIndex) {
-      node.textReplacement = textReplacement
-      node.hasTextReplacement = true
-      edited([.editedCharacters], range: NSRange(location: startingIndex, length: textReplacement.count), changeInLength: textReplacement.count - node.length)
-    } else {
-      node.hasTextReplacement = false
-    }
     node.attributedStringAttributes = attributes
-    var childLength = 0
     if node.children.isEmpty {
       // We are a leaf. Adjust leafNodeRange.
       let lowerBound = min(startingIndex, leafNodeRange?.lowerBound ?? Int.max)
       let upperBound = max(startingIndex + node.length, leafNodeRange?.upperBound ?? Int.min)
       leafNodeRange = lowerBound ..< upperBound
     }
+    var childLength = 0
     for child in node.children {
       applyAttributes(
         to: child,
@@ -188,26 +168,14 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
         leafNodeRange: &leafNodeRange
       )
       childLength += child.length
-      node.hasTextReplacement = node.hasTextReplacement || child.hasTextReplacement
     }
   }
 }
 
 /// Key for storing the string attributes associated with a node.
-private struct NodeAttributesKey: NodePropertyKey {
+private enum NodeAttributesKey: NodePropertyKey {
   typealias Value = AttributedStringAttributes
-
   static let key = "attributes"
-}
-
-private struct NodeTextReplacementKey: NodePropertyKey {
-  typealias Value = [unichar]
-  static let key = "textReplacement"
-}
-
-private struct NodeHasTextReplacementKey: NodePropertyKey {
-  typealias Value = Bool
-  static let key = "hasTextReplacement"
 }
 
 private extension Node {
@@ -219,33 +187,5 @@ private extension Node {
     set {
       self[NodeAttributesKey.self] = newValue
     }
-  }
-
-  var textReplacement: [unichar]? {
-    get {
-      self[NodeTextReplacementKey.self]
-    }
-    set {
-      self[NodeTextReplacementKey.self] = newValue
-    }
-  }
-
-  var hasTextReplacement: Bool {
-    get {
-      self[NodeHasTextReplacementKey.self] ?? false
-    }
-    set {
-      self[NodeHasTextReplacementKey.self] = newValue
-    }
-  }
-
-  func childrenAndOffsets(startingAt offset: Int) -> [(child: Node, offset: Int)] {
-    var offset = offset
-    var results = [(child: Node, offset: Int)]()
-    for child in children {
-      results.append((child: child, offset: offset))
-      offset += child.length
-    }
-    return results
   }
 }

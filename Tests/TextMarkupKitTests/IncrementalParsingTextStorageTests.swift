@@ -26,6 +26,13 @@ private func formatTab(
   return Array("\t".utf16)
 }
 
+private func formatHeader(
+  node: Node,
+  startIndex: Int
+) -> [unichar] {
+  return Array("H\(node.length)".utf16)
+}
+
 final class IncrementalParsingTextStorageTests: XCTestCase {
   var textStorage: IncrementalParsingTextStorage!
 
@@ -114,6 +121,29 @@ final class IncrementalParsingTextStorageTests: XCTestCase {
       insertionPoint += 1
     }
     XCTAssertEqual(textStorage.string, "#\tWelcome to Scrap Paper.\n\n\n\n##\tA second heading\n\n")
+  }
+
+  func testVariableLengthReplacement() {
+    let variableTextStorage = IncrementalParsingTextStorage(
+      grammar: MiniMarkdownGrammar(),
+      defaultAttributes: [:],
+      formattingFunctions: [.header: { $1.fontSize = 24 }],
+      replacementFunctions: [.softTab: formatTab, .headerDelimiter: formatHeader]
+    )
+    variableTextStorage.setAttributedString(NSAttributedString(string: "### What happens if I set Markdown through this?"))
+    let rawText = "# Main heading\n\n## Second heading\n\n### Third level header"
+    variableTextStorage.setAttributedString(
+      NSAttributedString(string: rawText)
+    )
+    XCTAssertEqual(variableTextStorage.string, "H1\tMain heading\n\nH2\tSecond heading\n\nH3\tThird level header")
+    variableTextStorage.replaceCharacters(in: NSRange(location: 3, length: 4), with: "Top")
+    XCTAssertEqual(variableTextStorage.string, "H1\tTop heading\n\nH2\tSecond heading\n\nH3\tThird level header")
+    variableTextStorage.replaceCharacters(in: NSRange(location: 19, length: 6), with: "2nd")
+    XCTAssertEqual(variableTextStorage.string, "H1\tTop heading\n\nH2\t2nd heading\n\nH3\tThird level header")
+    variableTextStorage.replaceCharacters(in: NSRange(location: variableTextStorage.string.count, length: 0), with: "!!")
+    XCTAssertEqual(variableTextStorage.string, "H1\tTop heading\n\nH2\t2nd heading\n\nH3\tThird level header!!")
+    variableTextStorage.replaceCharacters(in: NSRange(location: 16, length: 0), with: "Just inserting a plain paragraph.\n\n")
+    XCTAssertEqual(variableTextStorage.string, "H1\tTop heading\n\nJust inserting a plain paragraph.\n\nH2\t2nd heading\n\nH3\tThird level header!!")
   }
 
   #if !os(macOS)

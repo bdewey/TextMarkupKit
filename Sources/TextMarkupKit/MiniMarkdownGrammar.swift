@@ -26,6 +26,7 @@ public extension NodeType {
   static let emphasis: NodeType = "emphasis"
   static let hashtag: NodeType = "hashtag"
   static let header: NodeType = "header"
+  static let headerDelimiter: NodeType = "header_delimiter"
   static let image: NodeType = "image"
   static let list: NodeType = "list"
   static let listItem: NodeType = "list_item"
@@ -73,7 +74,7 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   ).as(.blankLine).memoize()
 
   lazy var header = InOrder(
-    Characters(["#"]).repeating(1 ..< 7).as(.delimiter),
+    Characters(["#"]).repeating(1 ..< 7).as(.headerDelimiter),
     softTab,
     InOrder(
       InOrder(newline.assertInverse(), dot).repeating(0...),
