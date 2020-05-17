@@ -85,6 +85,35 @@ public final class Node: CustomStringConvertible {
   /// Children of this node.
   public var children = [Node]()
 
+  /// Returns a deep-copy of this node.
+  public func clone() -> Node {
+    let copy = Node(type: type, length: length)
+    copy.propertyBag = propertyBag
+    copy.children = children.map { $0.clone() }
+    return copy
+  }
+
+  public func firstDifference(location: Int, other: Node) -> (location: Int, old: Node, new: Node)? {
+    guard isSimilar(to: other) else {
+      return (location: location, old: self, new: other)
+    }
+    var location = location
+    for (child, otherChild) in zip(children, other.children) {
+      if let difference = child.firstDifference(location: location, other: otherChild) {
+        return difference
+      }
+    }
+    return nil
+  }
+
+  private func isSimilar(to other: Node) -> Bool {
+    guard type == other.type, children.count == other.children.count else { return false }
+    for (ourChild, otherChild) in zip(children, other.children) {
+      if ourChild.type != otherChild.type { return false }
+    }
+    return true
+  }
+
   public func appendChild(_ child: Node) {
     length += child.length
     if child.isFragment {

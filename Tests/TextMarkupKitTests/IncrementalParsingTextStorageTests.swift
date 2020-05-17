@@ -102,6 +102,17 @@ final class IncrementalParsingTextStorageTests: XCTestCase {
     )
   }
 
+  func testAppendWithVariableLengthReplacement() {
+    assertDelegateMessages(
+      for: [.append(text: "# Hello"), .append(text: ", world!\n\n")],
+      are: Array([
+        DelegateMessage.messagePair(editedMask: [.editedCharacters, .editedAttributes], editedRange: NSRange(location: 0, length: 7), changeInLength: 7),
+        DelegateMessage.messagePair(editedMask: [.editedCharacters, .editedAttributes], editedRange: NSRange(location: 0, length: 17), changeInLength: 10),
+      ].joined()),
+      replacementFunctions: [.softTab: formatTab, .headerDelimiter: formatHeader]
+    )
+  }
+
   func testReplacementsAffectStringsButNotRawText() {
     textStorage.append(NSAttributedString(string: "# This is a heading\n\nAnd this is a paragraph"))
     XCTAssertEqual(textStorage.string, "#\tThis is a heading\n\nAnd this is a paragraph")
@@ -166,10 +177,11 @@ private extension IncrementalParsingTextStorageTests {
   func assertDelegateMessages(
     for operations: [TextOperation],
     are expectedMessages: [DelegateMessage],
+    replacementFunctions: [NodeType: ReplacementFunction] = [.softTab: formatTab],
     file: StaticString = #file,
     line: UInt = #line
   ) {
-    let textStorage = IncrementalParsingTextStorage(grammar: MiniMarkdownGrammar(), defaultAttributes: [:], formattingFunctions: [:], replacementFunctions: [.softTab: formatTab])
+    let textStorage = IncrementalParsingTextStorage(grammar: MiniMarkdownGrammar(), defaultAttributes: [:], formattingFunctions: [:], replacementFunctions: replacementFunctions)
     let miniMarkdownRecorder = TextStorageMessageRecorder()
     textStorage.delegate = miniMarkdownRecorder
     let plainTextStorage = NSTextStorage()
