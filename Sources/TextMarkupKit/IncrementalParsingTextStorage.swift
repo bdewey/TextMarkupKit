@@ -87,21 +87,49 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
   /// Replaces the characters in the given range with the characters of the given string.
   public override func replaceCharacters(in range: NSRange, with str: String) {
     memoizedString = nil
-    var changedAttributesRange: Range<Int>?
-    beginEditing()
-    buffer.replaceCharacters(in: range, with: str)
-    edited([.editedCharacters], range: range, changeInLength: str.utf16.count - range.length)
-    if case .success(let node) = buffer.result {
-      applyAttributes(
-        to: node,
-        attributes: defaultAttributes,
-        startingIndex: 0,
-        leafNodeRange: &changedAttributesRange
-      )
+
+    // Replace the characters in buffer. Note we need to convert `range` to the values that
+    // existed before applying any changes, if that's possible.
+    if let existingTree = try? buffer.result.get() {
+      let characterEditedRange = existingTree.rangeBeforeReplacements(range)
+      buffer.replaceCharacters(in: characterEditedRange, with: str)
+    } else {
+      buffer.replaceCharacters(in: range, with: str)
     }
+
+    beginEditing()
+    edited([.editedCharacters], range: range, changeInLength: str.utf16.count - range.length)
+    guard let tree = try? buffer.result.get() else {
+      assertionFailure("Should be able to parse")
+      // Can't send a more fine-grained message. If you transition from parseable to non-parseable
+      // or vice versa you don't know what the delegates are displaying.
+      // So we just say it's all different.
+      edited(
+        [.editedAttributes, .editedCharacters],
+        range: NSRange(location: 0, length: buffer.count),
+        changeInLength: range.length - str.utf16.count
+      )
+      return
+    }
+
+    for replacement in tree.computeTextReplacements(using: replacementFunctions).reversed() {
+      edited([.editedCharacters], range: replacement.replacedRange, changeInLength: replacement.changeInLength)
+    }
+
     // Deliver delegate messages
+    var changedAttributesRange: Range<Int>?
+    applyAttributes(
+      to: tree,
+      attributes: defaultAttributes,
+      startingIndex: 0,
+      leafNodeRange: &changedAttributesRange
+    )
     if let range = changedAttributesRange {
-      edited([.editedAttributes], range: NSRange(location: range.lowerBound, length: range.count), changeInLength: 0)
+      edited(
+        [.editedAttributes],
+        range: tree.rangeAfterReplacements(NSRange(location: range.lowerBound, length: range.count)),
+        changeInLength: 0
+      )
     }
     endEditing()
   }
@@ -120,8 +148,9 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
       return defaultAttributes
     }
     // Crash on invalid location or if I didn't set attributes (shouldn't happen?)
-    let (leaf, startIndex) = try! tree.leafNode(containing: location)
-    range?.pointee = NSRange(location: startIndex, length: leaf.length)
+    let (leaf, startIndex) = try! tree.leafNode(containing: tree.indexBeforeReplacements(location))
+    range?.pointee = tree.rangeAfterReplacements(NSRange(location: startIndex, length: leaf.length))
+    range.map { print($0.pointee) }
     return leaf.attributedStringAttributes!
   }
 

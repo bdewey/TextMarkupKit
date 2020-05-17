@@ -67,14 +67,14 @@ final class IncrementalParserTests: XCTestCase {
     I will be editing this **awesome** text and expect most nodes to be reused.
     """
     let parser = IncrementalParsingBuffer(text, grammar: MiniMarkdownGrammar())
-    guard let tree = validateParser(parser, has: "(document (header delimiter tab text) blank_line (paragraph text (strong_emphasis delimiter text delimiter) text))") else {
+    guard let tree = validateParser(parser, has: "(document (header header_delimiter tab text) blank_line (paragraph text (strong_emphasis delimiter text delimiter) text))") else {
       XCTFail("Expected a tree")
       return
     }
     let emphasis = tree.node(at: [2, 1])
     XCTAssertEqual(emphasis?.type, .strongEmphasis)
     parser.replaceCharacters(in: NSRange(location: text.utf16.count, length: 0), with: "Change paragraph!\n\nAnd add a new one.")
-    guard let editedTree = validateParser(parser, has: "(document (header delimiter tab text) blank_line (paragraph text (strong_emphasis delimiter text delimiter) text) blank_line (paragraph text))") else {
+    guard let editedTree = validateParser(parser, has: "(document (header header_delimiter tab text) blank_line (paragraph text (strong_emphasis delimiter text delimiter) text) blank_line (paragraph text))") else {
       XCTFail("Expected a tree")
       return
     }

@@ -5,6 +5,11 @@ import Foundation
 /// A function that returns a text replacement for a node in the syntax tree.
 public typealias ReplacementFunction = (Node, Int) -> [unichar]?
 
+public struct ReplacementDescription {
+  let replacedRange: NSRange
+  let changeInLength: Int
+}
+
 /// Gives the ability to record "text replacements" in the syntax tree and apply those to text.
 /// Example use case: Replace a "soft tab" (some sort of whitespace) with an actual "\t" (which the layout system knows gets aligned to
 /// tab-stops)
@@ -14,13 +19,13 @@ public extension Node {
   ///
   /// This must be called on only the root node of the syntax tree.
   ///
-  /// - returns: The range of the input that encompasses all input characters replaced in this call, or nil if no replacements were made.
+  /// - returns: Descriptions of all newly created replacements.
   func computeTextReplacements(
     using replacementFunctions: [NodeType: ReplacementFunction]
-  ) -> Range<Int>? {
-    var affectedRange: Range<Int>?
-    self.computeTextReplacements(using: replacementFunctions, startingIndex: 0, affectedRange: &affectedRange)
-    return affectedRange
+  ) -> [ReplacementDescription] {
+    var replacements: [ReplacementDescription] = []
+    self.computeTextReplacements(using: replacementFunctions, startingIndex: 0, replacements: &replacements)
+    return replacements
   }
 
   /// Applies all replacements recorded in this node of the syntax tree to `array`
@@ -57,7 +62,19 @@ public extension Node {
   /// - parameter index: The index into the parsed contents represented by this syntax tree
   /// - returns: An index that corresponds to the same location after applying any text replacements encoded in the syntax tree.
   func indexBeforeReplacements(_ index: Int) -> Int {
-    return indexBeforeReplacements(index, offset: 0)
+    return indexBeforeReplacements(index, nodeLocation: 0)
+  }
+
+  func rangeAfterReplacements(_ range: NSRange) -> NSRange {
+    let lowerBound = indexAfterReplacements(range.lowerBound)
+    let upperBound = indexAfterReplacements(range.upperBound)
+    return NSRange(location: lowerBound, length: upperBound - lowerBound)
+  }
+
+  func rangeBeforeReplacements(_ range: NSRange) -> NSRange {
+    let lowerBound = indexBeforeReplacements(range.lowerBound)
+    let upperBound = indexBeforeReplacements(range.upperBound)
+    return NSRange(location: lowerBound, length: upperBound - lowerBound)
   }
 
   /// True if either this node or any of its descendents contains a `textReplacement`
@@ -78,7 +95,7 @@ private extension Node {
   func computeTextReplacements(
     using replacementFunctions: [NodeType: ReplacementFunction],
     startingIndex: Int,
-    affectedRange: inout Range<Int>?
+    replacements: inout [ReplacementDescription]
   ) {
     // Incremental parsing support! If we've already computed replacements for this node we don't
     // have to do anything new.
@@ -93,10 +110,11 @@ private extension Node {
       hasTextReplacement = true
       textReplacementLengthChange = textReplacement.count - length
 
-      // Update the affected range.
-      let lowerBound = min(startingIndex, affectedRange?.lowerBound ?? Int.max)
-      let upperBound = max(startingIndex + length, affectedRange?.upperBound ?? Int.min)
-      affectedRange = lowerBound ..< upperBound
+      let replacement = ReplacementDescription(
+        replacedRange: NSRange(location: startingIndex, length: length),
+        changeInLength: textReplacementLengthChange
+      )
+      replacements.append(replacement)
       return
     }
 
@@ -104,7 +122,7 @@ private extension Node {
     var totalLengthChange = 0
     var index = startingIndex
     for child in children {
-      child.computeTextReplacements(using: replacementFunctions, startingIndex: index, affectedRange: &affectedRange)
+      child.computeTextReplacements(using: replacementFunctions, startingIndex: index, replacements: &replacements)
       index += child.length
       hasTextReplacement = hasTextReplacement || child.hasTextReplacement
       totalLengthChange += child.textReplacementLengthChange
@@ -132,21 +150,20 @@ private extension Node {
     return index + totalReplacementShift
   }
 
-  func indexBeforeReplacements(_ index: Int, offset: Int) -> Int {
+  func indexBeforeReplacements(_ index: Int, nodeLocation: Int) -> Int {
     var index = index
-    var offset = offset
-    if children.isEmpty {
-      if index > offset {
-        index -= textReplacementLengthChange
-      }
-    } else {
-      for child in children {
-        if index < offset + child.length + child.textReplacementLengthChange {
-          return child.indexBeforeReplacements(index, offset: offset)
-        } else {
-          index -= child.textReplacementLengthChange
-          offset += child.length
-        }
+    var offset = nodeLocation
+    if textReplacement != nil, index < nodeLocation + length + textReplacementLengthChange {
+      // If `index` falls within the range of this node and we have a replacement, then
+      // its location-before-replacement was the start of this node.
+      return nodeLocation
+    }
+    for child in children {
+      if index < offset + child.length + child.textReplacementLengthChange {
+        return child.indexBeforeReplacements(index, nodeLocation: offset)
+      } else {
+        index -= child.textReplacementLengthChange
+        offset += child.length
       }
     }
     return index

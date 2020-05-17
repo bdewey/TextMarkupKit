@@ -14,8 +14,8 @@ final class NodeReplacementsTests: XCTestCase {
     let buffer = Array("# Main heading\n\n## Second heading\n\n### Third level header".utf16)
     let memoizationTable = MemoizationTable()
     let tree = try! buffer.parse(grammar: MiniMarkdownGrammar(), memoizationTable: memoizationTable)
-    let replacementRange = tree.computeTextReplacements(using: replacementFunctions)
-    XCTAssertEqual(replacementRange, 0 ..< 39)
+    let replacements = tree.computeTextReplacements(using: replacementFunctions)
+    XCTAssertEqual(replacements.count, 6)
     var replaced = buffer
     tree.applyTextReplacements(startingIndex: 0, to: &replaced)
     XCTAssertEqual(replaced.string, "H1\tMain heading\n\nH2\tSecond heading\n\nH3\tThird level header")
@@ -32,6 +32,43 @@ final class NodeReplacementsTests: XCTestCase {
     // Do we accurately find the tab?
     XCTAssertEqual(tree.indexAfterReplacements(1), 2)
     XCTAssertEqual(tree.indexBeforeReplacements(2), 1)
+
+    // Make sure indexes round-trip
+    for i in buffer.indices {
+      let indexAfterReplacement = tree.indexAfterReplacements(i)
+      let indexBeforeReplacement = tree.indexBeforeReplacements(indexAfterReplacement)
+      let (leaf, offset) = try! tree.leafNode(containing: i)
+      if leaf.hasTextReplacement {
+        // the round-trip is going to point back to the start of the leaf
+        XCTAssertEqual(indexBeforeReplacement, offset)
+      } else {
+        XCTAssertEqual(indexBeforeReplacement, i)
+      }
+    }
+  }
+
+  func testH3Replacements() {
+    let buffer = Array("### Third level header".utf16)
+    let memoizationTable = MemoizationTable()
+    let tree = try! buffer.parse(grammar: MiniMarkdownGrammar(), memoizationTable: memoizationTable)
+    let replacements = tree.computeTextReplacements(using: replacementFunctions)
+    XCTAssertEqual(replacements.count, 2)
+    var replaced = buffer
+    tree.applyTextReplacements(startingIndex: 0, to: &replaced)
+    XCTAssertEqual("H3\tThird level header", replaced.string)
+
+    XCTAssertEqual(tree.indexBeforeReplacements(0), 0) // "H"
+    XCTAssertEqual(tree.indexBeforeReplacements(1), 0) // "3" -- maps to start of ###
+    XCTAssertEqual(tree.indexBeforeReplacements(2), 3) // "\t" -- maps to space
+    XCTAssertEqual(tree.indexBeforeReplacements(3), 4) // "T"
+    XCTAssertEqual(tree.indexBeforeReplacements(replaced.count - 1), buffer.count - 1) // ends align
+
+    XCTAssertEqual(tree.indexAfterReplacements(0), 0) // "#" -> "H3"
+    XCTAssertEqual(tree.indexAfterReplacements(1), 0) // "#"
+    XCTAssertEqual(tree.indexAfterReplacements(2), 0) // "#"
+    XCTAssertEqual(tree.indexAfterReplacements(3), 2) // " " -> "\t"
+    XCTAssertEqual(tree.indexAfterReplacements(4), 3) // "T"
+    XCTAssertEqual(tree.indexAfterReplacements(buffer.count - 1), replaced.count - 1)
 
     // Make sure indexes round-trip
     for i in buffer.indices {

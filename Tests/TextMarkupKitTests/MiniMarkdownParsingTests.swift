@@ -36,7 +36,7 @@ final class MiniMarkdownParsingTests: XCTestCase {
     """
     parseText(
       markdown,
-      expectedStructure: "(document (header delimiter tab text) blank_line (paragraph text) blank_line (paragraph text))"
+      expectedStructure: "(document (header header_delimiter tab text) blank_line (paragraph text) blank_line (paragraph text))"
     )
   }
 
@@ -64,7 +64,7 @@ final class MiniMarkdownParsingTests: XCTestCase {
   func testTextAndHeader() {
     parseText(
       "Text\n# Heading",
-      expectedStructure: "(document (paragraph text) (header delimiter tab text))"
+      expectedStructure: "(document (paragraph text) (header header_delimiter tab text))"
     )
   }
 
@@ -181,7 +181,7 @@ final class MiniMarkdownParsingTests: XCTestCase {
     // but I'm going to let it be for now.
     parseText(
       "# Welcome to Scrap Paper.\n\n\n\n## Second heading\n\n",
-      expectedStructure: "(document (header delimiter tab text) blank_line (header delimiter tab text) blank_line)"
+      expectedStructure: "(document (header header_delimiter tab text) blank_line (header header_delimiter tab text) blank_line)"
     )
   }
 
