@@ -28,6 +28,25 @@ public extension Node {
     return replacements
   }
 
+  func makeArrayReplacementCollection() -> ArrayReplacementCollection<unichar> {
+    let arrayReplacementCollection = ArrayReplacementCollection<unichar>()
+    addReplacements(to: arrayReplacementCollection, location: 0)
+    return arrayReplacementCollection
+  }
+
+  private func addReplacements(to collection: ArrayReplacementCollection<unichar>, location: Int) {
+    guard hasTextReplacement else { return }
+    if let replacement = textReplacement {
+      try! collection.insert(replacement, at: location ..< location + length)
+      return
+    }
+    var location = location
+    for child in children {
+      child.addReplacements(to: collection, location: location)
+      location += child.length
+    }
+  }
+
   /// Applies all replacements recorded in this node of the syntax tree to `array`
   ///
   /// Call only on the root node of the syntax tree.

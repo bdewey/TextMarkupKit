@@ -18,12 +18,12 @@
 import Foundation
 
 /// Stores a collection of non-overlapping replacement operations to apply to an array to generate a new array.
-public final class ArrayReplacementCollection<Element> {
+public final class ArrayReplacementCollection<Element: Equatable> {
   enum Error: Swift.Error {
     case cannotInsertOverlappingRange
   }
 
-  public struct Replacement {
+  public struct Replacement: Equatable {
     let range: Range<Int>
     let elements: [Element]
 
@@ -59,7 +59,7 @@ public final class ArrayReplacementCollection<Element> {
   }
 
   /// Moves the ranges of all replacements that come after `contentLocation` by a fixed amount.
-  public func offsetReplacements(
+  public func shiftReplacements(
     after contentLocation: Int,
     by offsetAmount: Int
   ) {
@@ -157,5 +157,27 @@ public final class ArrayReplacementCollection<Element> {
       }
     }
     return result
+  }
+}
+
+extension ArrayReplacementCollection: RandomAccessCollection {
+  public var startIndex: Int { nodes.startIndex }
+  public var endIndex: Int { nodes.endIndex }
+  public func index(after i: Int) -> Int {
+    return i + 1
+  }
+  public func index(before i: Int) -> Int {
+    return i - 1
+  }
+
+  // TODO: Ewww, this is O(N)
+  public subscript(position: Int) -> Replacement {
+    var lowerBound = 0
+    for i in 0 ..< position {
+      lowerBound += nodes[i].locationOffsetFromPreviousLocation
+    }
+    lowerBound += nodes[position].locationOffsetFromPreviousLocation
+    let upperBound = lowerBound + nodes[position].length
+    return Replacement(range: lowerBound ..< upperBound, elements: nodes[position].replacement)
   }
 }

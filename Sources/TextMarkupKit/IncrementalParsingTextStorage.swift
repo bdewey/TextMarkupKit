@@ -90,11 +90,16 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
 
     // Replace the characters in buffer. Note we need to convert `range` to the values that
     // existed before applying any changes, if that's possible.
+    let priorReplacements: ArrayReplacementCollection<unichar>
     if let existingTree = try? buffer.result.get() {
+      priorReplacements = existingTree.makeArrayReplacementCollection()
       let characterEditedRange = existingTree.rangeBeforeReplacements(range)
       buffer.replaceCharacters(in: characterEditedRange, with: str)
+      priorReplacements.removeReplacements(overlapping: characterEditedRange.lowerBound ..< characterEditedRange.upperBound)
+      priorReplacements.shiftReplacements(after: characterEditedRange.lowerBound, by: str.utf16.count - characterEditedRange.length)
     } else {
       buffer.replaceCharacters(in: range, with: str)
+      priorReplacements = ArrayReplacementCollection<unichar>()
     }
 
     beginEditing()
@@ -112,8 +117,19 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
       return
     }
 
-    for replacement in tree.computeTextReplacements(using: replacementFunctions).reversed() {
-      edited([.editedCharacters], range: replacement.replacedRange, changeInLength: replacement.changeInLength)
+    _ = tree.computeTextReplacements(using: replacementFunctions)
+    let postReplacements = tree.makeArrayReplacementCollection()
+    let replacementDiff = postReplacements.difference(from: priorReplacements)
+
+    for change in replacementDiff {
+      switch change {
+      case .insert(offset: _, element: let replacement, associatedWith: _):
+        edited([.editedCharacters], range: NSRange(location: replacement.range.lowerBound, length: replacement.range.count), changeInLength: replacement.changeInLength)
+      case .remove(offset: _, element: let replacement, associatedWith: _):
+        let range = NSRange(location: replacement.range.lowerBound, length: replacement.elements.count)
+        let changeInLength = replacement.range.count - replacement.elements.count
+        edited([.editedCharacters], range: range, changeInLength: changeInLength)
+      }
     }
 
     // Deliver delegate messages

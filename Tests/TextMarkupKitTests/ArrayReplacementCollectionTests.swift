@@ -65,7 +65,7 @@ final class ArrayReplacementCollectionTests: XCTestCase {
       try replacementTable.insert(sampleString, at: 10 ..< 12)
       try replacementTable.insert(sampleString, at: 20 ..< 22)
 
-      replacementTable.offsetReplacements(after: 6, by: 3)
+      replacementTable.shiftReplacements(after: 6, by: 3)
       let replacements = replacementTable.replacements(in: 0...)
       XCTAssertEqual(replacements.map { $0.range }, [2 ..< 4, 13 ..< 15, 23 ..< 25])
     } catch {
@@ -81,7 +81,7 @@ final class ArrayReplacementCollectionTests: XCTestCase {
       try replacementTable.insert(sampleString, at: 20 ..< 22)
 
       replacementTable.removeReplacements(overlapping: 9 ..< 12)
-      replacementTable.offsetReplacements(after: 9, by: -3)
+      replacementTable.shiftReplacements(after: 9, by: -3)
       let replacements = replacementTable.replacements(in: 0...)
       XCTAssertEqual(replacements.map { $0.range }, [2 ..< 4, 17 ..< 19])
     } catch {
@@ -97,7 +97,7 @@ final class ArrayReplacementCollectionTests: XCTestCase {
       try replacementTable.insert(sampleString, at: 20 ..< 22)
 
       replacementTable.removeReplacements(overlapping: 0 ..< 4)
-      replacementTable.offsetReplacements(after: 0, by: -4)
+      replacementTable.shiftReplacements(after: 0, by: -4)
       let replacements = replacementTable.replacements(in: 0...)
       XCTAssertEqual(replacements.map { $0.range }, [6 ..< 8, 16 ..< 18])
     } catch {
@@ -113,7 +113,7 @@ final class ArrayReplacementCollectionTests: XCTestCase {
       try replacementTable.insert(sampleString, at: 20 ..< 22)
 
       replacementTable.removeReplacements(overlapping: 20 ..< 24)
-      replacementTable.offsetReplacements(after: 20, by: -4)
+      replacementTable.shiftReplacements(after: 20, by: -4)
       let replacements = replacementTable.replacements(in: 0...)
       XCTAssertEqual(replacements.map { $0.range }, [2 ..< 4, 10 ..< 12])
     } catch {

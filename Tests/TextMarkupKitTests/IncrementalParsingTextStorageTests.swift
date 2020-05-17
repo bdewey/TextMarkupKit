@@ -106,8 +106,8 @@ final class IncrementalParsingTextStorageTests: XCTestCase {
     assertDelegateMessages(
       for: [.append(text: "# Hello"), .append(text: ", world!\n\n")],
       are: Array([
-        DelegateMessage.messagePair(editedMask: [.editedCharacters, .editedAttributes], editedRange: NSRange(location: 0, length: 7), changeInLength: 7),
-        DelegateMessage.messagePair(editedMask: [.editedCharacters, .editedAttributes], editedRange: NSRange(location: 0, length: 17), changeInLength: 10),
+        DelegateMessage.messagePair(editedMask: [.editedCharacters, .editedAttributes], editedRange: NSRange(location: 0, length: 8), changeInLength: 8),
+        DelegateMessage.messagePair(editedMask: [.editedCharacters, .editedAttributes], editedRange: NSRange(location: 0, length: 18), changeInLength: 10),
       ].joined()),
       replacementFunctions: [.softTab: formatTab, .headerDelimiter: formatHeader]
     )
