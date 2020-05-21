@@ -101,9 +101,19 @@ public extension Node {
   }
 
   func rangeBeforeReplacements(_ range: NSRange) -> NSRange {
-    let lowerBound = indexBeforeReplacements(range.lowerBound)
-    let upperBound = indexBeforeReplacements(range.upperBound)
-    return NSRange(location: lowerBound, length: upperBound - lowerBound)
+    let startLocation = indexBeforeReplacements(range.location)
+    if range.length == 0 {
+      return NSRange(location: startLocation, length: 0)
+    }
+    let lastIncludedLocationAfterReplacements = range.location + range.length - 1
+    let (locationPair, node) = findNode(indexAfterReplacements: lastIncludedLocationAfterReplacements)
+    let lastIncludedLocationBeforeReplacements: Int
+    if node?.textReplacement != nil {
+      lastIncludedLocationBeforeReplacements = locationPair.beforeReplacements + node!.length - 1
+    } else {
+      lastIncludedLocationBeforeReplacements = locationPair.beforeReplacements + lastIncludedLocationAfterReplacements - locationPair.afterReplacements
+    }
+    return NSRange(location: startLocation, length: lastIncludedLocationBeforeReplacements - startLocation + 1)
   }
 
   /// True if either this node or any of its descendents contains a `textReplacement`

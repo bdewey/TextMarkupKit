@@ -24,6 +24,12 @@ final class NodeReplacementsTests: XCTestCase {
     XCTAssertEqual(tree.indexBeforeReplacements(0), 0)
     XCTAssertEqual(tree.indexBeforeReplacements(1), 0)
 
+    XCTAssertEqual(tree.rangeBeforeReplacements(NSRange(location: 0, length: 1)), NSRange(location: 0, length: 1))
+    // Make sure range extensions work at location > 0 -- try to select the "3" in "H3"
+    XCTAssertEqual(tree.rangeBeforeReplacements(NSRange(location: 37, length: 1)), NSRange(location: 35, length: 3))
+    // Reverse it! We know we've actually selected "H3", not just "3"
+    XCTAssertEqual(tree.rangeAfterReplacements(NSRange(location: 35, length: 3)), NSRange(location: 36, length: 2))
+
     // Any character inside a range-to-be-replaced maps to the first character of the replaced range.
     XCTAssertEqual(tree.indexAfterReplacements(0), 0)
     XCTAssertEqual(tree.indexAfterReplacements(16), 17) // first "#" in second heading
@@ -62,6 +68,12 @@ final class NodeReplacementsTests: XCTestCase {
     XCTAssertEqual(tree.indexBeforeReplacements(2), 3) // "\t" -- maps to space
     XCTAssertEqual(tree.indexBeforeReplacements(3), 4) // "T"
     XCTAssertEqual(tree.indexBeforeReplacements(replaced.count - 1), buffer.count - 1) // ends align
+
+    // A range that covers the beginning of a replacement expands to cover the entire replaced node
+    XCTAssertEqual(tree.rangeBeforeReplacements(NSRange(location: 0, length: 1)), NSRange(location: 0, length: 3))
+
+    // If you overlap the end of a replacement, expand backwards to the entire node
+    XCTAssertEqual(tree.rangeBeforeReplacements(NSRange(location: 1, length: 3)), NSRange(location: 0, length: 5))
 
     XCTAssertEqual(tree.indexAfterReplacements(0), 0) // "#" -> "H3"
     XCTAssertEqual(tree.indexAfterReplacements(1), 0) // "#"
