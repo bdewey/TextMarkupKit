@@ -94,26 +94,34 @@ public extension Node {
     return locationPair.beforeReplacements + (index - locationPair.afterReplacements)
   }
 
-  func rangeAfterReplacements(_ range: NSRange) -> NSRange {
-    let lowerBound = indexAfterReplacements(range.lowerBound)
-    let upperBound = indexAfterReplacements(range.upperBound)
-    return NSRange(location: lowerBound, length: upperBound - lowerBound)
+  func rangeAfterReplacements(_ rangeBeforeReplacements: NSRange) -> NSRange {
+    return convertRange(
+      rangeBeforeReplacements,
+      convertFirstLocation: { indexAfterReplacements($0) },
+      convertLastLocation: { lastLocation in
+        let (locationPair, node) = findNode(indexBeforeReplacements: lastLocation)
+        if node?.textReplacement != nil {
+          return locationPair.afterReplacements + node!.textReplacement!.count - 1
+        } else {
+          return locationPair.afterReplacements + lastLocation - locationPair.beforeReplacements
+        }
+      }
+    )
   }
 
-  func rangeBeforeReplacements(_ range: NSRange) -> NSRange {
-    let startLocation = indexBeforeReplacements(range.location)
-    if range.length == 0 {
-      return NSRange(location: startLocation, length: 0)
-    }
-    let lastIncludedLocationAfterReplacements = range.location + range.length - 1
-    let (locationPair, node) = findNode(indexAfterReplacements: lastIncludedLocationAfterReplacements)
-    let lastIncludedLocationBeforeReplacements: Int
-    if node?.textReplacement != nil {
-      lastIncludedLocationBeforeReplacements = locationPair.beforeReplacements + node!.length - 1
-    } else {
-      lastIncludedLocationBeforeReplacements = locationPair.beforeReplacements + lastIncludedLocationAfterReplacements - locationPair.afterReplacements
-    }
-    return NSRange(location: startLocation, length: lastIncludedLocationBeforeReplacements - startLocation + 1)
+  func rangeBeforeReplacements(_ rangeAfterReplacements: NSRange) -> NSRange {
+    return convertRange(
+      rangeAfterReplacements,
+      convertFirstLocation: { indexBeforeReplacements($0) },
+      convertLastLocation: { lastLocation in
+        let (locationPair, node) = findNode(indexAfterReplacements: lastLocation)
+        if node?.textReplacement != nil {
+          return locationPair.beforeReplacements + node!.length - 1
+        } else {
+          return locationPair.beforeReplacements + lastLocation - locationPair.afterReplacements
+        }
+      }
+    )
   }
 
   /// True if either this node or any of its descendents contains a `textReplacement`
@@ -187,6 +195,19 @@ private extension Node {
     }
     self.hasTextReplacement = hasTextReplacement
     self.lengthAfterReplacements = totalLengthAfterReplacements
+  }
+
+  func convertRange(
+    _ range: NSRange,
+    convertFirstLocation: (Int) -> Int,
+    convertLastLocation: (Int) -> Int
+  ) -> NSRange {
+    let startLocation = convertFirstLocation(range.location)
+    if range.length == 0 {
+      return NSRange(location: startLocation, length: 0)
+    }
+    let lastLocation = convertLastLocation(range.location + range.length - 1)
+    return NSRange(location: startLocation, length: lastLocation - startLocation + 1)
   }
 
   func findNode(indexBeforeReplacements: Int) -> (LocationPair, Node?) {

@@ -124,14 +124,19 @@ final class IncrementalParsingTextStorageTests: XCTestCase {
     )
   }
 
+  /// "#### Heading 3\n\n" gets converted to "H4\tHeading 3\n\n"
+  /// If you try to delete just the "H", it notices this is part of a substitution range and deletes the whole range.
+  /// You are left with " Heading 3\n\n"
   func testDeletingWithSubstitution() {
     assertDelegateMessages(
       for: [.append(text: "#### Heading 3\n\n"), .replace(range: NSRange(location: 0, length: 1), replacement: "")],
       are: Array([
         DelegateMessage.messagePair(editedMask: [.editedCharacters, .editedAttributes], editedRange: NSRange(location: 0, length: 14), changeInLength: 14),
-        DelegateMessage.messagePair(editedMask: [.editedCharacters, .editedAttributes], editedRange: NSRange(location: 0, length: 2), changeInLength: 2),
+        // Why is this range so big? I think it's because attributes change.
+        DelegateMessage.messagePair(editedMask: [.editedCharacters, .editedAttributes], editedRange: NSRange(location: 0, length: 11), changeInLength: -2),
       ].joined()),
-      replacementFunctions: [.softTab: formatTab, .headerDelimiter: formatHeader]
+      replacementFunctions: [.softTab: formatTab, .headerDelimiter: formatHeader],
+      expectedFinalText: " Heading 3\n\n"
     )
   }
 
@@ -200,6 +205,7 @@ private extension IncrementalParsingTextStorageTests {
     for operations: [TextOperation],
     are expectedMessages: [DelegateMessage],
     replacementFunctions: [NodeType: ReplacementFunction] = [.softTab: formatTab],
+    expectedFinalText: String? = nil,
     file: StaticString = #file,
     line: UInt = #line
   ) {
@@ -212,6 +218,9 @@ private extension IncrementalParsingTextStorageTests {
     for operation in operations {
       operation.apply(to: textStorage)
       operation.apply(to: plainTextStorage)
+    }
+    if let expectedFinalText = expectedFinalText {
+      XCTAssertEqual(expectedFinalText, textStorage.string, file: file, line: line)
     }
     XCTAssertEqual(
       miniMarkdownRecorder.delegateMessages,
