@@ -70,7 +70,12 @@ public extension Node {
   /// - parameter index: The index into the parsed contents represented by this syntax tree
   /// - returns: An index that corresponds to the same location after applying any text replacements encoded in the syntax tree.
   func indexAfterReplacements(_ index: Int) -> Int {
-    return indexAfterReplacements(index, nodeLocation: 0, totalReplacementShift: 0)
+    let (locationPair, node) = findNode(indexBeforeReplacements: index)
+    assert(index >= locationPair.beforeReplacements)
+    if node?.textReplacement != nil {
+      return locationPair.afterReplacements
+    }
+    return locationPair.afterReplacements + (index - locationPair.beforeReplacements)
   }
 
   /// Given an index into an array that was modified by applying the replacements encoded in this syntax tree, return an index that
@@ -81,7 +86,12 @@ public extension Node {
   /// - parameter index: The index into the parsed contents represented by this syntax tree
   /// - returns: An index that corresponds to the same location after applying any text replacements encoded in the syntax tree.
   func indexBeforeReplacements(_ index: Int) -> Int {
-    return indexBeforeReplacements(index, nodeLocation: 0)
+    let (locationPair, node) = findNode(indexAfterReplacements: index)
+    assert(index >= locationPair.afterReplacements)
+    if node?.textReplacement != nil {
+      return locationPair.beforeReplacements
+    }
+    return locationPair.beforeReplacements + (index - locationPair.afterReplacements)
   }
 
   func rangeAfterReplacements(_ range: NSRange) -> NSRange {
@@ -110,6 +120,17 @@ public extension Node {
 // MARK: - Private
 
 private extension Node {
+  /// Holds the location of a character in the input stream both before and after applying all replacements contained in the syntax tree.
+  struct LocationPair {
+    var beforeReplacements: Int
+    var afterReplacements: Int
+
+    mutating func advancePastNode(_ node: Node) {
+      beforeReplacements += node.length
+      afterReplacements += node.lengthAfterReplacements
+    }
+  }
+
   /// Recursive helper for computing text replacements.
   func computeTextReplacements(
     using replacementFunctions: [NodeType: ReplacementFunction],
@@ -127,65 +148,62 @@ private extension Node {
     if let replacementFunction = replacementFunctions[type], let textReplacement = replacementFunction(self, startingIndex) {
       self.textReplacement = textReplacement
       hasTextReplacement = true
-      textReplacementLengthChange = textReplacement.count - length
+      lengthAfterReplacements = textReplacement.count
 
       let replacement = ReplacementDescription(
         replacedRange: NSRange(location: startingIndex, length: length),
-        changeInLength: textReplacementLengthChange
+        changeInLength: textReplacement.count - length
       )
       replacements.append(replacement)
       return
     }
 
+    if children.isEmpty {
+      // Leaf case.
+      hasTextReplacement = false
+      lengthAfterReplacements = length
+      return
+    }
+
+    // Interior node case.
     var hasTextReplacement = false
-    var totalLengthChange = 0
+    var totalLengthAfterReplacements = 0
     var index = startingIndex
     for child in children {
       child.computeTextReplacements(using: replacementFunctions, startingIndex: index, replacements: &replacements)
       index += child.length
       hasTextReplacement = hasTextReplacement || child.hasTextReplacement
-      totalLengthChange += child.textReplacementLengthChange
+      totalLengthAfterReplacements += child.lengthAfterReplacements
     }
     self.hasTextReplacement = hasTextReplacement
-    textReplacementLengthChange = totalLengthChange
+    self.lengthAfterReplacements = totalLengthAfterReplacements
   }
 
-  func indexAfterReplacements(_ index: Int, nodeLocation: Int, totalReplacementShift: Int) -> Int {
-    var totalReplacementShift = totalReplacementShift
-    var nodeLocation = nodeLocation
-    if textReplacement != nil, index < nodeLocation + length {
-      // index falls within the range of a node that has a replacement, so it maps to the beginning
-      // of the replaced text.
-      return nodeLocation + totalReplacementShift
+  func findNode(indexBeforeReplacements: Int) -> (LocationPair, Node?) {
+    return findTextReplacementLeaf { (locationPair, node) -> Bool in
+      return indexBeforeReplacements < locationPair.beforeReplacements + node.length
     }
-    for child in children {
-      if index < nodeLocation + child.length {
-        return child.indexAfterReplacements(index, nodeLocation: nodeLocation, totalReplacementShift: totalReplacementShift)
-      } else {
-        totalReplacementShift += child.textReplacementLengthChange
-        nodeLocation += child.length
-      }
-    }
-    return index + totalReplacementShift
   }
 
-  func indexBeforeReplacements(_ index: Int, nodeLocation: Int) -> Int {
-    var index = index
-    var offset = nodeLocation
-    if textReplacement != nil, index < nodeLocation + length + textReplacementLengthChange {
-      // If `index` falls within the range of this node and we have a replacement, then
-      // its location-before-replacement was the start of this node.
-      return nodeLocation
+  func findNode(indexAfterReplacements: Int) -> (LocationPair, Node?) {
+    return findTextReplacementLeaf { (locationPair, node) -> Bool in
+      return indexAfterReplacements < locationPair.afterReplacements + node.lengthAfterReplacements
     }
-    for child in children {
-      if index < offset + child.length + child.textReplacementLengthChange {
-        return child.indexBeforeReplacements(index, nodeLocation: offset)
-      } else {
-        index -= child.textReplacementLengthChange
-        offset += child.length
+  }
+
+  func findTextReplacementLeaf(nodeIsInScope: (LocationPair, Node) -> Bool) -> (LocationPair, Node?) {
+    var locationPair = LocationPair(beforeReplacements: 0, afterReplacements: 0)
+    let node = self.findNode(location: &locationPair) { (innerLocation, node) -> SearchStep in
+      if !nodeIsInScope(innerLocation, node) {
+        innerLocation.advancePastNode(node)
+        return .skipNode
       }
+      if node.textReplacement != nil || node.children.isEmpty {
+        return .done
+      }
+      return .recurse
     }
-    return index
+    return (locationPair, node)
   }
 
   /// If non-nil, then the contents the parsed contents covered by this node should be replaced by `textReplacement` on display.
@@ -198,13 +216,13 @@ private extension Node {
     }
   }
 
-  /// How much the length of the
-  var textReplacementLengthChange: Int {
+  /// Length of the text encompassed by this node *after* applying all text replacements.
+  var lengthAfterReplacements: Int {
     get {
-      self[NodeTextReplacementLengthChange.self] ?? 0
+      self[NodeTextReplacementLength.self] ?? length
     }
     set {
-      self[NodeTextReplacementLengthChange.self] = newValue
+      self[NodeTextReplacementLength.self] = newValue
     }
   }
 
@@ -231,7 +249,7 @@ private enum NodeHasTextReplacementKey: NodePropertyKey {
   static let key = "hasTextReplacement"
 }
 
-private enum NodeTextReplacementLengthChange: NodePropertyKey {
+private enum NodeTextReplacementLength: NodePropertyKey {
   typealias Value = Int
-  static let key = "textReplacementLengthChange"
+  static let key = "textReplacementLength"
 }

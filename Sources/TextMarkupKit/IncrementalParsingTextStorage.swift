@@ -84,26 +84,33 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
     return String(utf16CodeUnits: chars, count: chars.count)
   }
 
+  /// Keeps track of the length we have announced to our delegate via `edited` messages
+  private var announcedLength = 0
+
   /// Replaces the characters in the given range with the characters of the given string.
   public override func replaceCharacters(in range: NSRange, with str: String) {
     memoizedString = nil
 
     // Replace the characters in buffer. Note we need to convert `range` to the values that
     // existed before applying any changes, if that's possible.
+    beginEditing()
     let priorReplacements: ArrayReplacementCollection<unichar>
     if let existingTree = try? buffer.result.get() {
       priorReplacements = existingTree.makeArrayReplacementCollection()
       let characterEditedRange = existingTree.rangeBeforeReplacements(range)
+      let actuallyReplaced = existingTree.rangeAfterReplacements(characterEditedRange)
       buffer.replaceCharacters(in: characterEditedRange, with: str)
       priorReplacements.removeReplacements(overlapping: characterEditedRange.lowerBound ..< characterEditedRange.upperBound)
       priorReplacements.shiftReplacements(after: characterEditedRange.lowerBound, by: str.utf16.count - characterEditedRange.length)
+      edited([.editedCharacters], range: actuallyReplaced, changeInLength: str.utf16.count - actuallyReplaced.length)
+      announcedLength += (str.utf16.count - actuallyReplaced.length)
     } else {
       buffer.replaceCharacters(in: range, with: str)
+      edited([.editedCharacters], range: range, changeInLength: str.utf16.count - range.length)
+      announcedLength += (str.utf16.count - range.length)
       priorReplacements = ArrayReplacementCollection<unichar>()
     }
 
-    beginEditing()
-    edited([.editedCharacters], range: range, changeInLength: str.utf16.count - range.length)
     guard let tree = try? buffer.result.get() else {
       assertionFailure("Should be able to parse")
       // Can't send a more fine-grained message. If you transition from parseable to non-parseable
@@ -124,11 +131,15 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
     for change in replacementDiff {
       switch change {
       case .insert(offset: _, element: let replacement, associatedWith: _):
-        edited([.editedCharacters], range: NSRange(location: replacement.range.lowerBound, length: replacement.range.count), changeInLength: replacement.changeInLength)
+        let editLocation = tree.indexAfterReplacements(replacement.range.lowerBound)
+        edited([.editedCharacters], range: NSRange(location: editLocation, length: replacement.range.count), changeInLength: replacement.changeInLength)
+        announcedLength += replacement.changeInLength
       case .remove(offset: _, element: let replacement, associatedWith: _):
-        let range = NSRange(location: replacement.range.lowerBound, length: replacement.elements.count)
+        let editLocation = tree.indexAfterReplacements(replacement.range.lowerBound)
+        let range = NSRange(location: editLocation, length: replacement.elements.count)
         let changeInLength = replacement.range.count - replacement.elements.count
         edited([.editedCharacters], range: range, changeInLength: changeInLength)
+        announcedLength += changeInLength
       }
     }
 
@@ -148,6 +159,7 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
       )
     }
     endEditing()
+    assert(string.utf16.count == announcedLength)
   }
 
   /// Returns the attributes for the character at a given index.
@@ -166,7 +178,6 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
     // Crash on invalid location or if I didn't set attributes (shouldn't happen?)
     let (leaf, startIndex) = try! tree.leafNode(containing: tree.indexBeforeReplacements(location))
     range?.pointee = tree.rangeAfterReplacements(NSRange(location: startIndex, length: leaf.length))
-    range.map { print($0.pointee) }
     return leaf.attributedStringAttributes!
   }
 

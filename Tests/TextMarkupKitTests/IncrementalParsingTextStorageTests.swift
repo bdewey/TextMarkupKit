@@ -113,6 +113,28 @@ final class IncrementalParsingTextStorageTests: XCTestCase {
     )
   }
 
+  func testAppendOfTwoHeadings() {
+    assertDelegateMessages(
+      for: [.append(text: "#### Heading 4\n\n"), .append(text: "#### Another heading 4\n\n")],
+      are: Array([
+        DelegateMessage.messagePair(editedMask: [.editedCharacters, .editedAttributes], editedRange: NSRange(location: 0, length: 14), changeInLength: 14),
+        DelegateMessage.messagePair(editedMask: [.editedCharacters, .editedAttributes], editedRange: NSRange(location: 13, length: 23), changeInLength: 22),
+      ].joined()),
+      replacementFunctions: [.softTab: formatTab, .headerDelimiter: formatHeader]
+    )
+  }
+
+  func testDeletingWithSubstitution() {
+    assertDelegateMessages(
+      for: [.append(text: "#### Heading 3\n\n"), .replace(range: NSRange(location: 0, length: 1), replacement: "")],
+      are: Array([
+        DelegateMessage.messagePair(editedMask: [.editedCharacters, .editedAttributes], editedRange: NSRange(location: 0, length: 14), changeInLength: 14),
+        DelegateMessage.messagePair(editedMask: [.editedCharacters, .editedAttributes], editedRange: NSRange(location: 0, length: 2), changeInLength: 2),
+      ].joined()),
+      replacementFunctions: [.softTab: formatTab, .headerDelimiter: formatHeader]
+    )
+  }
+
   func testReplacementsAffectStringsButNotRawText() {
     textStorage.append(NSAttributedString(string: "# This is a heading\n\nAnd this is a paragraph"))
     XCTAssertEqual(textStorage.string, "#\tThis is a heading\n\nAnd this is a paragraph")

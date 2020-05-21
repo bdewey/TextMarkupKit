@@ -171,25 +171,45 @@ public final class Node: CustomStringConvertible {
   /// - returns: The leaf node containing the index.
   /// - throws: NodeSearchError.indexOutOfRange if the index is not valid.
   public func leafNode(containing index: Int) throws -> (node: Node, startIndex: Int) {
-    return try leafNode(containing: index, startIndex: 0)
-  }
-
-  private func leafNode(
-    containing index: Int,
-    startIndex: Int
-  ) throws -> (node: Node, startIndex: Int) {
-    guard index < startIndex + length else {
+    var location = 0
+    let node = findNode(location: &location) { (innerLocation, node) -> SearchStep in
+      if index < innerLocation + node.length {
+        return node.children.isEmpty ? .done : .recurse
+      }
+      innerLocation += node.length
+      return .skipNode
+    }
+    if node != nil {
+      return (node: node!, startIndex: location)
+    } else {
       throw NodeSearchError.indexOutOfRange
     }
-    if children.isEmpty { return (self, startIndex) }
-    var childIndex = startIndex
-    for child in children {
-      if index < childIndex + child.length {
-        return try child.leafNode(containing: index, startIndex: childIndex)
+  }
+
+  public enum SearchStep {
+    case skipNode
+    case recurse
+    case done
+  }
+
+  public func findNode<Location>(
+    location: inout Location,
+    searchFunction: (inout Location, Node) throws -> SearchStep
+  ) rethrows -> Node? {
+    let step = try searchFunction(&location, self)
+    switch step {
+    case .skipNode:
+      return nil
+    case .done:
+      return self
+    case .recurse:
+      for child in children {
+        if let needle = try child.findNode(location: &location, searchFunction: searchFunction) {
+          return needle
+        }
       }
-      childIndex += child.length
+      return nil
     }
-    throw NodeSearchError.indexOutOfRange
   }
 
   // MARK: - Properties
