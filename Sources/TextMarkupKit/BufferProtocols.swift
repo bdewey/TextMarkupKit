@@ -37,7 +37,7 @@ public protocol SafeUnicodeBuffer {
 
 public protocol RangeReplaceableSafeUnicodeBuffer: SafeUnicodeBuffer {
   /// Replace the UTF-16 values stored in `range` with the values from `str`.
-  func replaceCharacters(in range: NSRange, with str: String)
+  mutating func replaceCharacters(in range: NSRange, with str: String)
 }
 
 public enum ParsingError: Swift.Error {

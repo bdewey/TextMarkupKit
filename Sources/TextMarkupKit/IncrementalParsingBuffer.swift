@@ -30,7 +30,7 @@ public final class IncrementalParsingBuffer {
     self.result = result
   }
 
-  private let pieceTable: PieceTable
+  private var pieceTable: PieceTable
   private let memoizationTable: MemoizationTable
   private let grammar: PackratGrammar
   public private(set) var result: Result<Node, Error>
