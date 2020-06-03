@@ -69,6 +69,9 @@ public final class PieceTable: CustomStringConvertible, RangeReplaceableSafeUnic
   /// The logical contents of this buffer, expressed as a sequence of slices from either `originalContents` or `newContents`
   private var slices = [SourceSlice]()
 
+  /// How many slices are in the piece table.
+  public var sliceCount: Int { slices.count }
+
   /// Return the receiver as a String.
   public var string: String {
     let chars = self[startIndex...]

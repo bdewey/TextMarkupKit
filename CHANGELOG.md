@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.1] - 2020-06-03
+
+### Added
+
+* Added `PieceTable.sliceCount`
+
 ## [0.3.0] - 2020-05-12
 
 ### Fixed
