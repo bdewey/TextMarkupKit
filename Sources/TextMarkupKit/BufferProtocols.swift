@@ -28,9 +28,6 @@ public protocol SafeUnicodeBuffer {
   /// Gets a substring from the buffer, objc-style
   subscript(range: NSRange) -> [unichar] { get }
 
-  /// Gets a substring from the buffer, Swift-style
-  subscript<R: RangeExpression>(range: R) -> [unichar] where R.Bound == Int { get }
-
   /// The contents of the receiver as a string.
   var string: String { get }
 }

@@ -37,11 +37,13 @@ public final class IncrementalParsingBuffer {
 }
 
 extension IncrementalParsingBuffer: RangeReplaceableSafeUnicodeBuffer {
+  public typealias Index = PieceTable.Index
+
   public var count: Int { pieceTable.count }
 
   public subscript(range: NSRange) -> [unichar] { pieceTable[range] }
 
-  public subscript<R>(range: R) -> [unichar] where R: RangeExpression, R.Bound == Int {
+  public subscript<R>(range: R) -> [unichar] where R: RangeExpression, R.Bound == Index {
     return pieceTable[range]
   }
 

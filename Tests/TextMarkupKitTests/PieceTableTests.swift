@@ -53,7 +53,8 @@ final class PieceTableTests: XCTestCase {
   func testDeleteAtEnd() {
     var pieceTable = PieceTable()
     pieceTable.append(contentsOf: "Hello, world!?".utf16)
-    pieceTable.remove(at: pieceTable.count - 1)
+    let lastCharacterIndex = pieceTable.index(pieceTable.startIndex, offsetBy: pieceTable.count - 1)
+    pieceTable.remove(at: lastCharacterIndex)
     XCTAssertEqual("Hello, world!", pieceTable.string)
   }
 

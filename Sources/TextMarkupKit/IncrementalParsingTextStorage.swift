@@ -72,7 +72,7 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
     if let memoizedString = memoizedString {
       return memoizedString
     }
-    var chars = buffer[0...]
+    var chars = buffer[NSRange(location: 0, length: buffer.count)]
     if case .success(let node) = buffer.result {
       applyReplacements(in: node, startingIndex: 0, to: &chars)
     }
@@ -83,7 +83,7 @@ public final class IncrementalParsingTextStorage: NSTextStorage {
 
   /// The character contents as a single String value without any text replacements applied.
   public var rawText: String {
-    let chars = buffer[0...]
+    let chars = buffer[NSRange(location: 0, length: buffer.count)]
     return String(utf16CodeUnits: chars, count: chars.count)
   }
 
