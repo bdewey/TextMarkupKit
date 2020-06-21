@@ -178,49 +178,49 @@ extension PieceTable: Collection {
     }
   }
 
-//  public func index(_ i: Index, offsetBy distance: Int) -> Index {
-//    return index(i, offsetBy: distance, limitedBy: endIndex)!
-//  }
-//
-//  public func index(_ i: Index, offsetBy distance: Int, limitedBy limit: Index) -> Index? {
-//    var distance = distance
-//    var contentIndex = i.contentIndex
-//    for sliceIndex in i.pieceIndex ..< pieces.endIndex {
-//      let slice = pieces[sliceIndex]
-//      let charactersInSlice = sliceIndex == limit.pieceIndex
-//        ? limit.contentIndex - contentIndex
-//        : slice.endIndex - contentIndex
-//      if distance < charactersInSlice {
-//        return Index(pieceIndex: sliceIndex, contentIndex: contentIndex + distance)
-//      }
-//      if sliceIndex + 1 == pieces.endIndex {
-//        contentIndex = 0
-//      } else {
-//        contentIndex = pieces[sliceIndex + 1].startIndex
-//      }
-//      distance -= charactersInSlice
-//    }
-//    if distance == 0 {
-//      return limit
-//    } else {
-//      return nil
-//    }
-//  }
-//
-//  public func distance(from start: Index, to end: Index) -> Int {
-//    var distance = 0
-//    var contentIndex = start.contentIndex
-//    for sliceIndex in start.pieceIndex ..< pieces.endIndex {
-//      let slice = pieces[sliceIndex]
-//      if end.pieceIndex == sliceIndex {
-//        return distance + (end.contentIndex - contentIndex)
-//      }
-//      distance += (slice.endIndex - contentIndex)
-//      contentIndex = pieces[sliceIndex + 1].startIndex
-//    }
-//    preconditionFailure()
-//  }
-//
+  public func index(_ i: Index, offsetBy distance: Int) -> Index {
+    return index(i, offsetBy: distance, limitedBy: endIndex)!
+  }
+
+  public func index(_ i: Index, offsetBy distance: Int, limitedBy limit: Index) -> Index? {
+    var distance = distance
+    var contentIndex = i.contentIndex
+    for sliceIndex in i.pieceIndex ..< pieces.endIndex {
+      let slice = pieces[sliceIndex]
+      let charactersInSlice = sliceIndex == limit.pieceIndex
+        ? limit.contentIndex - contentIndex
+        : slice.endIndex - contentIndex
+      if distance < charactersInSlice {
+        return Index(pieceIndex: sliceIndex, contentIndex: contentIndex + distance)
+      }
+      if sliceIndex + 1 == pieces.endIndex {
+        contentIndex = 0
+      } else {
+        contentIndex = pieces[sliceIndex + 1].startIndex
+      }
+      distance -= charactersInSlice
+    }
+    if distance == 0 {
+      return limit
+    } else {
+      return nil
+    }
+  }
+
+  public func distance(from start: Index, to end: Index) -> Int {
+    var distance = 0
+    var contentIndex = start.contentIndex
+    for sliceIndex in start.pieceIndex ..< pieces.endIndex {
+      let slice = pieces[sliceIndex]
+      if end.pieceIndex == sliceIndex {
+        return distance + (end.contentIndex - contentIndex)
+      }
+      distance += (slice.endIndex - contentIndex)
+      contentIndex = pieces[sliceIndex + 1].startIndex
+    }
+    preconditionFailure()
+  }
+
   public subscript(position: Index) -> unichar {
     let sourceArray = self.sourceArray(for: pieces[position.pieceIndex].source)
     return sourceArray[position.contentIndex]
@@ -228,6 +228,48 @@ extension PieceTable: Collection {
 }
 
 extension PieceTable: RangeReplaceableCollection {
+  /// Any single `replaceSubrange` call to a `PieceTable` will change a contiguous range of entries in `pieces`.
+  /// The general strategy is to build up a sequence of new `Piece` entries and then replace them in the `pieces` array in a single
+  /// call.
+  ///
+  /// To create the most compact final `pieces` array as possible, we use the following rules when appending pieces:
+  ///
+  /// 1. No empty pieces -- if you try to insert something empty, we just omit it.
+  /// 2. No consecutive adjoining pieces (where replacement[n].endIndex == replacement[n+1].startIndex). If we're about to store
+  ///   something like this, we just "extend" replacement[n] to encompass the new range.
+  private struct PieceReplacements {
+
+    private(set) var values: [Piece] = []
+
+    private var minIndex: Int?
+    private var maxIndex: Int?
+
+    var replacementRange: Range<Int>? {
+      guard let minIndex = minIndex, let maxIndex = maxIndex else {
+        return nil
+      }
+      return minIndex ..< maxIndex + 1
+    }
+
+    mutating func appendPiece(_ piece: Piece, from index: Int? = nil) {
+      if let index = index {
+        minIndex = minIndex.map { Swift.min($0, index) } ?? index
+        maxIndex = maxIndex.map { Swift.max($0, index) } ?? index
+      }
+
+      // No empty pieces in our replacements array.
+      guard !piece.isEmpty else { return }
+
+      // If `piece` starts were `replacements` ends, just extend the end of `replacements`
+      if let last = values.last, last.source == piece.source, last.endIndex == piece.startIndex {
+        values[values.count - 1].endIndex = piece.endIndex
+      } else {
+        // Otherwise, stick our new piece into the replacements.
+        values.append(piece)
+      }
+    }
+  }
+
   /// Replace a range of characters with `newElements`. Note that `subrange` can be empty (in which case it's just an insert point).
   /// Similarly `newElements` can be empty (expressing deletion).
   ///
@@ -237,70 +279,36 @@ extension PieceTable: RangeReplaceableCollection {
     with newElements: C
   ) where C: Collection, R: RangeExpression, unichar == C.Element, Index == R.Bound {
     let range = subrange.relative(to: self)
-    let insertionPoint = deleteRange(range)
-    guard !newElements.isEmpty else { return }
 
-    let index = addedContents.endIndex
-    addedContents.append(contentsOf: newElements)
-    if pieces.isEmpty {
-      pieces.append(Piece(source: .added, startIndex: index, endIndex: addedContents.endIndex))
-    } else {
-      if insertionPoint > 0, pieces[insertionPoint - 1].source == .added, pieces[insertionPoint - 1].endIndex == index {
-        pieces[insertionPoint - 1].endIndex = addedContents.endIndex
-      } else {
-        let newSlice = Piece(source: .added, startIndex: index, endIndex: addedContents.endIndex)
-        pieces.insert(newSlice, at: insertionPoint)
-      }
+    // The (possibly) mutated copies of entries in the piece table
+    var replacements = PieceReplacements()
+
+    // We might need to coalesce the contents we are inserting with the piece *before* this in the
+    // piece table. Allow for this by inserting the unmodified piece table entry that comes before
+    // the edit.
+    if range.lowerBound.pieceIndex > 0 {
+      replacements.appendPiece(pieces[range.lowerBound.pieceIndex - 1], from: range.lowerBound.pieceIndex - 1)
     }
-  }
 
-  /// Deletes a range of contents from the piece table.
-  /// Remember that we never actually remove the characters; all this will do is update `slices` so we no longer say the given
-  /// range of content is part of our collection.
-  /// - returns: The index of the insertion point in `slices` of a new slice that would replace the contents of `range`
-  private mutating func deleteRange(_ range: Range<Index>) -> Int {
-    if range.lowerBound.pieceIndex == pieces.endIndex { return pieces.endIndex }
-    if range.lowerBound.pieceIndex == range.upperBound.pieceIndex {
-      // We're removing characters from *within* a slice. That means we need to *split* this
-      // existing slice.
-
-      let existingSlice = pieces[range.lowerBound.pieceIndex]
-
-      let lowerPart = Piece(source: existingSlice.source, startIndex: existingSlice.startIndex, endIndex: range.lowerBound.contentIndex)
-      let upperPart = Piece(source: existingSlice.source, startIndex: range.upperBound.contentIndex, endIndex: existingSlice.endIndex)
-
-      if !lowerPart.isEmpty {
-        pieces[range.lowerBound.pieceIndex] = lowerPart
-        if !upperPart.isEmpty {
-          pieces.insert(upperPart, at: range.lowerBound.pieceIndex + 1)
-          return range.lowerBound.pieceIndex + 1
-        }
-      } else if !upperPart.isEmpty {
-        // lower empty, upper isn't
-        pieces[range.lowerBound.pieceIndex] = upperPart
-      } else {
-        // we deleted a whole slice, nothing left!
-        pieces.remove(at: range.lowerBound.pieceIndex)
-      }
-      return range.lowerBound.pieceIndex
-    } else {
-      // We are removing things between two or more slices.
-      pieces.removeSubrange(range.lowerBound.pieceIndex + 1 ..< range.upperBound.pieceIndex)
-      pieces[range.lowerBound.pieceIndex].endIndex = range.lowerBound.contentIndex
-
-      // lowerBound might be the end of the array.
-      if range.lowerBound.pieceIndex + 1 < pieces.endIndex {
-        pieces[range.lowerBound.pieceIndex + 1].startIndex = range.upperBound.contentIndex
-        if pieces[range.lowerBound.pieceIndex + 1].isEmpty {
-          pieces.remove(at: range.lowerBound.pieceIndex + 1)
-        }
-      }
-
-      if pieces[range.lowerBound.pieceIndex].isEmpty {
-        pieces.remove(at: range.lowerBound.pieceIndex)
-        return range.lowerBound.pieceIndex
-      }
-      return range.lowerBound.pieceIndex + 1
+    if range.lowerBound.pieceIndex < pieces.endIndex {
+      var piece = pieces[range.lowerBound.pieceIndex]
+      piece.endIndex = range.lowerBound.contentIndex
+      replacements.appendPiece(piece, from: range.lowerBound.pieceIndex)
     }
+
+    if !newElements.isEmpty {
+      let index = addedContents.endIndex
+      addedContents.append(contentsOf: newElements)
+      let addedPiece = Piece(source: .added, startIndex: index, endIndex: addedContents.endIndex)
+      replacements.appendPiece(addedPiece)
+    }
+
+    if range.upperBound.pieceIndex < pieces.endIndex {
+      var piece = pieces[range.upperBound.pieceIndex]
+      piece.startIndex = range.upperBound.contentIndex
+      replacements.appendPiece(piece, from: range.upperBound.pieceIndex)
+    }
+
+    pieces.replaceSubrange(replacements.replacementRange ?? pieces.endIndex ..< pieces.endIndex, with: replacements.values)
   }
 }
