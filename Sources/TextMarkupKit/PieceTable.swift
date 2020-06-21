@@ -125,17 +125,17 @@ public struct PieceTable: CustomStringConvertible, RangeReplaceableSafeUnicodeBu
   public subscript<R: RangeExpression>(boundsExpression: R) -> [unichar] where R.Bound == Index {
     let bounds = boundsExpression.relative(to: self)
     guard !bounds.isEmpty else { return [] }
-    let lowerSliceIndex = bounds.lowerBound.pieceIndex
-    let upperSliceIndex = bounds.upperBound.pieceIndex
+    let pieceIndexLowerBound = bounds.lowerBound.pieceIndex
+    let pieceIndexUpperBound = bounds.upperBound.pieceIndex
     var results = [unichar]()
-    var sliceIndex = lowerSliceIndex
+    var pieceIndex = pieceIndexLowerBound
     repeat {
-      let slice = pieces[sliceIndex]
-      let lowerBound = (sliceIndex == lowerSliceIndex) ? bounds.lowerBound.contentIndex : slice.startIndex
-      let upperBound = (sliceIndex == upperSliceIndex) ? bounds.upperBound.contentIndex : slice.endIndex
-      results.append(contentsOf: sourceArray(for: slice.source)[lowerBound ..< upperBound])
-      sliceIndex += 1
-    } while sliceIndex < upperSliceIndex
+      let piece = pieces[pieceIndex]
+      let lowerBound = (pieceIndex == pieceIndexLowerBound) ? bounds.lowerBound.contentIndex : piece.startIndex
+      let upperBound = (pieceIndex == pieceIndexUpperBound) ? bounds.upperBound.contentIndex : piece.endIndex
+      results.append(contentsOf: sourceArray(for: piece.source)[lowerBound ..< upperBound])
+      pieceIndex += 1
+    } while pieceIndex < pieceIndexUpperBound
     return results
   }
 
@@ -228,35 +228,25 @@ extension PieceTable: Collection {
 }
 
 extension PieceTable: RangeReplaceableCollection {
-  /// Any single `replaceSubrange` call to a `PieceTable` will change a contiguous range of entries in `pieces`.
-  /// The general strategy is to build up a sequence of new `Piece` entries and then replace them in the `pieces` array in a single
-  /// call.
+  /// This structure holds all of the information needed to change the pieces in a piece table.
   ///
   /// To create the most compact final `pieces` array as possible, we use the following rules when appending pieces:
   ///
   /// 1. No empty pieces -- if you try to insert something empty, we just omit it.
   /// 2. No consecutive adjoining pieces (where replacement[n].endIndex == replacement[n+1].startIndex). If we're about to store
   ///   something like this, we just "extend" replacement[n] to encompass the new range.
-  private struct PieceReplacements {
+  private struct ChangeDescription {
 
     private(set) var values: [Piece] = []
 
-    private var minIndex: Int?
-    private var maxIndex: Int?
+    /// The smallest index of an existing piece added to `values`
+    var lowerBound: Int?
 
-    var replacementRange: Range<Int>? {
-      guard let minIndex = minIndex, let maxIndex = maxIndex else {
-        return nil
-      }
-      return minIndex ..< maxIndex + 1
-    }
+    /// The largest index of an existing piece added to `values`
+    var upperBound: Int?
 
-    mutating func appendPiece(_ piece: Piece, from index: Int? = nil) {
-      if let index = index {
-        minIndex = minIndex.map { Swift.min($0, index) } ?? index
-        maxIndex = maxIndex.map { Swift.max($0, index) } ?? index
-      }
-
+    /// Adds a piece to the description.
+    mutating func appendPiece(_ piece: Piece) {
       // No empty pieces in our replacements array.
       guard !piece.isEmpty else { return }
 
@@ -270,6 +260,31 @@ extension PieceTable: RangeReplaceableCollection {
     }
   }
 
+  /// If `index` is valid, then retrieve the piece at that index, modify it, and append it to the change description.
+  private func safelyAddToDescription(
+    _ description: inout ChangeDescription,
+    modifyPieceAt index: Int,
+    modificationBlock: (inout Piece) -> Void
+  ) {
+    guard pieces.indices.contains(index) else { return }
+    var piece = pieces[index]
+    modificationBlock(&piece)
+    description.lowerBound = description.lowerBound.map { Swift.min($0, index) } ?? index
+    description.upperBound = description.upperBound.map { Swift.max($0, index) } ?? index
+    description.appendPiece(piece)
+  }
+
+  /// Update the piece table with the changes contained in `changeDescription`
+  mutating private func applyChangeDescription(_ changeDescription: ChangeDescription) {
+    let range: Range<Int>
+    if let minIndex = changeDescription.lowerBound, let maxIndex = changeDescription.upperBound {
+      range = minIndex ..< maxIndex + 1
+    } else {
+      range = pieces.endIndex ..< pieces.endIndex
+    }
+    pieces.replaceSubrange(range, with: changeDescription.values)
+  }
+
   /// Replace a range of characters with `newElements`. Note that `subrange` can be empty (in which case it's just an insert point).
   /// Similarly `newElements` can be empty (expressing deletion).
   ///
@@ -281,34 +296,32 @@ extension PieceTable: RangeReplaceableCollection {
     let range = subrange.relative(to: self)
 
     // The (possibly) mutated copies of entries in the piece table
-    var replacements = PieceReplacements()
+    var changeDescription = ChangeDescription()
 
-    // We might need to coalesce the contents we are inserting with the piece *before* this in the
-    // piece table. Allow for this by inserting the unmodified piece table entry that comes before
-    // the edit.
-    if range.lowerBound.pieceIndex > 0 {
-      replacements.appendPiece(pieces[range.lowerBound.pieceIndex - 1], from: range.lowerBound.pieceIndex - 1)
+    safelyAddToDescription(&changeDescription, modifyPieceAt: range.lowerBound.pieceIndex - 1) { _ in
+      // No modification
+      //
+      // We might need to coalesce the contents we are inserting with the piece *before* this in the
+      // piece table. Allow for this by inserting the unmodified piece table entry that comes before
+      // the edit.
     }
-
-    if range.lowerBound.pieceIndex < pieces.endIndex {
-      var piece = pieces[range.lowerBound.pieceIndex]
+    safelyAddToDescription(&changeDescription, modifyPieceAt: range.lowerBound.pieceIndex) { piece in
       piece.endIndex = range.lowerBound.contentIndex
-      replacements.appendPiece(piece, from: range.lowerBound.pieceIndex)
     }
 
     if !newElements.isEmpty {
+      // Append `newElements` to `addedContents`, build a piece to hold the new characters, and
+      // insert that into the change description.
       let index = addedContents.endIndex
       addedContents.append(contentsOf: newElements)
       let addedPiece = Piece(source: .added, startIndex: index, endIndex: addedContents.endIndex)
-      replacements.appendPiece(addedPiece)
+      changeDescription.appendPiece(addedPiece)
     }
 
-    if range.upperBound.pieceIndex < pieces.endIndex {
-      var piece = pieces[range.upperBound.pieceIndex]
+    safelyAddToDescription(&changeDescription, modifyPieceAt: range.upperBound.pieceIndex) { piece in
       piece.startIndex = range.upperBound.contentIndex
-      replacements.appendPiece(piece, from: range.upperBound.pieceIndex)
     }
 
-    pieces.replaceSubrange(replacements.replacementRange ?? pieces.endIndex ..< pieces.endIndex, with: replacements.values)
+    applyChangeDescription(changeDescription)
   }
 }
