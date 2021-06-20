@@ -1,21 +1,9 @@
-//  Licensed to the Apache Software Foundation (ASF) under one
-//  or more contributor license agreements.  See the NOTICE file
-//  distributed with this work for additional information
-//  regarding copyright ownership.  The ASF licenses this file
-//  to you under the Apache License, Version 2.0 (the
-//  "License"); you may not use this file except in compliance
-//  with the License.  You may obtain a copy of the License at
-//
-//  http://www.apache.org/licenses/LICENSE-2.0
-//
-//  Unless required by applicable law or agreed to in writing,
-//  software distributed under the License is distributed on an
-//  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-//  KIND, either express or implied.  See the License for the
-//  specific language governing permissions and limitations
-//  under the License.
+// Copyright (c) 2018-2021  Brian Dewey. Covered by the Apache 2.0 license.
 
 import Foundation
+
+// TODO: Figure out if we should break this up into individual rules?
+// swiftlint:disable file_length
 
 /// A rule recognizes a specific bit of structure inside of text content.
 open class ParsingRule: CustomStringConvertible {
@@ -83,6 +71,12 @@ open class ParsingRule: CustomStringConvertible {
   public var possibleOpeningCharacters: CharacterSet? {
     return nil
   }
+
+  /// If true, this rule consumes input. (Assertions can succeed or fail but do not consume input.)
+  open var consumesInput: Bool { true }
+
+  /// If true, this rule can succeed without consuming input from the stream. (E.g., a ZeroOrOne rule)
+  open var optional: Bool { false }
 }
 
 open class ParsingRuleWrapper: ParsingRule {
@@ -92,7 +86,7 @@ open class ParsingRuleWrapper: ParsingRule {
     self.rule = rule
   }
 
-  public override func wrapInnerRules(_ wrapFunction: (ParsingRule) -> ParsingRule) {
+  override public func wrapInnerRules(_ wrapFunction: (ParsingRule) -> ParsingRule) {
     rule = wrapFunction(rule)
   }
 
@@ -101,13 +95,16 @@ open class ParsingRuleWrapper: ParsingRule {
     rule.gatherPerformanceCounters(into: &array)
   }
 
-  public override var possibleOpeningCharacters: CharacterSet? {
+  override public var possibleOpeningCharacters: CharacterSet? {
     return rule.possibleOpeningCharacters
   }
+
+  override open var optional: Bool { rule.optional }
+  override open var consumesInput: Bool { rule.consumesInput }
 }
 
 open class ParsingRuleSequenceWrapper: ParsingRule {
-  public var rules: [ParsingRule]
+  public fileprivate(set) var rules: [ParsingRule]
 
   public init(_ rules: [ParsingRule]) {
     self.rules = rules
@@ -117,7 +114,7 @@ open class ParsingRuleSequenceWrapper: ParsingRule {
     self.init(rules)
   }
 
-  public override func wrapInnerRules(_ wrapFunction: (ParsingRule) -> ParsingRule) {
+  override public func wrapInnerRules(_ wrapFunction: (ParsingRule) -> ParsingRule) {
     rules = rules.map(wrapFunction)
   }
 
@@ -128,7 +125,7 @@ open class ParsingRuleSequenceWrapper: ParsingRule {
     }
   }
 
-  public override var possibleOpeningCharacters: CharacterSet? {
+  override public var possibleOpeningCharacters: CharacterSet? {
     assertionFailure("Subclasses should override")
     return nil
   }
@@ -136,7 +133,7 @@ open class ParsingRuleSequenceWrapper: ParsingRule {
 
 /// The output of trying to match a rule at an offset into a PieceTable.
 public struct ParsingResult {
-  public init(succeeded: Bool, length: Int = 0, examinedLength: Int = 0, node: Node? = nil) {
+  public init(succeeded: Bool, length: Int = 0, examinedLength: Int = 0, node: SyntaxTreeNode? = nil) {
     assert(node == nil || (length == node!.length))
     self.succeeded = succeeded
     self.length = length
@@ -164,12 +161,12 @@ public struct ParsingResult {
   }
 
   /// If we succeeded, what are the parse results? Note that for efficiency some rules may consume input (length > 1) but not actually generate syntax tree nodes.
-  public private(set) var node: Node?
+  public private(set) var node: SyntaxTreeNode?
 
   /// Turns the spanned by an "anonymous" result into a typed node.
-  fileprivate mutating func makeNode(type: NodeType) {
+  fileprivate mutating func makeNode(type: SyntaxTreeNodeType) {
     assert(node == nil)
-    node = Node(type: type, length: length)
+    node = SyntaxTreeNode(type: type, length: length)
   }
 
   /// Marks this result as a failure; useful for truncating in-process results. Notes it leaves `examinedLength` unchanged
@@ -211,18 +208,22 @@ public struct ParsingResult {
     assert(node == nil || node?.length == length)
   }
 
-  private mutating func makeFragmentIfNeeded() -> Node {
-    if let existingNode = node {
-      return existingNode
+  private mutating func makeFragmentIfNeeded() -> SyntaxTreeNode {
+    if let node = node {
+      if node.frozen {
+        // Return a shallow copy
+        let shallowCopy = SyntaxTreeNode(type: node.type, length: node.length)
+        shallowCopy.children.append(contentsOf: node.children)
+        self.node = shallowCopy
+        return shallowCopy
+      } else {
+        return node
+      }
     }
-    let node = Node(type: .documentFragment, length: 0)
+    let node = SyntaxTreeNode(type: .documentFragment, length: 0)
     self.node = node
     return node
   }
-
-  /// Represents the "dot" in PEG grammars -- matches a single character. Does not create a node; this result will need to
-  /// get absorbed into something else.
-  public static let dot = ParsingResult(succeeded: true, length: 1, examinedLength: 1, node: nil)
 
   /// Static result representing failure after looking at one character.
   public static let fail = ParsingResult(succeeded: false, length: 0, examinedLength: 1, node: nil)
@@ -231,14 +232,14 @@ public struct ParsingResult {
 // MARK: - Deriving rules
 
 public extension ParsingRule {
-  func wrapping(in nodeType: NodeType) -> ParsingRule {
+  func wrapping(in nodeType: SyntaxTreeNodeType) -> ParsingRule {
     return WrappingRule(rule: self, nodeType: nodeType)
   }
 
   /// Returns a rule that "absorbs" the contents of the receiver into a syntax tree node of type `nodeType`
   /// - note: "Absorbing" means that all of the nodes in the receiver's `ParsingResult` are discarded, but the resulting span of the
   /// buffer will be covered by this rule's single node.
-  func `as`(_ nodeType: NodeType) -> ParsingRule {
+  func `as`(_ nodeType: SyntaxTreeNodeType) -> ParsingRule {
     return AbsorbingMatcher(rule: self, nodeType: nodeType)
   }
 
@@ -276,7 +277,7 @@ public extension ParsingRule {
     return ZeroOrOneRule(self)
   }
 
-  func property<K: NodePropertyKey>(key: K.Type, value: K.Value) -> ParsingRule {
+  func property<K: SyntaxTreeNodePropertyKey>(key: K.Type, value: K.Value) -> ParsingRule {
     return PropertyRule(key: key, value: value, rule: self)
   }
 }
@@ -287,65 +288,98 @@ public extension ParsingRule {
 /// - note: In PEG grammars, matching a single character is represented by a ".", thus the name.
 final class DotRule: ParsingRule {
   override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
-    if index < buffer.count {
-      return performanceCounters.recordResult(.dot)
-    } else {
+    guard let character = buffer.character(at: index) else {
       return performanceCounters.recordResult(.fail)
     }
+    let utf16count = character.utf16.count
+    return performanceCounters.recordResult(ParsingResult(succeeded: true, length: utf16count, examinedLength: utf16count, node: nil))
   }
 }
 
 /// Matches single characters that belong to a character set. The result is not put into a syntax tree node and should get absorbed
 /// by another rule.
-final class Characters: ParsingRule {
-  init(_ characters: CharacterSet) {
+public final class Characters: ParsingRule {
+  public init(_ characters: CharacterSet) {
     self.characters = characters
   }
 
-  let characters: CharacterSet
+  public let characters: CharacterSet
 
-  override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
-    guard let char = buffer.utf16(at: index), characters.contains(char) else {
+  override public func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
+    guard let character = buffer.character(at: index), character.unicodeScalars.count == 1, characters.contains(character.unicodeScalars.first!) else {
       return performanceCounters.recordResult(.fail)
     }
-    return performanceCounters.recordResult(.dot)
+    let count = character.utf16.count
+    return performanceCounters.recordResult(ParsingResult(succeeded: true, length: count, examinedLength: count, node: nil))
   }
 
-  override var description: String {
+  override public var description: String {
     "\(super.description) \(characters)"
   }
 
-  override var possibleOpeningCharacters: CharacterSet {
+  override public var possibleOpeningCharacters: CharacterSet {
     return characters
   }
 }
 
+final class CharacterPredicate: ParsingRule {
+  init(_ predicate: @escaping (Character) -> Bool) {
+    self.predicate = predicate
+  }
+
+  let predicate: (Character) -> Bool
+
+  override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
+    guard let character = buffer.character(at: index), predicate(character) else {
+      return performanceCounters.recordResult(.fail)
+    }
+    let count = character.utf16.count
+    return performanceCounters.recordResult(ParsingResult(succeeded: true, length: count, examinedLength: count, node: nil))
+  }
+}
+
 public final class Literal: ParsingRule {
-  init(_ string: String) {
-    self.chars = Array(string.utf16)
+  public init(_ string: String, compareOptions: String.CompareOptions = []) {
+    self.literalString = string
+    self.utfCount = string.utf16.count
+    self.compareOptions = compareOptions
   }
 
-  let chars: [unichar]
+  public let literalString: String
+  public let utfCount: Int
+  public let compareOptions: String.CompareOptions
 
-  public override var description: String {
-    let str = String(utf16CodeUnits: chars, count: chars.count)
-    return "\(super.description) \(str)"
+  override public var description: String {
+    return "\(super.description) \(literalString)"
   }
 
-  public override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
-    var length = 0
-    while length < chars.count, let char = buffer.utf16(at: index + length), char == chars[length] {
-      length += 1
-    }
-    if length == chars.count {
-      return performanceCounters.recordResult(ParsingResult(succeeded: true, length: length, examinedLength: length))
+  override public func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
+    let bufferString = String(
+      utf16CodeUnitsNoCopy: buffer[NSRange(location: index, length: min(utfCount, buffer.count - index))],
+      count: utfCount,
+      freeWhenDone: false
+    )
+    let commonPrefix = literalString.commonPrefix(with: bufferString, options: compareOptions)
+    if commonPrefix.count == literalString.count {
+      return performanceCounters.recordResult(ParsingResult(succeeded: true, length: utfCount, examinedLength: utfCount))
     } else {
-      return performanceCounters.recordResult(ParsingResult(succeeded: false, length: 0, examinedLength: length + 1))
+      return performanceCounters.recordResult(ParsingResult(succeeded: false, length: 0, examinedLength: commonPrefix.count + 1))
     }
   }
 
-  public override var possibleOpeningCharacters: CharacterSet {
-    return [Unicode.Scalar(chars[0])!]
+  override public var possibleOpeningCharacters: CharacterSet {
+    guard let firstCharacter = literalString.first else {
+      return CharacterSet()
+    }
+    var characterSet: CharacterSet = [firstCharacter.unicodeScalars.first!]
+    if compareOptions.contains(.caseInsensitive), firstCharacter.isCased {
+      if firstCharacter.isUppercase {
+        characterSet.insert(firstCharacter.lowercased().unicodeScalars.first!)
+      } else {
+        characterSet.insert(firstCharacter.uppercased().unicodeScalars.first!)
+      }
+    }
+    return characterSet
   }
 }
 
@@ -354,9 +388,15 @@ public final class Literal: ParsingRule {
 final class MemoizingRule: ParsingRuleWrapper {
   override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
     if let memoizedResult = memoizationTable.memoizedResult(rule: ObjectIdentifier(self), index: index) {
+      Swift.assert(memoizedResult.node == nil || memoizedResult.node?.length == memoizedResult.length)
       return performanceCounters.recordResult(memoizedResult)
     }
     let result = rule.parsingResult(from: buffer, at: index, memoizationTable: memoizationTable)
+    Swift.assert(result.node == nil || result.length == result.node?.length)
+    result.node?.freeze()
+    #if DEBUG
+      try! result.node?.validateLength() // swiftlint:disable:this force_try
+    #endif
     memoizationTable.memoizeResult(result, rule: ObjectIdentifier(self), index: index)
     return performanceCounters.recordResult(result)
   }
@@ -406,6 +446,8 @@ final class RangeRule: ParsingRuleWrapper {
   override var description: String {
     "RANGE \(range) \(rule)"
   }
+
+  override var optional: Bool { range.lowerBound == 0 }
 }
 
 /// Matches an inner rule 0 or 1 times.
@@ -419,14 +461,16 @@ final class ZeroOrOneRule: ParsingRuleWrapper {
     result.setZeroLength()
     return performanceCounters.recordResult(result)
   }
+
+  override var optional: Bool { true }
 }
 
 /// "Absorbs" the range consumed by `rule` into a syntax tree node of type `nodeType`. Any syntax tree nodes produced
 /// by `rule` will be discarded.
 final class AbsorbingMatcher: ParsingRuleWrapper {
-  let nodeType: NodeType
+  let nodeType: SyntaxTreeNodeType
 
-  init(rule: ParsingRule, nodeType: NodeType) {
+  init(rule: ParsingRule, nodeType: SyntaxTreeNodeType) {
     self.nodeType = nodeType
     super.init(rule)
   }
@@ -449,9 +493,9 @@ final class AbsorbingMatcher: ParsingRuleWrapper {
 
 /// Succeeds if `rule` succeeds, and all of the children of `rule` will be made the children of a new node of type `nodeType`.
 final class WrappingRule: ParsingRuleWrapper {
-  let nodeType: NodeType
+  let nodeType: SyntaxTreeNodeType
 
-  init(rule: ParsingRule, nodeType: NodeType) {
+  init(rule: ParsingRule, nodeType: SyntaxTreeNodeType) {
     self.nodeType = nodeType
     super.init(rule)
   }
@@ -460,7 +504,7 @@ final class WrappingRule: ParsingRuleWrapper {
     var result = rule.parsingResult(from: buffer, at: index, memoizationTable: memoizationTable)
     if !result.succeeded || result.length == 0 { return result }
     if let node = result.node {
-      Swift.assert(node.isFragment)
+      Swift.assert(node.isFragment || node.type == nodeType) // It might already have the right type if we memoized this?
       node.type = nodeType
     } else {
       result.makeNode(type: nodeType)
@@ -475,16 +519,16 @@ final class WrappingRule: ParsingRuleWrapper {
 
 /// A rule that succeeds only if each child rule succeeds in sequence.
 public final class InOrder: ParsingRuleSequenceWrapper {
-  public override init(_ rules: [ParsingRule]) {
+  override public init(_ rules: [ParsingRule]) {
     self.memoizedPossibleCharacters = Self.possibleOpeningCharacters(for: rules)
     super.init(rules)
   }
 
   private let memoizedPossibleCharacters: CharacterSet?
 
-  public override var possibleOpeningCharacters: CharacterSet? { memoizedPossibleCharacters }
+  override public var possibleOpeningCharacters: CharacterSet? { memoizedPossibleCharacters }
 
-  public override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
+  override public func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
     var result = ParsingResult(succeeded: true)
     var currentIndex = index
     var maxExaminedIndex = index
@@ -502,34 +546,21 @@ public final class InOrder: ParsingRuleSequenceWrapper {
     return performanceCounters.recordResult(result)
   }
 
-  public override var description: String {
+  override public var description: String {
     "IN ORDER: \(rules.map(String.init(describing:)).joined(separator: ", "))"
   }
 
   private static func possibleOpeningCharacters(for rules: [ParsingRule]) -> CharacterSet? {
     var assertions: CharacterSet?
     var possibilities: CharacterSet? = CharacterSet()
-    var done = false
-    for rule in rules where !done {
-      var rule = rule
-      if let traceRule = rule as? TraceRule {
-        rule = traceRule.rule
-      }
-      switch rule {
-      case let rule as RangeRule:
+    for rule in rules {
+      if !rule.consumesInput {
+        assertions.formIntersection(rule.possibleOpeningCharacters)
+      } else {
         possibilities.formUnion(rule.possibleOpeningCharacters)
-        if rule.range.lowerBound > 0 {
-          done = true
+        if !rule.optional {
+          break
         }
-      case let rule as ZeroOrOneRule:
-        possibilities.formUnion(rule.possibleOpeningCharacters)
-      case let rule as AssertionRule:
-        assertions.formIntersection(rule.possibleOpeningCharacters)
-      case let rule as NotAssertionRule:
-        assertions.formIntersection(rule.possibleOpeningCharacters)
-      default:
-        possibilities.formUnion(rule.possibleOpeningCharacters)
-        done = true
       }
     }
     possibilities.formIntersection(assertions)
@@ -574,7 +605,7 @@ private extension Optional where Wrapped == CharacterSet {
     }
   }
 
-  func contains(_ maybeChar: unichar?) -> Bool {
+  func contains(_ maybeChar: Character?) -> Bool {
     switch (self, maybeChar) {
     case (.none, _):
       // nil character set accepts everything
@@ -583,7 +614,7 @@ private extension Optional where Wrapped == CharacterSet {
       // Non-nil character set and nil character always fails
       return false
     case (.some(let set), .some(let char)):
-      return set.contains(char)
+      return char.unicodeScalars.count == 1 && set.contains(char.unicodeScalars.first!)
     }
   }
 }
@@ -628,32 +659,50 @@ final class NotAssertionRule: ParsingRuleWrapper {
 
 /// Returns the result of the first successful match, or .fail otherwise.
 public final class Choice: ParsingRuleSequenceWrapper {
-  public init(_ rules: ParsingRule...) {
+  override public init(_ rules: [ParsingRule]) {
     super.init(rules)
+    updatePossibleCharacters(for: rules)
+  }
+
+  override public var rules: [ParsingRule] {
+    get {
+      super.rules
+    }
+    set {
+      super.rules = newValue
+      updatePossibleCharacters(for: rules)
+    }
+  }
+
+  private func updatePossibleCharacters(for rules: [ParsingRule]) {
     var characters = CharacterSet()
     for rule in rules {
       if let subruleCharacters = rule.possibleOpeningCharacters {
         characters.formUnion(subruleCharacters)
       } else {
-        self._possibleCharacters = nil
+        _possibleCharacters = nil
         return
       }
     }
-    self._possibleCharacters = characters
+    _possibleCharacters = characters
+  }
+
+  public convenience init(_ rules: ParsingRule...) {
+    self.init(rules)
   }
 
   private var _possibleCharacters: CharacterSet?
 
-  public override var possibleOpeningCharacters: CharacterSet? { _possibleCharacters }
+  override public var possibleOpeningCharacters: CharacterSet? { _possibleCharacters }
 
-  public override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
+  override public func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
     var examinedLength = 1
-    let ch = buffer.utf16(at: index)
-    guard _possibleCharacters.contains(ch) else {
+    let character = buffer.character(at: index)
+    guard _possibleCharacters.contains(character) else {
       return .fail
     }
     for rule in rules {
-      if !rule.possibleOpeningCharacters.contains(ch) { continue }
+      if !rule.possibleOpeningCharacters.contains(character) { continue }
       var result = rule.parsingResult(from: buffer, at: index, memoizationTable: memoizationTable)
       examinedLength = max(examinedLength, result.examinedLength)
       if result.succeeded {
@@ -664,9 +713,15 @@ public final class Choice: ParsingRuleSequenceWrapper {
     return performanceCounters.recordResult(ParsingResult(succeeded: false, examinedLength: examinedLength))
   }
 
-  public override var description: String {
+  override public var description: String {
     "CHOICE: \(rules.map(String.init(describing:)).joined(separator: ", "))"
   }
+
+  // This is saying "the choice is optional if all of its subrules are optional"
+  override public var optional: Bool { rules.allSatisfy { $0.optional } }
+
+  // If none of the choices consume input, this won't either.
+  override public var consumesInput: Bool { !rules.allSatisfy { !$0.consumesInput } }
 }
 
 final class TraceRule: ParsingRuleWrapper {
@@ -702,7 +757,7 @@ final class TraceRule: ParsingRuleWrapper {
   }
 }
 
-final class PropertyRule<K: NodePropertyKey>: ParsingRuleWrapper {
+final class PropertyRule<K: SyntaxTreeNodePropertyKey>: ParsingRuleWrapper {
   init(key: K.Type, value: K.Value, rule: ParsingRule) {
     self.key = key
     self.value = value

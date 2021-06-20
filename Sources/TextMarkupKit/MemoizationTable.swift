@@ -1,21 +1,7 @@
-//  Licensed to the Apache Software Foundation (ASF) under one
-//  or more contributor license agreements.  See the NOTICE file
-//  distributed with this work for additional information
-//  regarding copyright ownership.  The ASF licenses this file
-//  to you under the Apache License, Version 2.0 (the
-//  "License"); you may not use this file except in compliance
-//  with the License.  You may obtain a copy of the License at
-//
-//  http://www.apache.org/licenses/LICENSE-2.0
-//
-//  Unless required by applicable law or agreed to in writing,
-//  software distributed under the License is distributed on an
-//  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-//  KIND, either express or implied.  See the License for the
-//  specific language governing permissions and limitations
-//  under the License.
+// Copyright (c) 2018-2021  Brian Dewey. Covered by the Apache 2.0 license.
 
 import Foundation
+import os
 
 /// A Packrat grammar is a collection of parsing rules, one of which is the designated `start` rule.
 public protocol PackratGrammar {
@@ -23,20 +9,43 @@ public protocol PackratGrammar {
   var start: ParsingRule { get }
 }
 
+private let log = OSLog(subsystem: "org.brians-brain.PackratParser", category: "PackratParser")
+
 /// Implements a packrat parsing algorithm.
 public final class MemoizationTable: CustomStringConvertible {
   /// Designated initializer.
   /// - Parameters:
-  ///   - buffer: The content to parse.
   ///   - grammar: The grammar rules to apply to the contents of `buffer`
   // TODO: This should probably take a block that constructs a grammar rather than a grammar
-  public init() {
+  public init(grammar: PackratGrammar) {
     self.memoizedResults = []
+    self.grammar = grammar
   }
 
-  public func reserveCapacity(_ capacity: Int) {
-    guard memoizedResults.count == 0 else { return }
+  public let grammar: PackratGrammar
+
+  private func reserveCapacity(_ capacity: Int) {
+    assert(memoizedResults.count < capacity)
     memoizedResults = Array(repeating: MemoColumn(), count: capacity)
+  }
+
+  /// Parses the contents of the buffer.
+  /// - Throws: If the grammar could not parse the entire contents, throws `Error.incompleteParsing`. If the grammar resulted in more than one resulting node, throws `Error.ambiguousParsing`.
+  /// - Returns: The single node at the root of the syntax tree resulting from parsing `buffer`
+  public func parseBuffer(_ buffer: SafeUnicodeBuffer) throws -> SyntaxTreeNode {
+    if memoizedResults.count < buffer.count + 1 {
+      reserveCapacity(buffer.count + 1)
+    }
+    os_signpost(.begin, log: log, name: "parseBuffer")
+    let result = grammar.start.parsingResult(from: buffer, at: 0, memoizationTable: self)
+    os_signpost(.end, log: log, name: "parseBuffer")
+    guard let node = result.node, node.length == buffer.count else {
+      throw ParsingError.incompleteParsing(length: result.node?.length ?? result.length)
+    }
+    #if DEBUG
+      try! node.validateLength() // swiftlint:disable:this force_try
+    #endif
+    return node
   }
 
   public var description: String {
@@ -70,6 +79,13 @@ public final class MemoizationTable: CustomStringConvertible {
   public func memoizeResult(_ result: ParsingResult, rule: ObjectIdentifier, index: Int) {
     assert(result.examinedLength > 0)
     assert(result.examinedLength >= result.length)
+    #if DEBUG
+      do {
+        try result.node?.validateLength()
+      } catch {
+        fatalError()
+      }
+    #endif
     memoizedResults[index][rule] = result
   }
 
@@ -122,6 +138,21 @@ public final class MemoizationTable: CustomStringConvertible {
     }
     return (totalEntries: totalEntries, successfulEntries: successfulEntries)
   }
+
+  #if DEBUG
+    func debugPrintInterestingContents() {
+      for index in memoizedResults.indices {
+        for (_, result) in memoizedResults[index] where result.succeeded && result.length > 0 {
+          do {
+            try result.node?.validateLength()
+            print("Column \(index): \(result)")
+          } catch {
+            print("Column \(index): INVALID LENGTH \(result)")
+          }
+        }
+      }
+    }
+  #endif
 }
 
 // MARK: - Memoization

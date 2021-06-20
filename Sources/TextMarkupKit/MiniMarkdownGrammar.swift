@@ -1,39 +1,30 @@
-//  Licensed to the Apache Software Foundation (ASF) under one
-//  or more contributor license agreements.  See the NOTICE file
-//  distributed with this work for additional information
-//  regarding copyright ownership.  The ASF licenses this file
-//  to you under the Apache License, Version 2.0 (the
-//  "License"); you may not use this file except in compliance
-//  with the License.  You may obtain a copy of the License at
-//
-//  http://www.apache.org/licenses/LICENSE-2.0
-//
-//  Unless required by applicable law or agreed to in writing,
-//  software distributed under the License is distributed on an
-//  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-//  KIND, either express or implied.  See the License for the
-//  specific language governing permissions and limitations
-//  under the License.
+// Copyright (c) 2018-2021  Brian Dewey. Covered by the Apache 2.0 license.
 
 import Foundation
 
-public extension NodeType {
-  static let blankLine: NodeType = "blank_line"
-  static let blockquote: NodeType = "blockquote"
-  static let code: NodeType = "code"
-  static let delimiter: NodeType = "delimiter"
-  static let document: NodeType = "document"
-  static let emphasis: NodeType = "emphasis"
-  static let hashtag: NodeType = "hashtag"
-  static let header: NodeType = "header"
-  static let image: NodeType = "image"
-  static let list: NodeType = "list"
-  static let listItem: NodeType = "list_item"
-  static let paragraph: NodeType = "paragraph"
-  static let softTab: NodeType = "tab"
-  static let strongEmphasis: NodeType = "strong_emphasis"
-  static let text: NodeType = "text"
-  static let unorderedListOpening: NodeType = "unordered_list_opening"
+public extension SyntaxTreeNodeType {
+  static let blankLine: SyntaxTreeNodeType = "blank_line"
+  static let blockquote: SyntaxTreeNodeType = "blockquote"
+  static let code: SyntaxTreeNodeType = "code"
+  static let delimiter: SyntaxTreeNodeType = "delimiter"
+  static let document: SyntaxTreeNodeType = "document"
+  static let emphasis: SyntaxTreeNodeType = "emphasis"
+  static let hashtag: SyntaxTreeNodeType = "hashtag"
+  static let header: SyntaxTreeNodeType = "header"
+  static let image: SyntaxTreeNodeType = "image"
+  static let linkAltText: SyntaxTreeNodeType = "link_alt_text"
+  static let linkTarget: SyntaxTreeNodeType = "link_target"
+  static let list: SyntaxTreeNodeType = "list"
+  static let listDelimiter: SyntaxTreeNodeType = "list_delimiter"
+  static let listItem: SyntaxTreeNodeType = "list_item"
+  static let paragraph: SyntaxTreeNodeType = "paragraph"
+  static let softTab: SyntaxTreeNodeType = "tab"
+  static let strongEmphasis: SyntaxTreeNodeType = "strong_emphasis"
+  static let text: SyntaxTreeNodeType = "text"
+  static let unorderedListOpening: SyntaxTreeNodeType = "unordered_list_opening"
+  static let orderedListNumber: SyntaxTreeNodeType = "ordered_list_number"
+  static let orderedListTerminator: SyntaxTreeNodeType = "ordered_list_terminator"
+  static let emoji: SyntaxTreeNodeType = "emoji"
 }
 
 public enum ListType {
@@ -41,31 +32,57 @@ public enum ListType {
   case unordered
 }
 
-public enum ListTypeKey: NodePropertyKey {
+public enum ListTypeKey: SyntaxTreeNodePropertyKey {
   public typealias Value = ListType
 
   public static let key = "list_type"
 }
 
+/// Implements a subset of Markdown for common "plain text formatting" scenarios.
+///
+/// This class is designed to be subclassed so you can extend the grammar. Subclasses can override:
 public final class MiniMarkdownGrammar: PackratGrammar {
-  public init(trace: Bool = false) {
+  public init(
+    trace: Bool = false
+  ) {
     if trace {
-      self.start = self.start.trace()
+      self.start = start.trace()
     }
   }
 
-  public private(set) lazy var start: ParsingRule = block
+  /// Singleton for convenience.
+  public static let shared = MiniMarkdownGrammar()
+
+  public private(set) lazy var start: ParsingRule = block.memoize()
     .repeating(0...)
     .wrapping(in: .document)
 
-  lazy var block = Choice(
+  private lazy var coreBlockRules = [
     blankLine,
     header,
     unorderedList,
     orderedList,
     blockquote,
-    paragraph
-  ).memoize()
+  ]
+
+  public var customBlockRules: [ParsingRule] = [] {
+    didSet {
+      var resolvedRules = coreBlockRules
+      resolvedRules.append(contentsOf: customBlockRules)
+      // `paragraph` goes last because it matches everything. No rule after `paragraph` will ever run.
+      resolvedRules.append(paragraph)
+      block.rules = resolvedRules
+    }
+  }
+
+  private lazy var block: Choice = {
+    var resolvedRules = coreBlockRules
+    resolvedRules.append(contentsOf: customBlockRules)
+    // `paragraph` goes last because it matches everything. No rule after `paragraph` will ever run.
+    resolvedRules.append(paragraph)
+
+    return Choice(resolvedRules)
+  }()
 
   lazy var blankLine = InOrder(
     whitespace.repeating(0...),
@@ -75,10 +92,7 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   lazy var header = InOrder(
     Characters(["#"]).repeating(1 ..< 7).as(.delimiter),
     softTab,
-    InOrder(
-      InOrder(newline.assertInverse(), dot).repeating(0...),
-      Choice(newline, dot.assertInverse())
-    ).as(.text)
+    singleLineStyledText
   ).wrapping(in: .header).memoize()
 
   lazy var paragraph = InOrder(
@@ -87,14 +101,14 @@ public final class MiniMarkdownGrammar: PackratGrammar {
     paragraphTermination.zeroOrOne().wrapping(in: .text)
   ).wrapping(in: .paragraph).memoize()
 
-  lazy var paragraphTermination = InOrder(
+  public private(set) lazy var paragraphTermination = InOrder(
     newline,
     Choice(Characters(["#", "\n"]).assert(), unorderedListOpening.assert(), orderedListOpening.assert(), blockquoteOpening.assert())
   )
 
   // MARK: - Inline styles
 
-  func delimitedText(_ nodeType: NodeType, delimiter: ParsingRule) -> ParsingRule {
+  func delimitedText(_ nodeType: SyntaxTreeNodeType, delimiter: ParsingRule) -> ParsingRule {
     let rightFlanking = InOrder(nonWhitespace.as(.text), delimiter.as(.delimiter)).memoize()
     return InOrder(
       delimiter.as(.delimiter),
@@ -103,7 +117,7 @@ public final class MiniMarkdownGrammar: PackratGrammar {
         rightFlanking.assertInverse(),
         paragraphTermination.assertInverse(),
         dot
-      ).repeating(1...).as(.text),
+      ).repeating(0...).as(.text),
       rightFlanking
     ).wrapping(in: nodeType).memoize()
   }
@@ -116,27 +130,52 @@ public final class MiniMarkdownGrammar: PackratGrammar {
     whitespace.as(.text),
     nonDelimitedHashtag
   )
-  lazy var nonDelimitedHashtag = InOrder(Literal("#"), nonWhitespace.repeating(1...)).as(.hashtag).memoize()
+  lazy var nonDelimitedHashtag = InOrder(
+    Literal("#").as(.text),
+    Choice(emoji, nonWhitespace.as(.text)).repeating(1...)
+  ).wrapping(in: .hashtag).memoize()
 
   lazy var image = InOrder(
-    Literal("!["),
-    Characters(CharacterSet(charactersIn: "\n]").inverted).repeating(0...),
-    Literal("]("),
-    Characters(CharacterSet(charactersIn: "\n)").inverted).repeating(0...),
-    Literal(")")
-  ).as(.image).memoize()
+    Literal("![").as(.text),
+    Characters(CharacterSet(charactersIn: "\n]").inverted).repeating(0...).as(.linkAltText),
+    Literal("](").as(.text),
+    Characters(CharacterSet(charactersIn: "\n)").inverted).repeating(0...).as(.linkTarget),
+    Literal(")").as(.text)
+  ).wrapping(in: .image).memoize()
 
-  lazy var textStyles = Choice(
+  lazy var emoji = CharacterPredicate { $0.isEmoji }.repeating(1...).as(.emoji).memoize()
+
+  /// Rules that define how to parse "inline styles" (bold, italic, code, etc). Designed to be overridden to add or replace the parsed inline styles.
+  private lazy var inlineStyleRules: [ParsingRule] = [
     bold,
     italic,
     underlineItalic,
     code,
     hashtag,
-    image
-  ).memoize()
+    image,
+    emoji,
+  ]
+
+  public var customInlineStyleRules: [ParsingRule] = [] {
+    didSet {
+      var resolvedStyleRules = inlineStyleRules
+      resolvedStyleRules.append(contentsOf: customInlineStyleRules)
+      unmemoizedTextStyles.rules = resolvedStyleRules
+    }
+  }
+
+  private lazy var unmemoizedTextStyles = Choice(inlineStyleRules)
+
+  private lazy var textStyles = unmemoizedTextStyles.memoize()
 
   lazy var styledText = InOrder(
     InOrder(paragraphTermination.assertInverse(), textStyles.assertInverse(), dot).repeating(0...).as(.text),
+    textStyles.repeating(0...)
+  ).repeating(0...).memoize()
+
+  /// A variant of `styledText` that terminates on the first newline
+  public private(set) lazy var singleLineStyledText = InOrder(
+    InOrder(Characters(["\n"]).assertInverse(), textStyles.assertInverse(), dot).repeating(0...).as(.text),
     textStyles.repeating(0...)
   ).repeating(0...).memoize()
 
@@ -156,10 +195,10 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   //       paragraphs.
 
   lazy var blockquoteOpening = InOrder(
-    whitespace.repeating(0 ... 3),
-    Characters([">"]),
-    whitespace.zeroOrOne()
-  ).as(.delimiter).memoize()
+    whitespace.repeating(0 ... 3).as(.text),
+    Characters([">"]).as(.text),
+    whitespace.zeroOrOne().as(.softTab)
+  ).wrapping(in: .delimiter).memoize()
 
   lazy var blockquote = InOrder(
     blockquoteOpening,
@@ -174,13 +213,14 @@ public final class MiniMarkdownGrammar: PackratGrammar {
     whitespace.repeating(0...).as(.text).zeroOrOne(),
     Characters(["*", "-", "+"]).as(.unorderedListOpening),
     whitespace.repeating(1 ... 4).as(.softTab)
-  ).wrapping(in: .delimiter).memoize()
+  ).wrapping(in: .listDelimiter).memoize()
 
   lazy var orderedListOpening = InOrder(
-    whitespace.repeating(0...),
-    InOrder(digit.repeating(1 ... 9), Characters([".", ")"])),
-    whitespace.repeating(1 ... 4)
-  ).as(.delimiter).memoize()
+    whitespace.repeating(0...).as(.text).zeroOrOne(),
+    digit.repeating(1 ... 9).as(.orderedListNumber),
+    Characters([".", ")"]).as(.orderedListTerminator),
+    whitespace.repeating(1 ... 4).as(.softTab)
+  ).wrapping(in: .listDelimiter).memoize()
 
   func list(type: ListType, openingDelimiter: ParsingRule) -> ParsingRule {
     let listItem = InOrder(
@@ -195,4 +235,19 @@ public final class MiniMarkdownGrammar: PackratGrammar {
 
   lazy var unorderedList = list(type: .unordered, openingDelimiter: unorderedListOpening)
   lazy var orderedList = list(type: .ordered, openingDelimiter: orderedListOpening)
+}
+
+private extension Character {
+  var isSimpleEmoji: Bool {
+    guard let firstScalar = unicodeScalars.first else {
+      return false
+    }
+    return firstScalar.properties.isEmoji && firstScalar.value > 0x238C
+  }
+
+  var isCombinedIntoEmoji: Bool {
+    unicodeScalars.count > 1 && unicodeScalars.first?.properties.isEmoji ?? false
+  }
+
+  var isEmoji: Bool { isSimpleEmoji || isCombinedIntoEmoji }
 }

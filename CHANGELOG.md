@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.4.0] - 2021-06-20  Happy Father's Day!
+
+Pretty substantial revisions. This now contains the code that has been developed and tested as part of Grail Diary.
+
 ## [0.3.1] - 2020-06-03
 
 ### Added

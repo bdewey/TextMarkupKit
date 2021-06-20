@@ -1,19 +1,4 @@
-//  Licensed to the Apache Software Foundation (ASF) under one
-//  or more contributor license agreements.  See the NOTICE file
-//  distributed with this work for additional information
-//  regarding copyright ownership.  The ASF licenses this file
-//  to you under the Apache License, Version 2.0 (the
-//  "License"); you may not use this file except in compliance
-//  with the License.  You may obtain a copy of the License at
-//
-//  http://www.apache.org/licenses/LICENSE-2.0
-//
-//  Unless required by applicable law or agreed to in writing,
-//  software distributed under the License is distributed on an
-//  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-//  KIND, either express or implied.  See the License for the
-//  specific language governing permissions and limitations
-//  under the License.
+// Copyright (c) 2018-2021  Brian Dewey. Covered by the Apache 2.0 license.
 
 import Foundation
 
@@ -25,37 +10,55 @@ public protocol SafeUnicodeBuffer {
   /// Gets the UTF-16 value at an index. If the index is out of bounds, returns nil.
   func utf16(at index: Int) -> unichar?
 
+  /// Gets a Character that starts at index. Note that Character may be composed of several UTF-16 code units. (E.g., emoji)
+  func character(at index: Int) -> Character?
+
   /// Gets a substring from the buffer, objc-style
   subscript(range: NSRange) -> [unichar] { get }
-
-  /// Gets a substring from the buffer, Swift-style
-  subscript<R: RangeExpression>(range: R) -> [unichar] where R.Bound == Int { get }
 
   /// The contents of the receiver as a string.
   var string: String { get }
 }
 
+/// Make every String a SafeUnicodeBuffer
+extension String: SafeUnicodeBuffer {
+  public subscript(range: NSRange) -> [unichar] {
+    guard
+      let lowerBound = index(startIndex, offsetBy: range.location, limitedBy: endIndex),
+      let upperBound = index(lowerBound, offsetBy: range.length, limitedBy: endIndex)
+    else {
+      return []
+    }
+    return Array(utf16[lowerBound ..< upperBound])
+  }
+
+  public func utf16(at i: Int) -> unichar? {
+    guard let stringIndex = index(startIndex, offsetBy: i, limitedBy: endIndex), stringIndex < endIndex else {
+      return nil
+    }
+    return utf16[stringIndex]
+  }
+
+  public func character(at i: Int) -> Character? {
+    guard let stringIndex = index(startIndex, offsetBy: i, limitedBy: endIndex), stringIndex < endIndex else {
+      return nil
+    }
+    return self[stringIndex]
+  }
+
+  public var string: String { self }
+}
+
 public protocol RangeReplaceableSafeUnicodeBuffer: SafeUnicodeBuffer {
   /// Replace the UTF-16 values stored in `range` with the values from `str`.
-  func replaceCharacters(in range: NSRange, with str: String)
+  mutating func replaceCharacters(in range: NSRange, with str: String)
 }
 
 public enum ParsingError: Swift.Error {
   /// The supplied grammar did not parse the entire contents of the buffer.
   /// - parameter length: How much of the buffer was consumed by the grammar.
   case incompleteParsing(length: Int)
-}
 
-public extension SafeUnicodeBuffer {
-  /// Parses the contents of the buffer.
-  /// - Throws: If the grammar could not parse the entire contents, throws `Error.incompleteParsing`. If the grammar resulted in more than one resulting node, throws `Error.ambiguousParsing`.
-  /// - Returns: The single node at the root of the syntax tree resulting from parsing `buffer`
-  func parse(grammar: PackratGrammar, memoizationTable: MemoizationTable) throws -> Node {
-    memoizationTable.reserveCapacity(count + 1)
-    let result = grammar.start.parsingResult(from: self, at: 0, memoizationTable: memoizationTable)
-    guard let node = result.node, node.length == count else {
-      throw ParsingError.incompleteParsing(length: result.node?.length ?? result.length)
-    }
-    return node
-  }
+  /// We just didn't feel like parsing today -- used mostly to test error paths :-)
+  case didntFeelLikeIt
 }

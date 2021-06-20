@@ -1,19 +1,4 @@
-//  Licensed to the Apache Software Foundation (ASF) under one
-//  or more contributor license agreements.  See the NOTICE file
-//  distributed with this work for additional information
-//  regarding copyright ownership.  The ASF licenses this file
-//  to you under the Apache License, Version 2.0 (the
-//  "License"); you may not use this file except in compliance
-//  with the License.  You may obtain a copy of the License at
-//
-//  http://www.apache.org/licenses/LICENSE-2.0
-//
-//  Unless required by applicable law or agreed to in writing,
-//  software distributed under the License is distributed on an
-//  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-//  KIND, either express or implied.  See the License for the
-//  specific language governing permissions and limitations
-//  under the License.
+// Copyright (c) 2018-2021  Brian Dewey. Covered by the Apache 2.0 license.
 
 import Foundation
 import TextMarkupKit
@@ -54,6 +39,17 @@ final class MiniMarkdownParsingTests: XCTestCase {
     )
   }
 
+  func testTextWithSingleCharacterEmphasis() {
+    parseText(
+      "Emphasize just the letter *e* in this sentence",
+      expectedStructure: "(document (paragraph text (emphasis delimiter text delimiter) text))"
+    )
+  }
+
+  func testEmphasisCannotBeEmpty() {
+    parseText("Just ** two stars", expectedStructure: "(document (paragraph text))")
+  }
+
   func testWithBold() {
     parseText(
       "This is text with **bold**.",
@@ -87,13 +83,13 @@ final class MiniMarkdownParsingTests: XCTestCase {
     - Item one
     - Item two
     """
-    parseText(markdown, expectedStructure: "(document (list (list_item (delimiter unordered_list_opening tab) (paragraph text)) (list_item (delimiter unordered_list_opening tab) (paragraph text))))")
+    parseText(markdown, expectedStructure: "(document (list (list_item (list_delimiter unordered_list_opening tab) (paragraph text)) (list_item (list_delimiter unordered_list_opening tab) (paragraph text))))")
   }
 
   func testListItemWithStyling() {
     parseText(
       "- This is a list item with **strong emphasis**",
-      expectedStructure: "(document (list (list_item (delimiter unordered_list_opening tab) (paragraph text (strong_emphasis delimiter text delimiter)))))"
+      expectedStructure: "(document (list (list_item (list_delimiter unordered_list_opening tab) (paragraph text (strong_emphasis delimiter text delimiter)))))"
     )
   }
 
@@ -102,7 +98,7 @@ final class MiniMarkdownParsingTests: XCTestCase {
     - Item *one
     - Item *two
     """
-    parseText(markdown, expectedStructure: "(document (list (list_item (delimiter unordered_list_opening tab) (paragraph text)) (list_item (delimiter unordered_list_opening tab) (paragraph text))))")
+    parseText(markdown, expectedStructure: "(document (list (list_item (list_delimiter unordered_list_opening tab) (paragraph text)) (list_item (list_delimiter unordered_list_opening tab) (paragraph text))))")
   }
 
   func testAllUnorderedListMarkers() {
@@ -112,7 +108,7 @@ final class MiniMarkdownParsingTests: XCTestCase {
     * And so is this.
 
     """
-    let tree = parseText(example, expectedStructure: "(document (list (list_item (delimiter unordered_list_opening tab) (paragraph text)) (list_item (delimiter unordered_list_opening tab) (paragraph text)) (list_item (delimiter unordered_list_opening tab) (paragraph text))))")
+    let tree = parseText(example, expectedStructure: "(document (list (list_item (list_delimiter unordered_list_opening tab) (paragraph text)) (list_item (list_delimiter unordered_list_opening tab) (paragraph text)) (list_item (list_delimiter unordered_list_opening tab) (paragraph text))))")
     XCTAssertEqual(tree?.node(at: [0])?[ListTypeKey.self], .unordered)
   }
 
@@ -123,13 +119,13 @@ final class MiniMarkdownParsingTests: XCTestCase {
     3) This is also legit.
 
     """
-    let tree = parseText(example, expectedStructure: "(document (list (list_item delimiter (paragraph text)) (list_item delimiter (paragraph text)) (list_item delimiter (paragraph text))))")
+    let tree = parseText(example, expectedStructure: "(document (list (list_item (list_delimiter ordered_list_number ordered_list_terminator tab) (paragraph text)) (list_item (list_delimiter ordered_list_number ordered_list_terminator tab) (paragraph text)) (list_item (list_delimiter ordered_list_number ordered_list_terminator tab) (paragraph text))))")
     XCTAssertEqual(tree?.node(at: [0])?[ListTypeKey.self], .ordered)
   }
 
   func testSingleLineBlockQuote() {
     let example = "> This is a quote with **bold** text."
-    parseText(example, expectedStructure: "(document (blockquote delimiter (paragraph text (strong_emphasis delimiter text delimiter) text)))")
+    parseText(example, expectedStructure: "(document (blockquote (delimiter text tab) (paragraph text (strong_emphasis delimiter text delimiter) text)))")
   }
 
   func testOrderedMarkerCannotBeTenDigits() {
@@ -140,11 +136,17 @@ final class MiniMarkdownParsingTests: XCTestCase {
   }
 
   func testParseHashtag() {
-    parseText("#hashtag\n", expectedStructure: "(document (paragraph hashtag text))")
+    parseText("#hashtag\n", expectedStructure: "(document (paragraph (hashtag text) text))")
+  }
+
+  func testParseEmojiHashtag() {
+    parseText("#hashtag/⭐️⭐️⭐️\n", expectedStructure: "(document (paragraph (hashtag text emoji) text))")
+    parseText("#hashtag/😀\n", expectedStructure: "(document (paragraph (hashtag text emoji) text))")
+    parseText("😀⭐️", expectedStructure: "(document (paragraph emoji))")
   }
 
   func testParseHashtagInText() {
-    parseText("Paragraph with #hashtag\n", expectedStructure: "(document (paragraph text hashtag text))")
+    parseText("Paragraph with #hashtag\n", expectedStructure: "(document (paragraph text (hashtag text) text))")
   }
 
   func testHashtagCannotStartInTheMiddleOfAWord() {
@@ -152,9 +154,13 @@ final class MiniMarkdownParsingTests: XCTestCase {
     parseText(example, expectedStructure: "(document (paragraph text))")
   }
 
+  func testParseEmoji() {
+    parseText("Working code makes me feel 😀!", expectedStructure: "(document (paragraph text emoji text))")
+  }
+
   func testParseImages() {
     let example = "This text has an image reference: ![xkcd](https://imgs.xkcd.com/comics/october_30th.png)"
-    parseText(example, expectedStructure: "(document (paragraph text image))")
+    parseText(example, expectedStructure: "(document (paragraph text (image text link_alt_text text link_target text)))")
   }
 
   func testUnderlineEmphasis() {
@@ -185,12 +191,15 @@ final class MiniMarkdownParsingTests: XCTestCase {
     )
   }
 
+  func testHierarchicalHashtag() {
+    parseText("#books/2020", expectedStructure: "(document (paragraph (hashtag text)))")
+  }
+
   func testFile() {
     let pieceTable = PieceTable(TestStrings.markdownCanonical)
-    let grammar = MiniMarkdownGrammar()
-    let memoizationTable = MemoizationTable()
+    let memoizationTable = MemoizationTable(grammar: MiniMarkdownGrammar.shared)
     do {
-      _ = try pieceTable.parse(grammar: grammar, memoizationTable: memoizationTable)
+      _ = try memoizationTable.parseBuffer(pieceTable)
     } catch {
       XCTFail("Unexpected error: \(error)")
       print(TraceBuffer.shared)
@@ -198,18 +207,30 @@ final class MiniMarkdownParsingTests: XCTestCase {
   }
 }
 
-// MARK: - Private
-
 private extension MiniMarkdownParsingTests {
+  /// Verify that parsed text matches expected structure.
   @discardableResult
-  func parseText(_ text: String, expectedStructure: String, file: StaticString = #file, line: UInt = #line) -> Node? {
+  func parseText(
+    _ text: String,
+    expectedStructure: String,
+    file: StaticString = #file,
+    line: UInt = #line
+  ) -> SyntaxTreeNode? {
+    let parsedString = ParsedString(text, grammar: MiniMarkdownGrammar.shared)
+    return verifyParsedStructure(of: parsedString, meets: expectedStructure, file: file, line: line)
+  }
+
+  @discardableResult
+  func verifyParsedStructure(
+    of text: ParsedString,
+    meets expectedStructure: String,
+    file: StaticString = #file,
+    line: UInt = #line
+  ) -> SyntaxTreeNode? {
     do {
-      let pieceTable = PieceTable(text)
-      let grammar = MiniMarkdownGrammar()
-      let memoizationTable = MemoizationTable()
-      let tree = try pieceTable.parse(grammar: grammar, memoizationTable: memoizationTable)
-      if tree.length != pieceTable.count {
-        let unparsedText = pieceTable[NSRange(location: tree.length, length: pieceTable.count - tree.length)]
+      let tree = try text.result.get()
+      if tree.length != text.count {
+        let unparsedText = text[NSRange(location: tree.length, length: text.count - tree.length)]
         XCTFail("Test case \(name): Unparsed text = '\(unparsedText.debugDescription)'", file: file, line: line)
       }
       if expectedStructure != tree.compactStructure {
@@ -217,8 +238,9 @@ private extension MiniMarkdownParsingTests {
         print("Got:      " + tree.compactStructure)
         print("Expected: " + expectedStructure)
         print("\n")
-        print(tree.debugDescription(withContentsFrom: pieceTable))
+        print(tree.debugDescription(withContentsFrom: text))
         print("\n\n\n")
+        print(TraceBuffer.shared)
       }
       XCTAssertEqual(tree.compactStructure, expectedStructure, "Unexpected structure", file: file, line: line)
       return tree
