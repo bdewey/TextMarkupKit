@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.4.1] - 2021-06-20  Oops
+
+I left old versions of files in the 0.4.0 release. Clean that up.
+
 ## [0.4.0] - 2021-06-20  Happy Father's Day!
 
 Pretty substantial revisions. This now contains the code that has been developed and tested as part of Grail Diary.
