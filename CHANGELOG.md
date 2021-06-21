@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.0] - 2021-06-21
+
+### Added
+
+- `MarkupFormattingTextView` for displaying and editing text with the formatting determined by a `ParsedAttributedString`
+
 ## [0.4.1] - 2021-06-20  Oops
 
 I left old versions of files in the 0.4.0 release. Clean that up.
