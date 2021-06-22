@@ -115,7 +115,7 @@ private extension Logging.Logger {
   override public var string: String { _string as String }
 
   /// Access the underlying NSString through an API that won't get automatically bridged to `String`...
-  public override func coreString() -> Any {
+  override public func coreString() -> Any {
     _string
   }
 
