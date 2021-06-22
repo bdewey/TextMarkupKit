@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.7.0] - 2021-06-22
+
+### Changed
+
+- `ParsedAttributedString.Settings` renamed to `ParsedAttributedString.Style`
+
+### Added
+
+- A built-in style for MiniMarkdown text, `MiniMarkdownGrammer.defaultEditingStyle()`
+- A sample application to show TextMarkupKit in use
+
 ## [0.6.0] - 2021-06-21
 
 ### Changed
