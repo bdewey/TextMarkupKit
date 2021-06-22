@@ -20,40 +20,24 @@ import ObjectiveCTextStorageWrapper
 import TextMarkupKit
 import XCTest
 
-private func formatTab(
-  node: SyntaxTreeNode,
-  startIndex: Int,
-  buffer: SafeUnicodeBuffer,
-  attributes: inout AttributedStringAttributesDescriptor
-) -> [unichar] {
-  return Array("\t".utf16)
-}
-
 final class ParsedTextStorageTests: XCTestCase {
   var textStorage: ObjectiveCTextStorageWrapper!
 
   override func setUp() {
     super.setUp()
-    #if !os(macOS)
-      let quickFormatFunctions: [SyntaxTreeNodeType: QuickFormatFunction] = [
-        .emphasis: { $1.italic = true },
-        .header: { $1.fontSize = 24 },
-        .list: { $1.listLevel += 1 },
-        .strongEmphasis: { $1.bold = true },
-      ]
-      let defaultAttributes = AttributedStringAttributesDescriptor(textStyle: .body, color: .label, headIndent: 28, firstLineHeadIndent: 28)
-    #else
-      let formattingFunctions: [NodeType: FormattingFunction] = [:]
-      let defaultAttributes: AttributedStringAttributes = [:]
-    #endif
+    let formatters: [SyntaxTreeNodeType: AnyParsedAttributedStringFormatter] = [
+      .emphasis: AnyParsedAttributedStringFormatter { $0.italic = true },
+      .header: AnyParsedAttributedStringFormatter { $0.fontSize = 24 },
+      .list: AnyParsedAttributedStringFormatter { $0.listLevel += 1 },
+      .strongEmphasis: AnyParsedAttributedStringFormatter { $0.bold = true },
+      .softTab: AnyParsedAttributedStringFormatter(substitution: "\t"),
+      .image: AnyParsedAttributedStringFormatter(substitution: "\u{fffc}"),
+    ]
+    let defaultAttributes = AttributedStringAttributesDescriptor(textStyle: .body, color: .label, headIndent: 28, firstLineHeadIndent: 28)
     let storage = ParsedAttributedString(
       grammar: MiniMarkdownGrammar(),
       defaultAttributes: defaultAttributes,
-      quickFormatFunctions: quickFormatFunctions,
-      fullFormatFunctions: [
-        .softTab: formatTab,
-        .image: { _, _, _, _ in Array("\u{fffc}".utf16) },
-      ]
+      formatters: formatters
     )
     textStorage = ObjectiveCTextStorageWrapper(storage: storage)
   }
@@ -158,8 +142,7 @@ private extension ParsedTextStorageTests {
       storage: ParsedAttributedString(
         grammar: MiniMarkdownGrammar(),
         defaultAttributes: AttributedStringAttributesDescriptor(fontSize: 12),
-        quickFormatFunctions: [:],
-        fullFormatFunctions: [.softTab: formatTab]
+        formatters: [.softTab: AnyParsedAttributedStringFormatter(substitution: "\t")]
       )
     )
     let miniMarkdownRecorder = TextStorageMessageRecorder()

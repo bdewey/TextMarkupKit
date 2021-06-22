@@ -23,13 +23,6 @@ import UIKit
 
 private let log = OSLog(subsystem: "org.brians-brain.GrailDiary", category: "ParsedAttributedString")
 
-/// A quick format function can change *only* string attributes based *only* on the type of syntax tree node, but it can do it with simpler syntax than FullFormatFunction.
-public typealias QuickFormatFunction = (SyntaxTreeNode, inout AttributedStringAttributesDescriptor) -> Void
-
-/// A function can change both formatting *and* the actual string characters that represent a part of the syntax tree. It also gets to examine the actual text as opposed to
-/// just knowing the type.
-public typealias FullFormatFunction = (SyntaxTreeNode, Int, SafeUnicodeBuffer, inout AttributedStringAttributesDescriptor) -> [unichar]?
-
 private extension Logging.Logger {
   static let attributedStringLogger: Logging.Logger = {
     var logger = Logger(label: "org.brians-brain.ParsedAttributedString")
@@ -49,17 +42,19 @@ private extension Logging.Logger {
 /// The `string` property contains the contents **after**  applying replacements. The `rawString` property contains the contents **before** applying replacements. Importantly, the `rawString` is what gets *parsed* in order to determine `string`. However, when calling `replaceCharacters(in:with:)`, the range is relative to the characters in `string`. The methods `rawStringRange(forRange:)` and `range(forRawStringRange:)` convert ranges between `string` and `rawString`
 @objc public final class ParsedAttributedString: WrappableTextStorage {
   public struct Settings {
-    public init(grammar: PackratGrammar, defaultAttributes: AttributedStringAttributesDescriptor, quickFormatFunctions: [SyntaxTreeNodeType: QuickFormatFunction], fullFormatFunctions: [SyntaxTreeNodeType: FullFormatFunction]) {
+    public init(
+      grammar: PackratGrammar,
+      defaultAttributes: AttributedStringAttributesDescriptor,
+      formatters: [SyntaxTreeNodeType: AnyParsedAttributedStringFormatter]
+    ) {
       self.grammar = grammar
       self.defaultAttributes = defaultAttributes
-      self.quickFormatFunctions = quickFormatFunctions
-      self.fullFormatFunctions = fullFormatFunctions
+      self.formatters = formatters
     }
 
     public var grammar: PackratGrammar
     public var defaultAttributes: AttributedStringAttributesDescriptor
-    public var quickFormatFunctions: [SyntaxTreeNodeType: QuickFormatFunction]
-    public var fullFormatFunctions: [SyntaxTreeNodeType: FullFormatFunction]
+    public var formatters: [SyntaxTreeNodeType: AnyParsedAttributedStringFormatter]
   }
 
   public convenience init(string: String, settings: Settings) {
@@ -67,8 +62,7 @@ private extension Logging.Logger {
       string: string,
       grammar: settings.grammar,
       defaultAttributes: settings.defaultAttributes,
-      quickFormatFunctions: settings.quickFormatFunctions,
-      fullFormatFunctions: settings.fullFormatFunctions
+      formatters: settings.formatters
     )
   }
 
@@ -77,8 +71,7 @@ private extension Logging.Logger {
     self.init(
       grammar: PlainTextGrammar(),
       defaultAttributes: AttributedStringAttributesDescriptor(textStyle: .body, color: .label),
-      quickFormatFunctions: [:],
-      fullFormatFunctions: [:]
+      formatters: [:]
     )
   }
 
@@ -86,12 +79,10 @@ private extension Logging.Logger {
     string: String = "",
     grammar: PackratGrammar,
     defaultAttributes: AttributedStringAttributesDescriptor,
-    quickFormatFunctions: [SyntaxTreeNodeType: QuickFormatFunction],
-    fullFormatFunctions: [SyntaxTreeNodeType: FullFormatFunction]
+    formatters: [SyntaxTreeNodeType: AnyParsedAttributedStringFormatter]
   ) {
     self.defaultAttributes = defaultAttributes
-    self.formattingFunctions = quickFormatFunctions
-    self.replacementFunctions = fullFormatFunctions
+    self.formatters = formatters
     self.rawString = ParsedString(string, grammar: grammar)
     self._string = PieceTableString(pieceTable: PieceTable(rawString.text))
     self.attributesArray = AttributesArray(attributesCache: attributesCache)
@@ -123,16 +114,12 @@ private extension Logging.Logger {
   /// The contents of the string. This is derived from `rawString` after applying replacements.
   override public var string: String { _string as String }
 
+  private let formatters: [SyntaxTreeNodeType: AnyParsedAttributedStringFormatter]
+
   /// Default attributes
   private let defaultAttributes: AttributedStringAttributesDescriptor
 
   private var attributesArray: AttributesArray
-
-  /// A set of functions that customize attributes based upon the nodes in the AST.
-  private let formattingFunctions: [SyntaxTreeNodeType: QuickFormatFunction]
-
-  /// A set of functions that replace the contents of `rawString` -- e.g., these can be used to remove delimiters or change spaces to tabs.
-  private let replacementFunctions: [SyntaxTreeNodeType: FullFormatFunction]
 
   /// Caches a mapping from descriptor to actual attributes for the lifetime of this ParsedAttributedString
   private let attributesCache = AttributesCache()
@@ -240,13 +227,13 @@ private extension ParsedAttributedString {
     if let precomputedAttributes = node.attributedStringAttributes {
       attributes = precomputedAttributes
     } else {
-      formattingFunctions[node.type]?(node, &attributes)
-      if let replacementFunction = replacementFunctions[node.type],
-         let textReplacement = replacementFunction(node, startingIndex, rawString, &attributes)
-      {
-        node.textReplacement = textReplacement
+      let formatter = formatters[node.type] ?? AnyParsedAttributedStringFormatter.passthrough
+      let (newAttributes, replacementText) = formatter.formatNode(node, in: rawString, at: startingIndex, currentAttributes: attributes)
+      attributes = newAttributes
+      if let replacementText = replacementText {
+        node.textReplacement = replacementText
         node.hasTextReplacement = true
-        node.textReplacementChangeInLength = textReplacement.count - node.length
+        node.textReplacementChangeInLength = replacementText.count - node.length
       } else {
         node.hasTextReplacement = false
       }

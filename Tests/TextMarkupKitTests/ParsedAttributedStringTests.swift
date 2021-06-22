@@ -18,30 +18,21 @@
 import TextMarkupKit
 import XCTest
 
-private func formatTab(
-  node: SyntaxTreeNode,
-  startIndex: Int,
-  buffer: SafeUnicodeBuffer,
-  attributes: inout AttributedStringAttributesDescriptor
-) -> [unichar] {
-  return Array("\t".utf16)
-}
-
 final class ParsedAttributedStringTests: XCTestCase {
   func testReplacementsAffectStringsButNotRawText() {
-    let formattingFunctions: [SyntaxTreeNodeType: QuickFormatFunction] = [
-      .emphasis: { $1.italic = true },
-      .header: { $1.fontSize = 24 },
-      .list: { $1.listLevel += 1 },
-      .strongEmphasis: { $1.bold = true },
+    let formatters: [SyntaxTreeNodeType: AnyParsedAttributedStringFormatter] = [
+      .emphasis: AnyParsedAttributedStringFormatter { $0.italic = true },
+      .header: AnyParsedAttributedStringFormatter { $0.fontSize = 24 },
+      .list: AnyParsedAttributedStringFormatter { $0.listLevel += 1 },
+      .strongEmphasis: AnyParsedAttributedStringFormatter { $0.bold = true },
+      .softTab: AnyParsedAttributedStringFormatter(substitution: "\t"),
     ]
     let defaultAttributes = AttributedStringAttributesDescriptor(textStyle: .body, color: .label, headIndent: 28, firstLineHeadIndent: 28)
 
     let textStorage = ParsedAttributedString(
       grammar: MiniMarkdownGrammar(),
       defaultAttributes: defaultAttributes,
-      quickFormatFunctions: formattingFunctions,
-      fullFormatFunctions: [.softTab: formatTab]
+      formatters: formatters
     )
 
     textStorage.append(NSAttributedString(string: "# This is a heading\n\nAnd this is a paragraph"))
@@ -95,22 +86,20 @@ final class ParsedAttributedStringTests: XCTestCase {
   }
 
   static func makeNoDelimiterStorage() -> ParsedAttributedString {
-    let formattingFunctions: [SyntaxTreeNodeType: QuickFormatFunction] = [
-      .emphasis: { $1.italic = true },
-      .header: { $1.fontSize = 24 },
-      .list: { $1.listLevel += 1 },
-      .strongEmphasis: { $1.bold = true },
+    let formatters: [SyntaxTreeNodeType: AnyParsedAttributedStringFormatter] = [
+      .emphasis: AnyParsedAttributedStringFormatter { $0.italic = true },
+      .header: AnyParsedAttributedStringFormatter { $0.fontSize = 24 },
+      .list: AnyParsedAttributedStringFormatter { $0.listLevel += 1 },
+      .strongEmphasis: AnyParsedAttributedStringFormatter { $0.bold = true },
+      .softTab: AnyParsedAttributedStringFormatter(substitution: "\t"),
+      .image: AnyParsedAttributedStringFormatter(substitution: "\u{fffc}"),
+      .delimiter: AnyParsedAttributedStringFormatter(substitution: ""),
     ]
     let defaultAttributes = AttributedStringAttributesDescriptor(textStyle: .body, color: .label, headIndent: 28, firstLineHeadIndent: 28)
     return ParsedAttributedString(
       grammar: MiniMarkdownGrammar(),
       defaultAttributes: defaultAttributes,
-      quickFormatFunctions: formattingFunctions,
-      fullFormatFunctions: [
-        .softTab: formatTab,
-        .delimiter: { _, _, _, _ in [] },
-        .image: { _, _, _, _ in Array("\u{fffc}".utf16) },
-      ]
+      formatters: formatters
     )
   }
 }
