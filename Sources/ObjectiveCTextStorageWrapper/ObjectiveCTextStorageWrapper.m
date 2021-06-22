@@ -23,6 +23,10 @@
 
 @implementation WrappableTextStorage
 
+- (NSString *)coreString {
+  return [self string];
+}
+
 @end
 
 @implementation ObjectiveCTextStorageWrapper {
@@ -49,7 +53,7 @@
 
 /// Provide O(1) access to the underlying character storage.
 - (NSString *)string {
-  return _storage.string;
+  return _storage.coreString;
 }
 
 - (NSDictionary<NSAttributedStringKey,id> *)attributesAtIndex:(NSUInteger)location effectiveRange:(NSRangePointer)range {

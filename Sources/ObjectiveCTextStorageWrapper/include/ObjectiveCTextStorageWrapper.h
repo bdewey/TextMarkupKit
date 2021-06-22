@@ -27,6 +27,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface WrappableTextStorage: NSMutableAttributedString
 @property (nonatomic, weak) id<WrappableTextStorageDelegate> delegate;
+- (id)coreString;
 @end
 
 /// An NSTextStorage implementation that uses a ParsedAttributedString as its underlying storage.

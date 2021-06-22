@@ -108,11 +108,16 @@ private extension Logging.Logger {
   /// The "raw" contents of the string. This is what is parsed, and determines what replacements get applied to determine the final contents.
   public let rawString: ParsedString
 
-  /// The underlying NSString that backs `string`. This is public and exposed to Objective-C to allow O(1) access to the string contents from TextKit.
-  @objc public let _string: PieceTableString // swiftlint:disable:this identifier_name
+  /// The underlying NSString that backs `string`.
+  private let _string: PieceTableString // swiftlint:disable:this identifier_name
 
   /// The contents of the string. This is derived from `rawString` after applying replacements.
   override public var string: String { _string as String }
+
+  /// Access the underlying NSString through an API that won't get automatically bridged to `String`...
+  public override func coreString() -> Any {
+    _string
+  }
 
   private let formatters: [SyntaxTreeNodeType: AnyParsedAttributedStringFormatter]
 
