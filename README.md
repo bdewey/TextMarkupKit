@@ -12,7 +12,20 @@ It consists of several interrelated components:
 
 TextMarkupKit provides the parsing / formatting support for my application [Grail Diary](https://bdewey.com/projects/grail-diary).
 
-## Getting Started
+## Installation
+
+Install `TextMarkupKit` using Swift Package Manager. 
+
+```
+  dependencies: [
+    .package(url: "https://github.com/bdewey/TextMarkupKit", from: "0.7.0"),
+  ],
+
+```
+
+Please note that TextMarkupKit is not yet at Version 1.0.0 -- the API is changing frequently and dramatically as I adopt code written for one specific application for general use.
+
+## Using TextMarkupKit -- the absolute basics
 
 While `TextMarkupKit` is designed to support custom formatting and custom markup languages, you can get started with a subset of Markdown out-of-the box. Using UIKit:
 
