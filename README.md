@@ -62,7 +62,7 @@ struct ContentView: View {
 }
 ```
 
-That's it! You now have a view that will format plain text and automatically adjust as the content changes. Check out the [sample application](TextMarkupKitSample) to see this in action.
+That's it! You now have a view that will format plain text and automatically adjust as the content changes. Check out the [sample application](TextMarkupKitSample/TextMarkupKitSample) to see this in action.
 
 ![TextMarkupKit Sample App](assets/sample.png)
 
