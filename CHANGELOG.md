@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.0] - 2021-06-21
+
+### Changed
+
+- Added `ParsedAttributedStringFormatter` and `AnyParsedAttributedStringFormatter` to control string formatting.
+
 ## [0.5.0] - 2021-06-21
 
 ### Added
