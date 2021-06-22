@@ -10,10 +10,52 @@ It consists of several interrelated components:
 3. A system to format an `NSAttributedString` based upon the parse tree for its `-string` contents. TextMarkupKit's formatting support was designed around the needs of lightweight "human markup languages" like Markdown instead of syntax highlighting of programming languages. In addition to changing the attributes associated with text, TextMarkupKit's formatting rules let you transform the displayed text itself. For example, you may choose to change a space to a tab when formatting a list, or not show the special formatting delimiters in some modes, or replace an image markup sequence with an actual image attachment. TextMarkupKit supports all of these modes.
 4. A way to efficiently integrate the formatted `NSAttributedString` with TextKit so it can be used with a `UITextView`.
 
+TextMarkupKit provides the parsing / formatting support for my application [Grail Diary](https://bdewey.com/projects/grail-diary).
 
-## Overview of the code
+## Getting Started
 
-I'm still building out the documentation for TextMarkupKit. In the meantime, this is an overview of the important areas of code.
+While `TextMarkupKit` is designed to support custom formatting and custom markup languages, you can get started with a subset of Markdown out-of-the box. Using UIKit:
+
+```swift
+import TextMarkupKit
+import UIKit
+
+// textStorage will hold the characters and formatting (determined by the markup rules).
+//
+// MiniMarkdownGrammar.defaultEditingStyle():
+// - Tells `ParsedAttributedString` to use the rules of MiniMarkdownGrammar to parse the text
+// - Provides a default set of formatters to style the parsed text.
+let textStorage = ParsedAttributedString(string: "# Hello, world!\n", style: MiniMarkdownGrammar.defaultEditingStyle())
+
+// MarkupFormattingTextView is a subclass of UITextView and you can use it anywhere you would use a UITextView.
+let textView = MarkupFormattingTextView(parsedAttributedString: textStorage)
+```
+
+Using SwiftUI:
+
+```swift
+import SwiftUI
+import TextMarkupKit
+
+struct ContentView: View {
+  @Binding var document: TextMarkupKitSampleDocument
+
+  var body: some View {
+    // `MarkupFormattedTextEditor` is a SwiftUI wrapper around `MarkupFormattingTextView` that commits its changes back to the
+    // text binding when editing is complete. By default it uses `MiniMarkdownGrammar.defaultEditingStyle()`, but you can provide
+    // a custom style with the `style:` parameter.
+    MarkupFormattedTextEditor(text: $document.text)
+  }
+}
+```
+
+That's it! You now have a view that will format plain text and automatically adjust as the content changes. Check out the [sample application](TextMarkupKitSample) to see this in action.
+
+![TextMarkupKit Sample App](assets/sample.png)
+
+## Further Reading
+
+Since this project started for personal use, documentation is sparse. While I build it up, this is an overview of the important areas of code.
 
 ### Parsing
 

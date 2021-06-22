@@ -49,6 +49,7 @@
 		D354E6B42682221100C1519E /* TextMarkupKitSampleUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextMarkupKitSampleUITests.swift; sourceTree = "<group>"; };
 		D354E6B62682221100C1519E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		D354E6C22682225800C1519E /* TextMarkupKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TextMarkupKit; path = ..; sourceTree = "<group>"; };
+		D3EE12452682A1B8009724CC /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -110,6 +111,7 @@
 				D354E69B2682221100C1519E /* Assets.xcassets */,
 				D354E6A02682221100C1519E /* Info.plist */,
 				D354E69D2682221100C1519E /* Preview Content */,
+				D3EE12452682A1B8009724CC /* README.md */,
 			);
 			path = TextMarkupKitSample;
 			sourceTree = "<group>";
