@@ -148,8 +148,6 @@ private extension ParsedTextStorageTests {
     let miniMarkdownRecorder = TextStorageMessageRecorder()
     textStorage.delegate = miniMarkdownRecorder
     let plainTextStorage = NSTextStorage()
-    let plainTextRecorder = TextStorageMessageRecorder()
-    plainTextStorage.delegate = plainTextRecorder
     for operation in operations {
       operation.apply(to: textStorage)
       operation.apply(to: plainTextStorage)
@@ -164,7 +162,6 @@ private extension ParsedTextStorageTests {
       print(textStorage.string.debugDescription)
       print(plainTextStorage.string.debugDescription)
     }
-//    XCTAssertEqual(textStorage.string, plainTextStorage.string, file: file, line: line)
   }
 }
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.1] - 2021-06-28
+
+### Changed
+
+- Cleaned up warnings & tests
+
 ## [0.7.0] - 2021-06-22
 
 ### Changed

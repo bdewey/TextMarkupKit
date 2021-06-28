@@ -29,7 +29,8 @@ let package = Package(
       dependencies: [
         .product(name: "Logging", package: "swift-log"),
         "ObjectiveCTextStorageWrapper",
-      ]
+      ],
+      exclude: ["TextMarkupKit.docc"]
     ),
     .target(name: "ObjectiveCTextStorageWrapper", dependencies: []),
     .testTarget(
