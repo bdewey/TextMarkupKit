@@ -31,13 +31,7 @@ private extension Logging.Logger {
   }()
 }
 
-/// An NSMutableAttributedString subclass that:
-///
-/// 1. Parses its contents based upon the rules of `grammar`
-/// 2. Determines the attributes and final contents of the string by applying `formattingFunctions` and `replacementFunctions` to the abstract syntax tree.
-///
-/// `formattingFunctions` are fairly straightforward. These are functions that have an opportunity to modify the current string attributes for each node in the abstract syntax tree. The attributes will apply to all characters covered by that node.
-/// `replacementFunctions` are a little more complicated. They give an opportunity to *alter the actual string* based upon the nodes of the abstract syntax tree. For example, you can use replacement functions to hide the delimiters in Markdown text, or to replace spaces with tabs.
+/// An NSMutableAttributedString subclass where the attributes are determined by applying ``ParsedAttributedStringFormatter`` rules to the parsed string contents.
 ///
 /// The `string` property contains the contents **after**  applying replacements. The `rawString` property contains the contents **before** applying replacements. Importantly, the `rawString` is what gets *parsed* in order to determine `string`. However, when calling `replaceCharacters(in:with:)`, the range is relative to the characters in `string`. The methods `rawStringRange(forRange:)` and `range(forRawStringRange:)` convert ranges between `string` and `rawString`
 @objc public final class ParsedAttributedString: WrappableTextStorage {

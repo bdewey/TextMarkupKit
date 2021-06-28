@@ -53,9 +53,9 @@ public enum ListTypeKey: SyntaxTreeNodePropertyKey {
   public static let key = "list_type"
 }
 
-/// Implements a subset of Markdown for common "plain text formatting" scenarios.
+/// Implements a subset of Markdown for common *plain text formatting* scenarios.
 ///
-/// This class is designed to be subclassed so you can extend the grammar. Subclasses can override:
+/// This grammar is designed to be be composed to support custom syntax. To create new *inline formatting* styles, set ``customInlineStyleRules``. To create new *block* styles, set ``customBlockRules``.
 public final class MiniMarkdownGrammar: PackratGrammar {
   public init(
     trace: Bool = false

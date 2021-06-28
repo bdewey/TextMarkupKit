@@ -17,6 +17,7 @@
 
 import UIKit
 
+/// Applies `UIFont.textStyle.title2` or `UIFont.textStyle.title3` styles to headings.
 public struct HeaderFormatter: ParsedAttributedStringFormatter {
   public func formatNode(
     _ node: SyntaxTreeNode,

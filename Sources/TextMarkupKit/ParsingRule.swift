@@ -301,8 +301,8 @@ public extension ParsingRule {
 
 /// A rule that always succeeds after looking at one character.
 /// - note: In PEG grammars, matching a single character is represented by a ".", thus the name.
-final class DotRule: ParsingRule {
-  override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
+public final class DotRule: ParsingRule {
+  public override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
     guard let character = buffer.character(at: index) else {
       return performanceCounters.recordResult(.fail)
     }
@@ -353,7 +353,12 @@ final class CharacterPredicate: ParsingRule {
   }
 }
 
+/// Matches a literal string.
 public final class Literal: ParsingRule {
+  /// Constructs a `Literal` parsing rule.
+  /// - Parameters:
+  ///   - string: The string to match.
+  ///   - compareOptions: Optional string comparison options.
   public init(_ string: String, compareOptions: String.CompareOptions = []) {
     self.literalString = string
     self.utfCount = string.utf16.count
@@ -421,17 +426,16 @@ final class MemoizingRule: ParsingRuleWrapper {
   }
 }
 
-/// Counts how many times we can successively match a rule. Succeeds and returns the concatenated result if the number of times
-/// the rule matches falls within an allowed range, fails otherwise.
-final class RangeRule: ParsingRuleWrapper {
-  init(rule: ParsingRule, range: Range<Int>) {
+/// A rule that counts how many times ``ParsingRuleWrapper/rule`` succeeds in a consecutive run of text, and succeeds if that number falls within ``range``.
+public final class RangeRule: ParsingRuleWrapper {
+  public init(rule: ParsingRule, range: Range<Int>) {
     self.range = range
     super.init(rule)
   }
 
-  let range: Range<Int>
+  public let range: Range<Int>
 
-  override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
+  override public func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
     var result = ParsingResult(succeeded: true)
     var currentIndex = index
     var repetitionCount = 0
@@ -458,11 +462,11 @@ final class RangeRule: ParsingRuleWrapper {
     return performanceCounters.recordResult(result)
   }
 
-  override var description: String {
+  override public var description: String {
     "RANGE \(range) \(rule)"
   }
 
-  override var optional: Bool { range.lowerBound == 0 }
+  override public var optional: Bool { range.lowerBound == 0 }
 }
 
 /// Matches an inner rule 0 or 1 times.
@@ -634,33 +638,33 @@ private extension Optional where Wrapped == CharacterSet {
   }
 }
 
-/// An *assertion* that succeeds if `rule` succeeds but consumes no input and produces no syntax tree nodes.
-final class AssertionRule: ParsingRuleWrapper {
-  override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
+/// An rule that succeeds if ``ParsingRuleWrapper/rule`` succeeds **but** consumes no input and produces no syntax tree nodes.
+public final class AssertionRule: ParsingRuleWrapper {
+  override public func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
     var result = rule.parsingResult(from: buffer, at: index, memoizationTable: memoizationTable)
     result.setZeroLength()
     return performanceCounters.recordResult(result)
   }
 
-  override var description: String {
+  override public var description: String {
     "ASSERT \(rule.description)"
   }
 }
 
-/// An *assertion* that succeeds if `rule` fails and vice versa, and never consumes input.
-final class NotAssertionRule: ParsingRuleWrapper {
-  override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
+/// An rule that succeeds if ``ParsingRuleWrapper/rule`` fails and vice versa, and never consumes input.
+public final class NotAssertionRule: ParsingRuleWrapper {
+  override public func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
     var result = rule.parsingResult(from: buffer, at: index, memoizationTable: memoizationTable)
     result.setZeroLength()
     result.succeeded.toggle()
     return performanceCounters.recordResult(result)
   }
 
-  override var description: String {
+  override public var description: String {
     "NOT \(rule.description)"
   }
 
-  override var possibleOpeningCharacters: CharacterSet? {
+  override public var possibleOpeningCharacters: CharacterSet? {
     // It doesn't matter what our inner rule is. If we're asserting that the inner rule
     // fails, a set of possible characters that scopes success tells us nothing about
     // characters that imply failure.
@@ -672,7 +676,7 @@ final class NotAssertionRule: ParsingRuleWrapper {
   }
 }
 
-/// Returns the result of the first successful match, or .fail otherwise.
+/// A rule that returns the result of the first successful match, or ``ParsingResult/fail`` otherwise.
 public final class Choice: ParsingRuleSequenceWrapper {
   override public init(_ rules: [ParsingRule]) {
     super.init(rules)
