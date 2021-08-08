@@ -221,6 +221,7 @@ public struct PieceTable {
     }
   }
 
+  /// Discards all changes that have accumulated in this `PieceTable`. After this method completes, the piece table contains only `originalContents`.
   public mutating func revertToOriginal() {
     addedContents = NSMutableString()
     count = originalContents.length
