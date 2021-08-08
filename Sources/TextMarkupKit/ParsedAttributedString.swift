@@ -178,7 +178,7 @@ private extension Logging.Logger {
       os_signpost(.end, log: log, name: "applyAttributes")
       applyReplacements(in: node, startingIndex: 0, to: _string)
     } else {
-      newAttributes = attributesArray
+      newAttributes.appendAttributes(defaultAttributes, length: _string.count)
     }
     // Deliver delegate messages
     Logger.attributedStringLogger.debug("Edit \(range) change in length \(_string.length - lengthBeforeChanges)")

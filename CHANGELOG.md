@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Fixed crash when deleting all text
+
 ## [0.7.1] - 2021-06-28
 
 ### Changed

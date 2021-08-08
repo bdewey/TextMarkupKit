@@ -91,7 +91,7 @@ final class ParsedTextStorageTests: XCTestCase {
 //    XCTAssertEqual(textStorage.storage.rawString, "# This is a heading\n\nAnd this is a paragraph")
 //  }
 
-  /// This used to crash because I was inproperly managing the blank_line nodes when coalescing them. It showed up when
+  /// This used to crash because I was inproperly managing the `blank_line` nodes when coalescing them. It showed up when
   /// re-using memoized results.
   func testReproduceTypingBug() {
     let initialString = "# Welcome to Scrap Paper.\n\n\n\n##\n\n"
@@ -113,6 +113,14 @@ final class ParsedTextStorageTests: XCTestCase {
     textStorage.replaceCharacters(in: NSRange(location: 5, length: 0), with: "x")
     // We should now have one more character than we did previously
     XCTAssertEqual(textStorage.string.count, 13)
+  }
+
+  func testDeleteEverything() {
+    let initialString = "Test ![](image.png) image"
+    textStorage.append(NSAttributedString(string: initialString))
+    XCTAssertEqual(textStorage.string.count, 12)
+    textStorage.replaceCharacters(in: NSRange(location: 0, length: textStorage.string.utf16.count), with: "")
+    XCTAssertEqual(textStorage.string.count, 0)
   }
 
   #if !os(macOS)
