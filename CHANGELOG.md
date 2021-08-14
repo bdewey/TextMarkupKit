@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.3] - 2021-08-14
+
+### Fixed
+
+- Fixed memory leak of doubly-linked-list syntax nodes
+
 ## [0.7.2] - 2021-08-08
 
 ### Fixed

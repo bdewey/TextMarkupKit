@@ -76,7 +76,7 @@ private final class DoublyLinkedNode {
 
   let value: SyntaxTreeNode
   var next: DoublyLinkedNode?
-  var previous: DoublyLinkedNode?
+  weak var previous: DoublyLinkedNode?
 }
 
 /// A specific DoublyLinkedList of SyntaxTreeNode values.
@@ -87,7 +87,7 @@ public final class DoublyLinkedList: SyntaxTreeNodeChildren {
   public var isEmpty: Bool { count == 0 }
 
   private var head: DoublyLinkedNode?
-  private var tail: DoublyLinkedNode?
+  private weak var tail: DoublyLinkedNode?
 
   public func removeFirst() {
     count -= 1
@@ -122,8 +122,9 @@ public final class DoublyLinkedList: SyntaxTreeNodeChildren {
   public func append(_ node: SyntaxTreeNode) {
     count += 1
     if tail == nil {
-      tail = DoublyLinkedNode(value: node, next: nil, previous: nil)
-      head = tail
+      let newNode = DoublyLinkedNode(value: node, next: nil, previous: nil)
+      tail = newNode
+      head = newNode
     } else {
       let newNode = DoublyLinkedNode(value: node, next: nil, previous: tail)
       tail?.next = newNode
