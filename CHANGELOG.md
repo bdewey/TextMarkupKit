@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.0] - 2021-09-26
+
+### Changed
+
+- Got rid of the `key` parameter in `MarkupFormattingTextViewImageStorage`
+
 ## [0.7.3] - 2021-08-14
 
 ### Fixed

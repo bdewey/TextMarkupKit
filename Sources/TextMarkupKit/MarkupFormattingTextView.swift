@@ -36,10 +36,9 @@ private extension Logging.Logger {
 public protocol MarkupFormattingTextViewImageStorage {
   /// Store image data.
   /// - parameter imageData: The image data to store
-  /// - parameter suffix: Image data suffix that identifies the data format (e.g., "jpeg", "png")
-  /// - parameter key: Optional pre-defined key to use for this image.
+  /// - parameter type: The type of image data (e.g., `UTType.png` or `UTType.jpeg`
   /// - returns: A string that represents this image in the markup language.
-  func storeImageData(_ imageData: Data, type: UTType, key: String?) throws -> String
+  func storeImageData(_ imageData: Data, type: UTType) throws -> String
 }
 
 /// A UITextView subclass that uses a `ParsedAttributedString` for text storage and formatting.
@@ -116,13 +115,13 @@ public final class MarkupFormattingTextView: UITextView {
       let imageKey: String?
       if let jpegData = UIPasteboard.general.data(forPasteboardType: UTType.jpeg.identifier) {
         Logger.textView.info("Got JPEG data = \(jpegData.count) bytes")
-        imageKey = try? imageStorage.storeImageData(jpegData, type: .jpeg, key: nil)
+        imageKey = try? imageStorage.storeImageData(jpegData, type: .jpeg)
       } else if let pngData = UIPasteboard.general.data(forPasteboardType: UTType.png.identifier) {
         Logger.textView.info("Got PNG data = \(pngData.count) bytes")
-        imageKey = try? imageStorage.storeImageData(pngData, type: .png, key: nil)
+        imageKey = try? imageStorage.storeImageData(pngData, type: .png)
       } else if let convertedData = image.jpegData(compressionQuality: 0.8) {
         Logger.textView.info("Did JPEG conversion ourselves = \(convertedData.count) bytes")
-        imageKey = try? imageStorage.storeImageData(convertedData, type: .jpeg, key: nil)
+        imageKey = try? imageStorage.storeImageData(convertedData, type: .jpeg)
       } else {
         Logger.textView.error("Could not get image data")
         imageKey = nil
