@@ -55,9 +55,9 @@ import Foundation
 
   /// Returns the path through the syntax tree to the leaf node that contains `index`.
   /// - returns: An array of nodes where the first element is the root, and each subsequent node descends one level to the leaf.
-  public func path(to index: Int) -> [AnchoredNode] {
+  public func path(to index: Int) throws -> [AnchoredNode] {
     guard let root = try? result.get() else { return [] }
-    return root.path(to: index)
+    return try root.path(to: index)
   }
 
   #if DEBUG

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.0] - 2021-12-20
+
+### Breaking change!
+
+- `ParsedString.path(to:)` and `SyntaxTreeNode.path(to:)` are now throwing functions if given an index that is out-of-bounds.
+
 ## [0.8.0] - 2021-09-26
 
 ### Changed

@@ -104,6 +104,16 @@ final class ParsedStringTests: XCTestCase {
     parsedString.replaceCharacters(in: replacementRange, with: "#books/2019")
     XCTAssertEqual(parsedString.string, "#books #notreally #ijustwanttoreviewitwithbooks #books/2019")
   }
+
+  func testPath() throws {
+    let parsedString = ParsedString("* One", grammar: MiniMarkdownGrammar.shared)
+    let nodeTypes = try parsedString.path(to: 4).map { $0.node.type }
+    XCTAssertEqual(nodeTypes, [.document, .list, .listItem, .paragraph, .text])
+    XCTAssertThrowsError(try parsedString.path(to: 5))
+    XCTAssertThrowsError(try parsedString.path(to: -1))
+    let startNodeTypes = try parsedString.path(to: 0).map { $0.node.type }
+    XCTAssertEqual(startNodeTypes, [.document, .list, .listItem, .listDelimiter, .unorderedListOpening])
+  }
 }
 
 // MARK: - Private
