@@ -63,6 +63,19 @@ final class ParsedAttributedStringTests: XCTestCase {
     }
   }
 
+  func testListDelimiterRange() throws {
+    let noDelimiterTextStorage = ParsedAttributedString(string: "* One\n* Two\n* ", style: MiniMarkdownGrammar.defaultEditingStyle())
+    XCTAssertEqual(noDelimiterTextStorage.string, "•\tOne\n•\tTwo\n•\t")
+    let nodePath = try noDelimiterTextStorage.path(to: 13)
+    guard let delimiter = nodePath.first(where: { $0.node.type == .listDelimiter }) else {
+      XCTFail()
+      return
+    }
+    XCTAssertEqual(delimiter.range, NSRange(location: 12, length: 2))
+    let visibleRange = noDelimiterTextStorage.range(forRawStringRange: delimiter.range)
+    XCTAssertEqual(visibleRange, NSRange(location: 12, length: 2))
+  }
+
   func testQandACardWithReplacements() {
     let markdown = "Q: Can Q&A cards have *formatting*?\nA: **Yes!** Even `code`!"
     let noDelimiterTextStorage = Self.makeNoDelimiterStorage()

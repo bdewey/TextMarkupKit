@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.1] - 2021-12-27
+
+### Fixed
+
+- There was a bug in the algorithm for traslating bounds between original content & up-to-date content in a piece table
+
 ## [0.9.0] - 2021-12-20
 
 ### Breaking change!

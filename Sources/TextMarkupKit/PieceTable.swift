@@ -154,8 +154,18 @@ public struct PieceTable {
   }
 
   // swiftlint:disable:next cyclomatic_complexity
+  /// Given an offset into the original content of the piece table, returns an `Index` that represents that piece of content in the current piece table (with all of the replacements).
+  ///
+  /// If the original content is no longer in the piece table (because of replacement), returns the `Index` to the closest piece of original content still in the piece table.
+  ///
+  /// - Parameters:
+  ///   - bound: If the exact original content is no longer in the piece table, determines what Index to return. If `.lowerBound`, returns the Index to the closest original content that is still in the piece table that is at a lower offset than the requested offset. If `.upperBound`, returns the Index to the closest original content still in the piece table that is larger than the requested offset.
+  ///   - originalOffset: The offset into the piece table original contents to locate.
+  /// - Returns: An `Index` representing the closest original content still in the piece table.
   public func findBound(_ bound: Bound, forOriginalBound originalOffset: Int) -> Index {
     var previousOriginalPieceIndex: Int?
+    var bestLowerBound: Index?
+    var bestUpperBound: Index?
     for (index, piece) in pieces.enumerated() where piece.source == .original {
       if piece.contains(originalOffset) {
         return Index(pieceIndex: index, contentIndex: originalOffset)
@@ -163,33 +173,22 @@ public struct PieceTable {
       if bound == .upperBound, piece.endIndex == originalOffset {
         // We're looking for an upper bound at `originalOffset`, and whatever comes after
         // this current piece is the first thing past `originalOffset`
+        //
+        // TODO: This may return an Index that represents *added* content, which goes against what I wrote in the docs. That OK?
         return self.index(after: Index(pieceIndex: index, contentIndex: piece.endIndex - 1))
       }
-      if piece.startIndex > originalOffset {
-        switch (bound, previousOriginalPieceIndex) {
-        case (.lowerBound, .none):
-          return startIndex
-        case (.lowerBound, .some(let pieceIndex)):
-          if pieceIndex + 1 < pieces.endIndex {
-            let piece = pieces[pieceIndex + 1]
-            return Index(pieceIndex: pieceIndex + 1, contentIndex: piece.startIndex)
-          } else {
-            return endIndex
-          }
-        case (.upperBound, _):
-          return Index(pieceIndex: index, contentIndex: piece.startIndex)
-        }
+      if originalOffset < piece.startIndex {
+        bestUpperBound = Index(pieceIndex: index, contentIndex: piece.startIndex)
       }
-      if !piece.isEmpty {
-        // this is the index of the original content with the highest offset less than the target offset that we've found.
-        previousOriginalPieceIndex = index
+      if originalOffset >= piece.endIndex {
+        bestLowerBound = self.index(after: Index(pieceIndex: index, contentIndex: piece.endIndex - 1))
       }
     }
     switch bound {
     case .lowerBound:
-      return startIndex
+      return bestLowerBound ?? startIndex
     case .upperBound:
-      return endIndex
+      return bestUpperBound ?? endIndex
     }
   }
 
