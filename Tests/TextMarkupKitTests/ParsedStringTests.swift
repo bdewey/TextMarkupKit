@@ -109,10 +109,20 @@ final class ParsedStringTests: XCTestCase {
     let parsedString = ParsedString("* One", grammar: MiniMarkdownGrammar.shared)
     let nodeTypes = try parsedString.path(to: 4).map { $0.node.type }
     XCTAssertEqual(nodeTypes, [.document, .list, .listItem, .paragraph, .text])
-    XCTAssertThrowsError(try parsedString.path(to: 5))
+    let lastLocationNodeTypes = try parsedString.path(to: 5).map { $0.node.type }
+    XCTAssertEqual(lastLocationNodeTypes, [.document, .list, .listItem, .paragraph, .text])
+    XCTAssertThrowsError(try parsedString.path(to: 6))
     XCTAssertThrowsError(try parsedString.path(to: -1))
     let startNodeTypes = try parsedString.path(to: 0).map { $0.node.type }
     XCTAssertEqual(startNodeTypes, [.document, .list, .listItem, .listDelimiter, .unorderedListOpening])
+  }
+
+  func testBlankLinePath() throws {
+    let parsedString = ParsedString("# Header\n\nParagraph\n", grammar: MiniMarkdownGrammar.shared)
+    let nodeTypes = try parsedString.path(to: 8).map { $0.node.type }
+    XCTAssertEqual(nodeTypes, [.document, .header, .text])
+    let blankNodeTypes = try parsedString.path(to: 9).map { $0.node.type }
+    XCTAssertEqual(blankNodeTypes, [.document, .blankLine])
   }
 }
 

@@ -403,18 +403,24 @@ public final class SyntaxTreeNode: CustomStringConvertible {
   }
 
   private func path(to index: Int, startIndex: Int, results: inout [AnchoredNode]) throws {
-    guard (startIndex ..< startIndex + length).contains(index) else {
+    guard (startIndex ... startIndex + length).contains(index) else {
       throw MachError(.invalidArgument)
     }
     results.append(AnchoredNode(node: self, startIndex: startIndex))
     if children.isEmpty { return }
-    var childIndex = startIndex
-    for child in children {
-      if index < childIndex + child.length {
-        try child.path(to: index, startIndex: childIndex, results: &results)
-        return
+    if index == startIndex + length, let lastChild = children.last {
+      // If we get here, it's because index == startIndex.length. Give this to the last child.
+      let lastChildIndex = startIndex + length - lastChild.length
+      try lastChild.path(to: index, startIndex: lastChildIndex, results: &results)
+    } else {
+      var childIndex = startIndex
+      for child in children {
+        if index < childIndex + child.length {
+          try child.path(to: index, startIndex: childIndex, results: &results)
+          return
+        }
+        childIndex += child.length
       }
-      childIndex += child.length
     }
   }
 
