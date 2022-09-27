@@ -98,6 +98,12 @@ final class ParsedAttributedStringTests: XCTestCase {
     XCTAssertEqual(noDelimiterTextStorage.length, 93)
   }
 
+  func testDeleteMultipleAttributeRuns() {
+    let storage = ParsedAttributedString(string: "# Header\n\nParagraph\n\n> Quote\n\n", style: MiniMarkdownGrammar.defaultEditingStyle())
+    storage.replaceCharacters(in: NSRange(location: 2, length: 15), with: "")
+    XCTAssertEqual(storage.string, "#\tph\n\n>\tQuote\n\n")
+  }
+
   static func makeNoDelimiterStorage() -> ParsedAttributedString {
     let formatters: [SyntaxTreeNodeType: AnyParsedAttributedStringFormatter] = [
       .emphasis: AnyParsedAttributedStringFormatter { $0.italic = true },

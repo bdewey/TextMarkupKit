@@ -65,16 +65,26 @@ public struct AttributesArray {
 
   /// Changes the length of a particular run in the array. Useful to keep the attributes array updated in response to typing events.
   public mutating func adjustLengthOfRun(at location: Int, by amount: Int, defaultAttributes: AttributedStringAttributesDescriptor) {
+    // In case amount is negative, we might need to distribute it among multiple runs. Keep track of how much there is to distribute.
+    var amount = amount
     count += amount
-    let index = self.index(startIndex, offsetBy: location)
-    if index == endIndex {
-      assert(amount >= 0)
-      runs.append(Run(descriptor: defaultAttributes, length: amount))
-    } else {
-      runs[index.runIndex].adjustLength(by: amount)
-    }
-    if runs[index.runIndex].length == 0 {
-      runs.remove(at: index.runIndex)
+
+    // We're going to loop until we've handled all of `amount`
+    while amount != 0 {
+      let index = self.index(startIndex, offsetBy: location)
+      if index == endIndex {
+        assert(amount >= 0)
+        runs.append(Run(descriptor: defaultAttributes, length: amount))
+        // All of `amount` has been given to the new run.
+        amount = 0
+      } else {
+        let amountForRun = Swift.max(-runs[index.runIndex].length, amount)
+        runs[index.runIndex].adjustLength(by: amountForRun)
+        amount -= amountForRun
+      }
+      if runs[index.runIndex].length == 0 {
+        runs.remove(at: index.runIndex)
+      }
     }
     assert(runs.map { $0.length }.reduce(0, +) == count)
   }
@@ -209,6 +219,7 @@ private extension AttributesArray {
     }
 
     mutating func adjustLength(by amount: Int) {
+      assert(length + amount >= 0)
       length += amount
     }
   }

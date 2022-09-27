@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed 
+
+- Fixed bug where maintaining the `AttributesArray` could result in negative-length runs
+
 ## [0.9.1] - 2021-12-27
 
 ### Fixed
