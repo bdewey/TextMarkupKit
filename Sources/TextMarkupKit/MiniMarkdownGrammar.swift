@@ -107,7 +107,8 @@ public final class MiniMarkdownGrammar: PackratGrammar {
   lazy var header = InOrder(
     Characters(["#"]).repeating(1 ..< 7).as(.delimiter),
     softTab,
-    singleLineStyledText
+    singleLineStyledText,
+    paragraphTermination.zeroOrOne().wrapping(in: .text)
   ).wrapping(in: .header).memoize()
 
   lazy var paragraph = InOrder(
@@ -196,11 +197,11 @@ public final class MiniMarkdownGrammar: PackratGrammar {
 
   // MARK: - Character primitives
 
-  let dot = DotRule()
-  let newline = Characters(["\n"])
-  let whitespace = Characters(.whitespaces)
-  let nonWhitespace = Characters(CharacterSet.whitespacesAndNewlines.inverted)
-  let digit = Characters(.decimalDigits)
+  public let dot = DotRule()
+  public let newline = Characters(["\n"])
+  public let whitespace = Characters(.whitespaces)
+  public let nonWhitespace = Characters(CharacterSet.whitespacesAndNewlines.inverted)
+  public let digit = Characters(.decimalDigits)
   /// One or more whitespace characters that should be interpreted as a single delimiater.
   let softTab = Characters(.whitespaces).repeating(1...).as(.softTab)
 

@@ -9,6 +9,7 @@
 ### Changed
 
 - `SyntaxTreeNode.path(to:)` now works when the `location == endIndex`. This used to be an invalid parameter. Now, it is valid and will get associated with the last child in the tree.
+- Minor grammar adustments
 
 ### Fixed 
 

@@ -301,8 +301,8 @@ public extension ParsingRule {
 
 /// A rule that always succeeds after looking at one character.
 /// - note: In PEG grammars, matching a single character is represented by a ".", thus the name.
-final class DotRule: ParsingRule {
-  override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
+public final class DotRule: ParsingRule {
+  public override func parsingResult(from buffer: SafeUnicodeBuffer, at index: Int, memoizationTable: MemoizationTable) -> ParsingResult {
     guard let character = buffer.character(at: index) else {
       return performanceCounters.recordResult(.fail)
     }
