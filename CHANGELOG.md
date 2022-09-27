@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- `ParsedString.parsedContents` for seeing exactly how the parse tree looks for a ParsedString.
+
 ### Fixed 
 
 - Fixed bug where maintaining the `AttributesArray` could result in negative-length runs

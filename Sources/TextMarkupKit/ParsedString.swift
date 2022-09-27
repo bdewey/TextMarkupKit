@@ -89,6 +89,11 @@ import Foundation
       return tree
     }
   #endif
+
+  public var parsedContents: String {
+    guard let root = try? result.get() else { return "<unparsed>" }
+    return root.debugDescription(withContentsFrom: self)
+  }
 }
 
 extension ParsedString: RangeReplaceableSafeUnicodeBuffer {
