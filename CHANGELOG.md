@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `AttributedStringAttributesDescriptor.paragraphSpacing` for setting paragraph spacing
+- Can pass in custom default attributes to `MiniMarkdownGrammar.defaultEditingStyle()`
+
 ## [0.10.0] - 2022-09-27
 
 ### Added

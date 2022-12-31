@@ -163,7 +163,6 @@ public struct PieceTable {
   ///   - originalOffset: The offset into the piece table original contents to locate.
   /// - Returns: An `Index` representing the closest original content still in the piece table.
   public func findBound(_ bound: Bound, forOriginalBound originalOffset: Int) -> Index {
-    var previousOriginalPieceIndex: Int?
     var bestLowerBound: Index?
     var bestUpperBound: Index?
     for (index, piece) in pieces.enumerated() where piece.source == .original {

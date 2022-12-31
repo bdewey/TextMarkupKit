@@ -51,8 +51,9 @@ public extension MiniMarkdownGrammar {
   /// * Lists use hanging indents for their bullets
   /// * Unordered lists use a proper bullet character
   /// * Emojis show up appropriately
-  static func defaultEditingStyle() -> ParsedAttributedString.Style {
-    let defaultAttributes = AttributedStringAttributesDescriptor(textStyle: .body, color: .label, headIndent: 28, firstLineHeadIndent: 28)
+  static func defaultEditingStyle(
+    defaultAttributes: AttributedStringAttributesDescriptor = .standardAttributes()
+  ) -> ParsedAttributedString.Style {
     let formatters: [SyntaxTreeNodeType: AnyParsedAttributedStringFormatter] = [
       .header: AnyParsedAttributedStringFormatter(HeaderFormatter()),
       .list: .incrementListLevel,

@@ -28,10 +28,11 @@ public extension NSAttributedString.Key {
 }
 
 public struct AttributedStringAttributesDescriptor: Hashable {
-  public init(textStyle: UIFont.TextStyle = .body, familyName: String? = nil, fontSize: CGFloat = 0, color: UIColor? = nil, backgroundColor: UIColor? = nil, blockquoteBorderColor: UIColor? = nil, kern: CGFloat = 0, bold: Bool = false, italic: Bool = false, headIndent: CGFloat = 0, firstLineHeadIndent: CGFloat = 0, alignment: NSTextAlignment? = nil, lineHeightMultiple: CGFloat = 0, listLevel: Int = 0, attachment: NSTextAttachment? = nil) {
+  public init(textStyle: UIFont.TextStyle = .body, familyName: String? = nil, fontSize: CGFloat = 0, fontDesign: UIFontDescriptor.SystemDesign = .default, color: UIColor? = nil, backgroundColor: UIColor? = nil, blockquoteBorderColor: UIColor? = nil, kern: CGFloat = 0, bold: Bool = false, italic: Bool = false, headIndent: CGFloat = 0, firstLineHeadIndent: CGFloat = 0, paragraphSpacing: CGFloat = 0, alignment: NSTextAlignment? = nil, lineHeightMultiple: CGFloat = 0, listLevel: Int = 0, attachment: NSTextAttachment? = nil) {
     self.textStyle = textStyle
     self.familyName = familyName
     self.fontSize = fontSize
+    self.fontDesign = fontDesign
     self.color = color
     self.backgroundColor = backgroundColor
     self.blockquoteBorderColor = blockquoteBorderColor
@@ -40,10 +41,15 @@ public struct AttributedStringAttributesDescriptor: Hashable {
     self.italic = italic
     self.headIndent = headIndent
     self.firstLineHeadIndent = firstLineHeadIndent
+    self.paragraphSpacing = paragraphSpacing
     self.alignment = alignment
     self.lineHeightMultiple = lineHeightMultiple
     self.listLevel = listLevel
     self.attachment = attachment
+  }
+
+  public static func standardAttributes(indent: CGFloat = 28) -> AttributedStringAttributesDescriptor {
+    .init(textStyle: .body, color: .label, headIndent: indent, firstLineHeadIndent: indent)
   }
 
   public var textStyle: UIFont.TextStyle = .body {
@@ -63,6 +69,7 @@ public struct AttributedStringAttributesDescriptor: Hashable {
   public var italic: Bool = false
   public var headIndent: CGFloat = 0
   public var firstLineHeadIndent: CGFloat = 0
+  public var paragraphSpacing: CGFloat = 0
   public var alignment: NSTextAlignment?
   public var lineHeightMultiple: CGFloat = 0
   public var listLevel: Int = 0
@@ -106,6 +113,7 @@ public struct AttributedStringAttributesDescriptor: Hashable {
     let paragraphStyle = NSMutableParagraphStyle()
     paragraphStyle.headIndent = headIndent
     paragraphStyle.firstLineHeadIndent = firstLineHeadIndent
+    paragraphStyle.paragraphSpacing = paragraphSpacing
     alignment.flatMap { paragraphStyle.alignment = $0 }
     paragraphStyle.lineHeightMultiple = lineHeightMultiple
     if listLevel > 0 {
