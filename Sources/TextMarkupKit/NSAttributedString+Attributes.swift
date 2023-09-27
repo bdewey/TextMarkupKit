@@ -25,10 +25,14 @@ public typealias AttributedStringAttributes = [NSAttributedString.Key: Any]
 public extension NSAttributedString.Key {
   /// A UIColor to use when rendering a vertical bar on the leading edge of a block quote.
   static let blockquoteBorderColor = NSAttributedString.Key(rawValue: "verticalBarColor")
+
+  /// A boolean that, if true, means we should not allow the text selection range to include this character.
+  // TODO: This description isn't quite right
+  static let isUnselectable = NSAttributedString.Key(rawValue: "org.brians-brain.isUnselectable")
 }
 
 public struct AttributedStringAttributesDescriptor: Hashable {
-  public init(textStyle: UIFont.TextStyle = .body, familyName: String? = nil, fontSize: CGFloat = 0, fontDesign: UIFontDescriptor.SystemDesign = .default, color: UIColor? = nil, backgroundColor: UIColor? = nil, blockquoteBorderColor: UIColor? = nil, kern: CGFloat = 0, bold: Bool = false, italic: Bool = false, headIndent: CGFloat = 0, firstLineHeadIndent: CGFloat = 0, paragraphSpacing: CGFloat = 0, alignment: NSTextAlignment? = nil, lineHeightMultiple: CGFloat = 0, listLevel: Int = 0, attachment: NSTextAttachment? = nil) {
+  public init(textStyle: UIFont.TextStyle = .body, familyName: String? = nil, fontSize: CGFloat = 0, fontDesign: UIFontDescriptor.SystemDesign = .default, color: UIColor? = nil, backgroundColor: UIColor? = nil, blockquoteBorderColor: UIColor? = nil, kern: CGFloat = 0, bold: Bool = false, italic: Bool = false, headIndent: CGFloat = 0, firstLineHeadIndent: CGFloat = 0, paragraphSpacing: CGFloat = 0, alignment: NSTextAlignment? = nil, lineHeightMultiple: CGFloat = 0, listLevel: Int = 0, attachment: NSTextAttachment? = nil, listMarkers: [NSTextList.MarkerFormat] = [], isUnselectable: Bool = false) {
     self.textStyle = textStyle
     self.familyName = familyName
     self.fontSize = fontSize
@@ -46,6 +50,8 @@ public struct AttributedStringAttributesDescriptor: Hashable {
     self.lineHeightMultiple = lineHeightMultiple
     self.listLevel = listLevel
     self.attachment = attachment
+    self.listMarkers = listMarkers
+    self.isUnselectable = isUnselectable
   }
 
   public static func standardAttributes(indent: CGFloat = 28) -> AttributedStringAttributesDescriptor {
@@ -74,12 +80,15 @@ public struct AttributedStringAttributesDescriptor: Hashable {
   public var lineHeightMultiple: CGFloat = 0
   public var listLevel: Int = 0
   public var attachment: NSTextAttachment?
+  public var listMarkers: [NSTextList.MarkerFormat] = []
+  public var isUnselectable: Bool = false
 
   public func makeAttributes() -> AttributedStringAttributes {
     var attributes: AttributedStringAttributes = [
       .font: makeFont(),
       .paragraphStyle: makeParagraphStyle(),
       .kern: kern,
+      .isUnselectable: isUnselectable,
     ]
     color.flatMap { attributes[.foregroundColor] = $0 }
     backgroundColor.flatMap { attributes[.backgroundColor] = $0 }
@@ -116,6 +125,10 @@ public struct AttributedStringAttributesDescriptor: Hashable {
     paragraphStyle.paragraphSpacing = paragraphSpacing
     alignment.flatMap { paragraphStyle.alignment = $0 }
     paragraphStyle.lineHeightMultiple = lineHeightMultiple
+    paragraphStyle.textLists = listMarkers.map { markerFormat in
+      let textList = NSTextList(markerFormat: markerFormat, options: 0)
+      return textList
+    }
     if listLevel > 0 {
       let indentAmountPerLevel: CGFloat = headIndent > 0 ? headIndent : 16
       paragraphStyle.headIndent = indentAmountPerLevel * CGFloat(listLevel)

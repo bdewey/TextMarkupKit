@@ -71,6 +71,7 @@ public extension AnyParsedAttributedStringFormatter {
   }
 
   static let remove = AnyParsedAttributedStringFormatter(substitution: "")
+  static let unselectable = AnyParsedAttributedStringFormatter { $0.isUnselectable = true }
   static let incrementListLevel = AnyParsedAttributedStringFormatter { $0.listLevel += 1 }
   static func color(_ color: UIColor?) -> AnyParsedAttributedStringFormatter {
     AnyParsedAttributedStringFormatter { $0.color = color }
