@@ -96,7 +96,7 @@ final class ParsedStringTests: XCTestCase {
     print("Inserted \(toInsert.utf16.count) characters, so remember to divide for per-character costs")
   }
 
-  func testReplacement() {
+  @MainActor func testReplacement() {
     let initialText = "#books #notreally #ijustwanttoreviewitwithbooks #books2019"
     let parsedString = ParsedString(initialText, grammar: MiniMarkdownGrammar.shared)
     XCTAssertTrue((try? parsedString.result.get()) != nil)
@@ -105,7 +105,7 @@ final class ParsedStringTests: XCTestCase {
     XCTAssertEqual(parsedString.string, "#books #notreally #ijustwanttoreviewitwithbooks #books/2019")
   }
 
-  func testPath() throws {
+  @MainActor func testPath() throws {
     let parsedString = ParsedString("* One", grammar: MiniMarkdownGrammar.shared)
     let nodeTypes = try parsedString.path(to: 4).map { $0.node.type }
     XCTAssertEqual(nodeTypes, [.document, .list, .listItem, .paragraph, .text])
@@ -117,7 +117,7 @@ final class ParsedStringTests: XCTestCase {
     XCTAssertEqual(startNodeTypes, [.document, .list, .listItem, .listDelimiter, .unorderedListOpening])
   }
 
-  func testBlankLinePath() throws {
+  @MainActor func testBlankLinePath() throws {
     let parsedString = ParsedString("# Header\n\nParagraph\n", grammar: MiniMarkdownGrammar.shared)
     let nodeTypes = try parsedString.path(to: 8).map { $0.node.type }
     XCTAssertEqual(nodeTypes, [.document, .header, .text])

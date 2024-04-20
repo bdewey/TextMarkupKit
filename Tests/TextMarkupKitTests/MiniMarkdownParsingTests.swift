@@ -210,7 +210,7 @@ final class MiniMarkdownParsingTests: XCTestCase {
     parseText("#books/2020", expectedStructure: "(document (paragraph (hashtag text)))")
   }
 
-  func testFile() {
+  @MainActor func testFile() {
     let pieceTable = PieceTable(TestStrings.markdownCanonical)
     let memoizationTable = MemoizationTable(grammar: MiniMarkdownGrammar.shared)
     do {
@@ -231,7 +231,7 @@ private extension MiniMarkdownParsingTests {
     file: StaticString = #file,
     line: UInt = #line
   ) -> SyntaxTreeNode? {
-    let parsedString = ParsedString(text, grammar: MiniMarkdownGrammar.shared)
+    let parsedString = ParsedString(text, grammar: MiniMarkdownGrammar())
     return verifyParsedStructure(of: parsedString, meets: expectedStructure, file: file, line: line)
   }
 

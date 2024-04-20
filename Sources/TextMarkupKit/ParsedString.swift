@@ -22,12 +22,12 @@ import Foundation
 @objc public final class ParsedString: NSMutableString {
   override public convenience init() {
     assertionFailure()
-    self.init("", grammar: MiniMarkdownGrammar.shared)
+    self.init("", grammar: MiniMarkdownGrammar())
   }
 
   override public convenience init(capacity: Int) {
     assertionFailure()
-    self.init("", grammar: MiniMarkdownGrammar.shared)
+    self.init("", grammar: MiniMarkdownGrammar())
   }
 
   public init(_ string: String, grammar: PackratGrammar) {

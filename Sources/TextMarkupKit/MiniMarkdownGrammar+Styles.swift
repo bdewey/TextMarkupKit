@@ -72,6 +72,6 @@ public extension MiniMarkdownGrammar {
       .softTab: .substitute("\t"),
       .unorderedListOpening: .substitute("\u{2022}"),
     ]
-    return ParsedAttributedString.Style(grammar: MiniMarkdownGrammar.shared, defaultAttributes: defaultAttributes, formatters: formatters)
+    return ParsedAttributedString.Style(grammar: MiniMarkdownGrammar(), defaultAttributes: defaultAttributes, formatters: formatters)
   }
 }

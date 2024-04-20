@@ -64,14 +64,26 @@ public extension AnyParsedAttributedStringFormatter {
   /// A simple formatter that does nothing.
   static let passthrough = AnyParsedAttributedStringFormatter()
 
-  static let toggleItalic = AnyParsedAttributedStringFormatter { $0.italic.toggle() }
-  static let toggleBold = AnyParsedAttributedStringFormatter { $0.bold.toggle() }
+  static var toggleItalic: AnyParsedAttributedStringFormatter {
+    AnyParsedAttributedStringFormatter { $0.italic.toggle() }
+  }
+
+  static var toggleBold: AnyParsedAttributedStringFormatter {
+    AnyParsedAttributedStringFormatter { $0.bold.toggle() }
+  }
+
   static func fontDesign(_ fontDesign: UIFontDescriptor.SystemDesign) -> AnyParsedAttributedStringFormatter {
     AnyParsedAttributedStringFormatter { $0.fontDesign = fontDesign }
   }
 
-  static let remove = AnyParsedAttributedStringFormatter(substitution: "")
-  static let incrementListLevel = AnyParsedAttributedStringFormatter { $0.listLevel += 1 }
+  static var remove: AnyParsedAttributedStringFormatter {
+    AnyParsedAttributedStringFormatter(substitution: "")
+  }
+
+  static var incrementListLevel: AnyParsedAttributedStringFormatter {
+    AnyParsedAttributedStringFormatter { $0.listLevel += 1 }
+  }
+
   static func color(_ color: UIColor?) -> AnyParsedAttributedStringFormatter {
     AnyParsedAttributedStringFormatter { $0.color = color }
   }

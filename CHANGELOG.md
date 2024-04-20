@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.11.0] - 2024-04-20
+
+### Added
+
+- Proper `Sendable` and `@MainActor` annotations
+
 ## [0.10.0] - 2022-09-27
 
 ### Added

@@ -68,7 +68,7 @@ public protocol SyntaxTreeNodeChildren: Sequence {
 
 /// Holds a SyntaxTreeNode in a doubly-linked list.
 private final class DoublyLinkedNode {
-  internal init(value: SyntaxTreeNode, next: DoublyLinkedNode? = nil, previous: DoublyLinkedNode? = nil) {
+  init(value: SyntaxTreeNode, next: DoublyLinkedNode? = nil, previous: DoublyLinkedNode? = nil) {
     self.value = value
     self.next = next
     self.previous = previous
@@ -314,7 +314,7 @@ public final class SyntaxTreeNode: CustomStringConvertible {
   /// - parameter startIndex: The index at which this node starts. (An AnchoredNode knows this, but a NewNode does not and needs to be told.)
   /// - parameter block: The first parameter is the node, the second parameter is the start index of the node, and set the third parameter to `false` to stop enumeration.
   public func forEach(startIndex: Int = 0, block: (SyntaxTreeNode, Int, inout Bool) -> Void) {
-    var stop: Bool = false
+    var stop = false
     forEach(stop: &stop, startIndex: startIndex, block: block)
   }
 
@@ -337,7 +337,7 @@ public final class SyntaxTreeNode: CustomStringConvertible {
   }
 
   public func forEachPath(startIndex: Int = 0, block: ([SyntaxTreeNode], Int, inout Bool) -> Void) {
-    var stop: Bool = false
+    var stop = false
     forEachPath(stop: &stop, incomingPath: [], startIndex: startIndex, block: block)
   }
 

@@ -204,7 +204,7 @@ extension AttributesArray: Collection {
 
 private extension AttributesArray {
   struct Run {
-    internal init(descriptor: AttributedStringAttributesDescriptor, length: Int) {
+    init(descriptor: AttributedStringAttributesDescriptor, length: Int) {
       self.descriptor = descriptor
       self.length = length
     }

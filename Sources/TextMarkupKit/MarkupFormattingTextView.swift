@@ -38,7 +38,7 @@ public protocol MarkupFormattingTextViewImageStorage {
   /// - parameter imageData: The image data to store
   /// - parameter type: The type of image data (e.g., `UTType.png` or `UTType.jpeg`
   /// - returns: A string that represents this image in the markup language.
-  func storeImageData(_ imageData: Data, type: UTType) throws -> String
+  @MainActor func storeImageData(_ imageData: Data, type: UTType) throws -> String
 }
 
 /// A UITextView subclass that uses a `ParsedAttributedString` for text storage and formatting.
@@ -110,7 +110,7 @@ public final class MarkupFormattingTextView: UITextView {
   }
 
   override public func paste(_ sender: Any?) {
-    if let image = UIPasteboard.general.image, let imageStorage = self.imageStorage {
+    if let image = UIPasteboard.general.image, let imageStorage = imageStorage {
       Logger.textView.info("Pasting an image")
       let imageKey: String?
       if let jpegData = UIPasteboard.general.data(forPasteboardType: UTType.jpeg.identifier) {
