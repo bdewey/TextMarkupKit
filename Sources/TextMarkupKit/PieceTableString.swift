@@ -17,7 +17,7 @@
 
 import Foundation
 import Logging
-#if canImport(AppKit)
+#if canImport(AppKit) && !targetEnvironment(macCatalyst)
   import AppKit
 #endif
 
@@ -48,7 +48,7 @@ private let logger = Logger(label: "PieceTableString")
     fatalError("init(coder:) has not been implemented")
   }
 
-  #if canImport(AppKit)
+  #if canImport(AppKit) && !targetEnvironment(macCatalyst)
     public required convenience init?(pasteboardPropertyList propertyList: Any, ofType type: NSPasteboard.PasteboardType) {
       guard let string = propertyList as? String else { return nil }
       self.init(pieceTable: PieceTable(string))

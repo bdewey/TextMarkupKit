@@ -22,7 +22,7 @@ import ObjectiveCTextStorageWrapper
 import os
 #if canImport(UIKit)
   import UIKit
-#elseif canImport(AppKit)
+#elseif canImport(AppKit) && !targetEnvironment(macCatalyst)
   import AppKit
 #endif
 
@@ -108,7 +108,7 @@ private extension Logging.Logger {
     fatalError("init(coder:) has not been implemented")
   }
 
-  #if canImport(AppKit)
+  #if canImport(AppKit) && !targetEnvironment(macCatalyst)
     public required convenience init?(pasteboardPropertyList propertyList: Any, ofType type: NSPasteboard.PasteboardType) {
       guard let string = propertyList as? String else { return nil }
       self.init(
