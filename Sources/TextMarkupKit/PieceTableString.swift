@@ -17,6 +17,9 @@
 
 import Foundation
 import Logging
+#if canImport(AppKit)
+import AppKit
+#endif
 
 private let logger = Logger(label: "PieceTableString")
 
@@ -44,6 +47,13 @@ private let logger = Logger(label: "PieceTableString")
   required init?(coder: NSCoder) {
     fatalError("init(coder:) has not been implemented")
   }
+
+  #if canImport(AppKit)
+  required public convenience init?(pasteboardPropertyList propertyList: Any, ofType type: NSPasteboard.PasteboardType) {
+    guard let string = propertyList as? String else { return nil }
+    self.init(pieceTable: PieceTable(string))
+  }
+  #endif
 
   override public var length: Int {
     return pieceTable.count

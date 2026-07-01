@@ -18,8 +18,6 @@
 import Foundation
 import Logging
 
-#if canImport(UIKit)
-
 /// A helper class that keeps a cache of instantiated `AttributedStringAttributes` for an `AttributedStringAttributesDescriptor`.
 /// Note this does **no** cleanup under memory pressure, so make sure to discard the entire cache periodically.
 public final class AttributesCache {
@@ -226,5 +224,3 @@ private extension AttributesArray {
     }
   }
 }
-
-#endif

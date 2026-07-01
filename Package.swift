@@ -30,7 +30,7 @@ let package = Package(
       name: "TextMarkupKit",
       dependencies: [
         .product(name: "Logging", package: "swift-log"),
-        .target(name: "ObjectiveCTextStorageWrapper", condition: .when(platforms: [.iOS])),
+        "ObjectiveCTextStorageWrapper",
       ],
       exclude: ["TextMarkupKit.docc"]
     ),
@@ -38,7 +38,7 @@ let package = Package(
     .testTarget(
       name: "TextMarkupKitTests",
       dependencies: [
-        .target(name: "ObjectiveCTextStorageWrapper", condition: .when(platforms: [.iOS])),
+        "ObjectiveCTextStorageWrapper",
         "TextMarkupKit",
       ]
     ),

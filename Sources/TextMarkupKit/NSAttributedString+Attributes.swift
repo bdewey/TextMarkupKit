@@ -15,22 +15,63 @@
 //  specific language governing permissions and limitations
 //  under the License.
 
-#if canImport(UIKit)
-
 import Logging
+
+#if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
+
+#if canImport(UIKit) || canImport(AppKit)
 
 private let logger = Logger(label: "org.brians-brain.AttributedStringAttributes")
 
 public typealias AttributedStringAttributes = [NSAttributedString.Key: Any]
 
+#if canImport(UIKit)
+public typealias TextMarkupKitFont = UIFont
+public typealias TextMarkupKitFontDescriptor = UIFontDescriptor
+public typealias TextMarkupKitFontDesign = UIFontDescriptor.SystemDesign
+public typealias TextMarkupKitTextStyle = UIFont.TextStyle
+public typealias TextMarkupKitColor = UIColor
+public typealias TextMarkupKitTextAttachment = NSTextAttachment
+#elseif canImport(AppKit)
+public typealias TextMarkupKitFont = NSFont
+public typealias TextMarkupKitFontDescriptor = NSFontDescriptor
+public typealias TextMarkupKitColor = NSColor
+public typealias TextMarkupKitTextAttachment = NSTextAttachment
+
+public enum TextMarkupKitFontDesign: Hashable {
+  case `default`
+  case monospaced
+}
+
+public enum TextMarkupKitTextStyle: Hashable {
+  case body
+  case title2
+  case title3
+
+  var defaultPointSize: CGFloat {
+    switch self {
+    case .body:
+      return NSFont.systemFontSize
+    case .title2:
+      return 22
+    case .title3:
+      return 20
+    }
+  }
+}
+#endif
+
 public extension NSAttributedString.Key {
-  /// A UIColor to use when rendering a vertical bar on the leading edge of a block quote.
+  /// A platform color to use when rendering a vertical bar on the leading edge of a block quote.
   static let blockquoteBorderColor = NSAttributedString.Key(rawValue: "verticalBarColor")
 }
 
 public struct AttributedStringAttributesDescriptor: Hashable {
-  public init(textStyle: UIFont.TextStyle = .body, familyName: String? = nil, fontSize: CGFloat = 0, color: UIColor? = nil, backgroundColor: UIColor? = nil, blockquoteBorderColor: UIColor? = nil, kern: CGFloat = 0, bold: Bool = false, italic: Bool = false, headIndent: CGFloat = 0, firstLineHeadIndent: CGFloat = 0, alignment: NSTextAlignment? = nil, lineHeightMultiple: CGFloat = 0, listLevel: Int = 0, attachment: NSTextAttachment? = nil) {
+  public init(textStyle: TextMarkupKitTextStyle = .body, familyName: String? = nil, fontSize: CGFloat = 0, color: TextMarkupKitColor? = nil, backgroundColor: TextMarkupKitColor? = nil, blockquoteBorderColor: TextMarkupKitColor? = nil, kern: CGFloat = 0, bold: Bool = false, italic: Bool = false, headIndent: CGFloat = 0, firstLineHeadIndent: CGFloat = 0, alignment: NSTextAlignment? = nil, lineHeightMultiple: CGFloat = 0, listLevel: Int = 0, attachment: TextMarkupKitTextAttachment? = nil) {
     self.textStyle = textStyle
     self.familyName = familyName
     self.fontSize = fontSize
@@ -48,18 +89,18 @@ public struct AttributedStringAttributesDescriptor: Hashable {
     self.attachment = attachment
   }
 
-  public var textStyle: UIFont.TextStyle = .body {
+  public var textStyle: TextMarkupKitTextStyle = .body {
     didSet {
-      fontSize = UIFont.preferredFont(forTextStyle: textStyle).pointSize
+      fontSize = Self.defaultPointSize(for: textStyle)
     }
   }
 
   public var familyName: String?
   public var fontSize: CGFloat = 0
-  public var fontDesign: UIFontDescriptor.SystemDesign = .default
-  public var color: UIColor?
-  public var backgroundColor: UIColor?
-  public var blockquoteBorderColor: UIColor?
+  public var fontDesign: TextMarkupKitFontDesign = .default
+  public var color: TextMarkupKitColor?
+  public var backgroundColor: TextMarkupKitColor?
+  public var blockquoteBorderColor: TextMarkupKitColor?
   public var kern: CGFloat = 0
   public var bold: Bool = false
   public var italic: Bool = false
@@ -68,7 +109,7 @@ public struct AttributedStringAttributesDescriptor: Hashable {
   public var alignment: NSTextAlignment?
   public var lineHeightMultiple: CGFloat = 0
   public var listLevel: Int = 0
-  public var attachment: NSTextAttachment?
+  public var attachment: TextMarkupKitTextAttachment?
 
   public func makeAttributes() -> AttributedStringAttributes {
     var attributes: AttributedStringAttributes = [
@@ -83,25 +124,35 @@ public struct AttributedStringAttributesDescriptor: Hashable {
     return attributes
   }
 
-  private func makeFont() -> UIFont {
-    var fontAttributes = [UIFontDescriptor.AttributeName: Any]()
+  private func makeFont() -> TextMarkupKitFont {
+    var fontAttributes = [TextMarkupKitFontDescriptor.AttributeName: Any]()
     var size = fontSize
     // Set EITHER the family name or the text style, but not both
     if let familyName = familyName {
       fontAttributes[.family] = familyName
       if size == 0 {
-        size = UIFont.preferredFont(forTextStyle: .body).pointSize
+        size = Self.defaultPointSize(for: .body)
       }
     } else {
+      #if canImport(UIKit)
       fontAttributes[.textStyle] = textStyle
+      #endif
       if size == 0 {
-        size = UIFont.preferredFont(forTextStyle: textStyle).pointSize
+        size = Self.defaultPointSize(for: textStyle)
       }
     }
-    var fontDescriptor = UIFontDescriptor(fontAttributes: fontAttributes).withDesignIfPossible(fontDesign)
-    if italic { fontDescriptor = fontDescriptor.withSymbolicTraits(.traitItalic) ?? fontDescriptor }
-    if bold { fontDescriptor = fontDescriptor.withSymbolicTraits(.traitBold) ?? fontDescriptor }
-    return UIFont(descriptor: fontDescriptor, size: size)
+    var fontDescriptor = TextMarkupKitFontDescriptor(fontAttributes: fontAttributes).withDesignIfPossible(fontDesign)
+    if italic { fontDescriptor = fontDescriptor.withTextMarkupKitSymbolicTraits(.textMarkupKitItalic) }
+    if bold { fontDescriptor = fontDescriptor.withTextMarkupKitSymbolicTraits(.textMarkupKitBold) }
+    return TextMarkupKitFont.make(descriptor: fontDescriptor, size: size)
+  }
+
+  private static func defaultPointSize(for textStyle: TextMarkupKitTextStyle) -> CGFloat {
+    #if canImport(UIKit)
+    return TextMarkupKitFont.preferredFont(forTextStyle: textStyle).pointSize
+    #else
+    return textStyle.defaultPointSize
+    #endif
   }
 
   private func makeParagraphStyle() -> NSParagraphStyle {
@@ -132,17 +183,17 @@ public struct AttributedStringAttributesDescriptor: Hashable {
 /// Convenience extensions for working with an NSAttributedString attributes dictionary.
 public extension Dictionary where Key == NSAttributedString.Key, Value == Any {
   /// The font attribute.
-  var font: UIFont {
-    get { return (self[.font] as? UIFont) ?? UIFont.preferredFont(forTextStyle: .body) }
+  var font: TextMarkupKitFont {
+    get { return (self[.font] as? TextMarkupKitFont) ?? TextMarkupKitFont.defaultBodyFont }
     set { self[.font] = newValue }
   }
 
   /// Setter only: Sets a dynamic font
-  var textStyle: UIFont.TextStyle? {
+  var textStyle: TextMarkupKitTextStyle? {
     get { return nil }
     set {
       if let textStyle = newValue {
-        self[.font] = UIFont.preferredFont(forTextStyle: textStyle)
+        self[.font] = TextMarkupKitFont.defaultFont(forTextStyle: textStyle)
       } else {
         self[.font] = nil
       }
@@ -152,10 +203,10 @@ public extension Dictionary where Key == NSAttributedString.Key, Value == Any {
   /// the font family name
   var familyName: String {
     get {
-      return font.familyName
+      return font.familyName ?? font.fontName
     }
     set {
-      font = UIFont(descriptor: font.fontDescriptor.withoutStyle().withFamily(newValue), size: 0)
+      font = TextMarkupKitFont.make(descriptor: font.fontDescriptor.withoutStyle().withFamily(newValue), size: 0)
     }
   }
 
@@ -164,25 +215,25 @@ public extension Dictionary where Key == NSAttributedString.Key, Value == Any {
       return font.pointSize
     }
     set {
-      font = UIFont(descriptor: font.fontDescriptor.withSize(newValue), size: 0)
+      font = TextMarkupKitFont.make(descriptor: font.fontDescriptor.withSize(newValue), size: 0)
     }
   }
 
   /// Text foreground color.
-  var color: UIColor? {
-    get { return self[.foregroundColor] as? UIColor }
+  var color: TextMarkupKitColor? {
+    get { return self[.foregroundColor] as? TextMarkupKitColor }
     set { self[.foregroundColor] = newValue }
   }
 
   /// Text background color.
-  var backgroundColor: UIColor? {
-    get { return self[.backgroundColor] as? UIColor }
+  var backgroundColor: TextMarkupKitColor? {
+    get { return self[.backgroundColor] as? TextMarkupKitColor }
     set { self[.backgroundColor] = newValue }
   }
 
   /// A color to use when drawing a vertical bar to the left side of block quotes
-  var blockquoteBorderColor: UIColor? {
-    get { return self[.blockquoteBorderColor] as? UIColor }
+  var blockquoteBorderColor: TextMarkupKitColor? {
+    get { return self[.blockquoteBorderColor] as? TextMarkupKitColor }
     set { self[.blockquoteBorderColor] = newValue }
   }
 
@@ -194,56 +245,51 @@ public extension Dictionary where Key == NSAttributedString.Key, Value == Any {
 
   /// Whether the font is bold.
   var bold: Bool {
-    get { return containsSymbolicTrait(.traitBold) }
+    get { return containsSymbolicTrait(.textMarkupKitBold) }
     set {
       if newValue {
-        symbolicTraitFormUnion(.traitBold)
+        symbolicTraitFormUnion(.textMarkupKitBold)
       } else {
-        symbolicTraitSubtract(.traitBold)
+        symbolicTraitSubtract(.textMarkupKitBold)
       }
     }
   }
 
   /// Whether the font is italic.
   var italic: Bool {
-    get { return containsSymbolicTrait(.traitItalic) }
+    get { return containsSymbolicTrait(.textMarkupKitItalic) }
     set {
       if newValue {
-        symbolicTraitFormUnion(.traitItalic)
+        symbolicTraitFormUnion(.textMarkupKitItalic)
       } else {
-        symbolicTraitSubtract(.traitItalic)
+        symbolicTraitSubtract(.textMarkupKitItalic)
       }
     }
   }
 
   /// Tests if the font contains a given symbolic trait.
-  func containsSymbolicTrait(_ symbolicTrait: UIFontDescriptor.SymbolicTraits) -> Bool {
+  func containsSymbolicTrait(_ symbolicTrait: TextMarkupKitFontDescriptor.SymbolicTraits) -> Bool {
     return font.fontDescriptor.symbolicTraits.contains(symbolicTrait)
   }
 
   /// Sets a symbolic trait.
-  mutating func symbolicTraitFormUnion(_ symbolicTrait: UIFontDescriptor.SymbolicTraits) {
+  mutating func symbolicTraitFormUnion(_ symbolicTrait: TextMarkupKitFontDescriptor.SymbolicTraits) {
     symbolicTraits = font.fontDescriptor.symbolicTraits.union(symbolicTrait)
   }
 
   /// Clears a symbolic trait.
-  mutating func symbolicTraitSubtract(_ symbolicTrait: UIFontDescriptor.SymbolicTraits) {
+  mutating func symbolicTraitSubtract(_ symbolicTrait: TextMarkupKitFontDescriptor.SymbolicTraits) {
     symbolicTraits = font.fontDescriptor.symbolicTraits.subtracting(symbolicTrait)
   }
 
   /// The symbolic traits for the font. Can be nil if there is no font.
   /// Attempts to set the symbolic traits to nil will be ignored.
-  var symbolicTraits: UIFontDescriptor.SymbolicTraits {
+  var symbolicTraits: TextMarkupKitFontDescriptor.SymbolicTraits {
     get {
       return font.fontDescriptor.symbolicTraits
     }
     set {
-      guard let descriptor = font.fontDescriptor.withSymbolicTraits(newValue)
-      else {
-        logger.error("Unable to set \(String(describing: newValue)) on font: \(String(describing: font))")
-        return
-      }
-      font = UIFont(descriptor: descriptor, size: 0)
+      font = TextMarkupKitFont.make(descriptor: font.fontDescriptor.withTextMarkupKitSymbolicTraits(newValue), size: 0)
     }
   }
 
@@ -335,21 +381,114 @@ public extension Dictionary where Key == NSAttributedString.Key, Value == Any {
   }
 }
 
-private extension UIFontDescriptor {
+private extension TextMarkupKitFontDescriptor {
   /// Returns a copy of the receiver without any .textStyle attribute.
   /// .textStyle takes precedence over familyName, so you need to remove the attribute if you want to customize the family.
-  func withoutStyle() -> UIFontDescriptor {
+  func withoutStyle() -> TextMarkupKitFontDescriptor {
     var attributes = fontAttributes
+    #if canImport(UIKit)
     attributes.removeValue(forKey: .textStyle)
-    return UIFontDescriptor(fontAttributes: attributes)
+    #endif
+    return TextMarkupKitFontDescriptor(fontAttributes: attributes)
   }
 
-  func withDesignIfPossible(_ design: SystemDesign) -> UIFontDescriptor {
+  func withDesignIfPossible(_ design: TextMarkupKitFontDesign) -> TextMarkupKitFontDescriptor {
+    #if canImport(UIKit)
     if let newDescriptor = withDesign(design) {
       return newDescriptor
     } else {
       return self
     }
+    #else
+    switch design {
+    case .default:
+      return self
+    case .monospaced:
+      return TextMarkupKitFontDescriptor(fontAttributes: [.family: "Menlo"])
+    }
+    #endif
+  }
+
+  func withTextMarkupKitSymbolicTraits(_ symbolicTraits: SymbolicTraits) -> TextMarkupKitFontDescriptor {
+    #if canImport(UIKit)
+    return withSymbolicTraits(symbolicTraits) ?? self
+    #else
+    return withSymbolicTraits(symbolicTraits)
+    #endif
+  }
+}
+
+private extension TextMarkupKitFont {
+  static var defaultBodyFont: TextMarkupKitFont {
+    defaultFont(forTextStyle: .body)
+  }
+
+  static func defaultFont(forTextStyle textStyle: TextMarkupKitTextStyle) -> TextMarkupKitFont {
+    #if canImport(UIKit)
+    return preferredFont(forTextStyle: textStyle)
+    #else
+    return systemFont(ofSize: textStyle.defaultPointSize)
+    #endif
+  }
+
+  static func make(descriptor: TextMarkupKitFontDescriptor, size: CGFloat) -> TextMarkupKitFont {
+    #if canImport(UIKit)
+    return TextMarkupKitFont(descriptor: descriptor, size: size)
+    #else
+    return TextMarkupKitFont(descriptor: descriptor, size: size) ?? systemFont(ofSize: size)
+    #endif
+  }
+}
+
+private extension TextMarkupKitFontDescriptor.SymbolicTraits {
+  static var textMarkupKitBold: Self {
+    #if canImport(UIKit)
+    return .traitBold
+    #else
+    return .bold
+    #endif
+  }
+
+  static var textMarkupKitItalic: Self {
+    #if canImport(UIKit)
+    return .traitItalic
+    #else
+    return .italic
+    #endif
+  }
+}
+
+public extension TextMarkupKitColor {
+  static var textMarkupKitLabel: TextMarkupKitColor {
+    #if canImport(UIKit)
+    return .label
+    #else
+    return .labelColor
+    #endif
+  }
+
+  static var textMarkupKitQuaternaryLabel: TextMarkupKitColor {
+    #if canImport(UIKit)
+    return .quaternaryLabel
+    #else
+    return .quaternaryLabelColor
+    #endif
+  }
+
+  static var textMarkupKitSecondarySystemBackground: TextMarkupKitColor {
+    #if canImport(UIKit)
+    return .secondarySystemBackground
+    #else
+    return .windowBackgroundColor
+    #endif
+  }
+
+  static var textMarkupKitSystemOrange: TextMarkupKitColor {
+    #if canImport(UIKit)
+    return .systemOrange
+    #else
+    return .systemOrange
+    #endif
   }
 }
 

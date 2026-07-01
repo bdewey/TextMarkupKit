@@ -19,8 +19,13 @@ import Foundation
 import TextMarkupKit
 import XCTest
 
-#if canImport(UIKit)
+#if canImport(UIKit) || canImport(AppKit)
 
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 import ObjectiveCTextStorageWrapper
 
 final class ParsedTextStorageTests: XCTestCase {
@@ -36,7 +41,7 @@ final class ParsedTextStorageTests: XCTestCase {
       .softTab: AnyParsedAttributedStringFormatter(substitution: "\t"),
       .image: AnyParsedAttributedStringFormatter(substitution: "\u{fffc}"),
     ]
-    let defaultAttributes = AttributedStringAttributesDescriptor(textStyle: .body, color: .label, headIndent: 28, firstLineHeadIndent: 28)
+    let defaultAttributes = AttributedStringAttributesDescriptor(textStyle: .body, color: .textMarkupKitLabel, headIndent: 28, firstLineHeadIndent: 28)
     let storage = ParsedAttributedString(
       grammar: MiniMarkdownGrammar(),
       defaultAttributes: defaultAttributes,
