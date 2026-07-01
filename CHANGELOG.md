@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.12.0] - 2026-07-01
+
+### Fixed
+
+- macOS support
+
 ## [0.11.0] - 2024-04-20
 
 ### Added
