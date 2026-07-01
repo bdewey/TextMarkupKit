@@ -17,7 +17,7 @@
 
 import Foundation
 #if canImport(AppKit)
-import AppKit
+  import AppKit
 #endif
 
 /// An NSMutableString subclass that parses its contents using the rules of `grammar` and makes
@@ -52,10 +52,10 @@ import AppKit
   }
 
   #if canImport(AppKit)
-  required public convenience init?(pasteboardPropertyList propertyList: Any, ofType type: NSPasteboard.PasteboardType) {
-    guard let string = propertyList as? String else { return nil }
-    self.init(string, grammar: MiniMarkdownGrammar())
-  }
+    public required convenience init?(pasteboardPropertyList propertyList: Any, ofType type: NSPasteboard.PasteboardType) {
+      guard let string = propertyList as? String else { return nil }
+      self.init(string, grammar: MiniMarkdownGrammar())
+    }
   #endif
 
   public let text: PieceTableString

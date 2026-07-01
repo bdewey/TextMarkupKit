@@ -19,9 +19,9 @@ import TextMarkupKit
 import XCTest
 
 #if canImport(UIKit)
-import UIKit
+  import UIKit
 #elseif canImport(AppKit)
-import AppKit
+  import AppKit
 #endif
 
 final class ParsedAttributedStringTests: XCTestCase {

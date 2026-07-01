@@ -16,9 +16,9 @@
 //  under the License.
 
 #if canImport(UIKit)
-import UIKit
+  import UIKit
 #elseif canImport(AppKit)
-import AppKit
+  import AppKit
 #endif
 
 /// Determines the attributes and optional replacement text for parsed text in a string.

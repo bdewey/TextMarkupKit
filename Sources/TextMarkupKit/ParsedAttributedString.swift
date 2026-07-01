@@ -21,9 +21,9 @@ import Logging
 import ObjectiveCTextStorageWrapper
 import os
 #if canImport(UIKit)
-import UIKit
+  import UIKit
 #elseif canImport(AppKit)
-import AppKit
+  import AppKit
 #endif
 
 private let log = OSLog(subsystem: "org.brians-brain.GrailDiary", category: "ParsedAttributedString")
@@ -109,15 +109,15 @@ private extension Logging.Logger {
   }
 
   #if canImport(AppKit)
-  required public convenience init?(pasteboardPropertyList propertyList: Any, ofType type: NSPasteboard.PasteboardType) {
-    guard let string = propertyList as? String else { return nil }
-    self.init(
-      string: string,
-      grammar: PlainTextGrammar(),
-      defaultAttributes: AttributedStringAttributesDescriptor(textStyle: .body, color: .textMarkupKitLabel),
-      formatters: [:]
-    )
-  }
+    public required convenience init?(pasteboardPropertyList propertyList: Any, ofType type: NSPasteboard.PasteboardType) {
+      guard let string = propertyList as? String else { return nil }
+      self.init(
+        string: string,
+        grammar: PlainTextGrammar(),
+        defaultAttributes: AttributedStringAttributesDescriptor(textStyle: .body, color: .textMarkupKitLabel),
+        formatters: [:]
+      )
+    }
   #endif
 
   // MARK: - Stored properties
