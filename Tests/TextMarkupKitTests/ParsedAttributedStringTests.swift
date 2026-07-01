@@ -18,6 +18,8 @@
 import TextMarkupKit
 import XCTest
 
+#if canImport(UIKit)
+
 final class ParsedAttributedStringTests: XCTestCase {
   func testReplacementsAffectStringsButNotRawText() {
     let formatters: [SyntaxTreeNodeType: AnyParsedAttributedStringFormatter] = [
@@ -122,3 +124,5 @@ final class ParsedAttributedStringTests: XCTestCase {
     )
   }
 }
+
+#endif

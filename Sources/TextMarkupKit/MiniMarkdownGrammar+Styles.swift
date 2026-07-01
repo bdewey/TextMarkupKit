@@ -15,6 +15,8 @@
 //  specific language governing permissions and limitations
 //  under the License.
 
+#if canImport(UIKit)
+
 import UIKit
 
 public struct HeaderFormatter: ParsedAttributedStringFormatter {
@@ -75,3 +77,5 @@ public extension MiniMarkdownGrammar {
     return ParsedAttributedString.Style(grammar: MiniMarkdownGrammar(), defaultAttributes: defaultAttributes, formatters: formatters)
   }
 }
+
+#endif

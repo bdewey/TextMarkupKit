@@ -16,6 +16,9 @@
 //  under the License.
 
 import Logging
+
+#if canImport(UIKit)
+
 import MobileCoreServices
 import ObjectiveCTextStorageWrapper
 import os
@@ -149,3 +152,5 @@ public final class MarkupFormattingTextView: UITextView {
     os_signpost(.end, log: log, name: "keystroke")
   }
 }
+
+#endif

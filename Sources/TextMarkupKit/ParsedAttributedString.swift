@@ -17,6 +17,9 @@
 
 import Foundation
 import Logging
+
+#if canImport(UIKit)
+
 import ObjectiveCTextStorageWrapper
 import os
 import UIKit
@@ -351,3 +354,5 @@ private extension SyntaxTreeNode {
     return results
   }
 }
+
+#endif

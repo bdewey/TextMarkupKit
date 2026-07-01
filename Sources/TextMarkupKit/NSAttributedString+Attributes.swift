@@ -15,6 +15,8 @@
 //  specific language governing permissions and limitations
 //  under the License.
 
+#if canImport(UIKit)
+
 import Logging
 import UIKit
 
@@ -354,3 +356,5 @@ private extension UIFontDescriptor {
 private extension NSAttributedString.Key {
   static let listLevel = NSAttributedString.Key(rawValue: "org.brians-brain.list-level")
 }
+
+#endif

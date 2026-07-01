@@ -15,6 +15,8 @@
 //  specific language governing permissions and limitations
 //  under the License.
 
+#if canImport(UIKit)
+
 import UIKit
 
 /// Determines the attributes and optional replacement text for parsed text in a string.
@@ -96,3 +98,5 @@ public extension AnyParsedAttributedStringFormatter {
     AnyParsedAttributedStringFormatter(substitution: substitution)
   }
 }
+
+#endif

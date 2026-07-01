@@ -15,6 +15,8 @@
 //  specific language governing permissions and limitations
 //  under the License.
 
+#if canImport(UIKit)
+
 import SwiftUI
 
 public struct MarkupFormattedTextEditor: UIViewRepresentable {
@@ -52,3 +54,5 @@ public struct MarkupFormattedTextEditor: UIViewRepresentable {
     }
   }
 }
+
+#endif

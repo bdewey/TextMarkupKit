@@ -16,9 +16,12 @@
 //  under the License.
 
 import Foundation
-import ObjectiveCTextStorageWrapper
 import TextMarkupKit
 import XCTest
+
+#if canImport(UIKit)
+
+import ObjectiveCTextStorageWrapper
 
 final class ParsedTextStorageTests: XCTestCase {
   var textStorage: ObjectiveCTextStorageWrapper!
@@ -172,6 +175,8 @@ private extension ParsedTextStorageTests {
     }
   }
 }
+
+#endif
 
 private enum TextOperation {
   case append(text: String)
