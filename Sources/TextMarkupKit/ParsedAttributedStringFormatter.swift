@@ -15,7 +15,11 @@
 //  specific language governing permissions and limitations
 //  under the License.
 
-import UIKit
+#if canImport(UIKit)
+  import UIKit
+#elseif canImport(AppKit)
+  import AppKit
+#endif
 
 /// Determines the attributes and optional replacement text for parsed text in a string.
 public protocol ParsedAttributedStringFormatter {
@@ -72,7 +76,7 @@ public extension AnyParsedAttributedStringFormatter {
     AnyParsedAttributedStringFormatter { $0.bold.toggle() }
   }
 
-  static func fontDesign(_ fontDesign: UIFontDescriptor.SystemDesign) -> AnyParsedAttributedStringFormatter {
+  static func fontDesign(_ fontDesign: TextMarkupKitFontDesign) -> AnyParsedAttributedStringFormatter {
     AnyParsedAttributedStringFormatter { $0.fontDesign = fontDesign }
   }
 
@@ -84,11 +88,11 @@ public extension AnyParsedAttributedStringFormatter {
     AnyParsedAttributedStringFormatter { $0.listLevel += 1 }
   }
 
-  static func color(_ color: UIColor?) -> AnyParsedAttributedStringFormatter {
+  static func color(_ color: TextMarkupKitColor?) -> AnyParsedAttributedStringFormatter {
     AnyParsedAttributedStringFormatter { $0.color = color }
   }
 
-  static func backgroundColor(_ color: UIColor?) -> AnyParsedAttributedStringFormatter {
+  static func backgroundColor(_ color: TextMarkupKitColor?) -> AnyParsedAttributedStringFormatter {
     AnyParsedAttributedStringFormatter { $0.backgroundColor = color }
   }
 

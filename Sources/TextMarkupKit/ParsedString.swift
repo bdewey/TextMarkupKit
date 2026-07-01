@@ -16,6 +16,9 @@
 //  under the License.
 
 import Foundation
+#if canImport(AppKit) && !targetEnvironment(macCatalyst)
+  import AppKit
+#endif
 
 /// An NSMutableString subclass that parses its contents using the rules of `grammar` and makes
 /// the abstract syntax tree available through `result`
@@ -47,6 +50,13 @@ import Foundation
   required init?(coder: NSCoder) {
     fatalError("init(coder:) has not been implemented")
   }
+
+  #if canImport(AppKit) && !targetEnvironment(macCatalyst)
+    public required convenience init?(pasteboardPropertyList propertyList: Any, ofType type: NSPasteboard.PasteboardType) {
+      guard let string = propertyList as? String else { return nil }
+      self.init(string, grammar: MiniMarkdownGrammar())
+    }
+  #endif
 
   public let text: PieceTableString
   private let memoizationTable: MemoizationTable

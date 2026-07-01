@@ -15,7 +15,11 @@
 //  specific language governing permissions and limitations
 //  under the License.
 
-import UIKit
+#if canImport(UIKit)
+  import UIKit
+#elseif canImport(AppKit)
+  import AppKit
+#endif
 
 public struct HeaderFormatter: ParsedAttributedStringFormatter {
   public func formatNode(
@@ -52,18 +56,18 @@ public extension MiniMarkdownGrammar {
   /// * Unordered lists use a proper bullet character
   /// * Emojis show up appropriately
   static func defaultEditingStyle() -> ParsedAttributedString.Style {
-    let defaultAttributes = AttributedStringAttributesDescriptor(textStyle: .body, color: .label, headIndent: 28, firstLineHeadIndent: 28)
+    let defaultAttributes = AttributedStringAttributesDescriptor(textStyle: .body, color: .textMarkupKitLabel, headIndent: 28, firstLineHeadIndent: 28)
     let formatters: [SyntaxTreeNodeType: AnyParsedAttributedStringFormatter] = [
       .header: AnyParsedAttributedStringFormatter(HeaderFormatter()),
       .list: .incrementListLevel,
-      .delimiter: .color(.quaternaryLabel),
+      .delimiter: .color(.textMarkupKitQuaternaryLabel),
       .strongEmphasis: .toggleBold,
       .emphasis: .toggleItalic,
       .code: .fontDesign(.monospaced),
-      .hashtag: .backgroundColor(.secondarySystemBackground),
+      .hashtag: .backgroundColor(.textMarkupKitSecondarySystemBackground),
       .blockquote: AnyParsedAttributedStringFormatter {
         $0.italic = true
-        $0.blockquoteBorderColor = UIColor.systemOrange
+        $0.blockquoteBorderColor = .textMarkupKitSystemOrange
         $0.listLevel += 1
       },
       .emoji: AnyParsedAttributedStringFormatter {

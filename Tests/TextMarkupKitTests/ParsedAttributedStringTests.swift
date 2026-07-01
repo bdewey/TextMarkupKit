@@ -18,6 +18,12 @@
 import TextMarkupKit
 import XCTest
 
+#if canImport(UIKit)
+  import UIKit
+#elseif canImport(AppKit)
+  import AppKit
+#endif
+
 final class ParsedAttributedStringTests: XCTestCase {
   func testReplacementsAffectStringsButNotRawText() {
     let formatters: [SyntaxTreeNodeType: AnyParsedAttributedStringFormatter] = [
@@ -27,7 +33,7 @@ final class ParsedAttributedStringTests: XCTestCase {
       .strongEmphasis: AnyParsedAttributedStringFormatter { $0.bold = true },
       .softTab: AnyParsedAttributedStringFormatter(substitution: "\t"),
     ]
-    let defaultAttributes = AttributedStringAttributesDescriptor(textStyle: .body, color: .label, headIndent: 28, firstLineHeadIndent: 28)
+    let defaultAttributes = AttributedStringAttributesDescriptor(textStyle: .body, color: .textMarkupKitLabel, headIndent: 28, firstLineHeadIndent: 28)
 
     let textStorage = ParsedAttributedString(
       grammar: MiniMarkdownGrammar(),
@@ -114,7 +120,7 @@ final class ParsedAttributedStringTests: XCTestCase {
       .image: AnyParsedAttributedStringFormatter(substitution: "\u{fffc}"),
       .delimiter: AnyParsedAttributedStringFormatter(substitution: ""),
     ]
-    let defaultAttributes = AttributedStringAttributesDescriptor(textStyle: .body, color: .label, headIndent: 28, firstLineHeadIndent: 28)
+    let defaultAttributes = AttributedStringAttributesDescriptor(textStyle: .body, color: .textMarkupKitLabel, headIndent: 28, firstLineHeadIndent: 28)
     return ParsedAttributedString(
       grammar: MiniMarkdownGrammar(),
       defaultAttributes: defaultAttributes,

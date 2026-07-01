@@ -17,9 +17,14 @@
 
 import Foundation
 import Logging
+
 import ObjectiveCTextStorageWrapper
 import os
-import UIKit
+#if canImport(UIKit)
+  import UIKit
+#elseif canImport(AppKit) && !targetEnvironment(macCatalyst)
+  import AppKit
+#endif
 
 private let log = OSLog(subsystem: "org.brians-brain.GrailDiary", category: "ParsedAttributedString")
 
@@ -70,7 +75,7 @@ private extension Logging.Logger {
     assertionFailure("Are you sure you want a plain-text attributed string?")
     self.init(
       grammar: PlainTextGrammar(),
-      defaultAttributes: AttributedStringAttributesDescriptor(textStyle: .body, color: .label),
+      defaultAttributes: AttributedStringAttributesDescriptor(textStyle: .body, color: .textMarkupKitLabel),
       formatters: [:]
     )
   }
@@ -102,6 +107,18 @@ private extension Logging.Logger {
   required init?(coder: NSCoder) {
     fatalError("init(coder:) has not been implemented")
   }
+
+  #if canImport(AppKit) && !targetEnvironment(macCatalyst)
+    public required convenience init?(pasteboardPropertyList propertyList: Any, ofType type: NSPasteboard.PasteboardType) {
+      guard let string = propertyList as? String else { return nil }
+      self.init(
+        string: string,
+        grammar: PlainTextGrammar(),
+        defaultAttributes: AttributedStringAttributesDescriptor(textStyle: .body, color: .textMarkupKitLabel),
+        formatters: [:]
+      )
+    }
+  #endif
 
   // MARK: - Stored properties
 
